@@ -75,7 +75,7 @@ class AssemblerMOS6502(Assembler):
         if address is None:
             if abs is None:
                 raise Exception('absolute address mode not allowed')
-            self.add_label_translation(label=arg, size=2, pack='<H')
+            self.add_label_translation(label=arg, size=2)
             return pack('<BH', abs, 0)
 
         if zp is not None and self.is_zero_page(address):
@@ -84,7 +84,7 @@ class AssemblerMOS6502(Assembler):
         # normal labeling (postpone to linking phase)
         if abs is None:
             raise Exception('absolute address mode not allowed')
-        self.add_label_translation(label=arg, size=2, pack='<H')
+        self.add_label_translation(label=arg, size=2)
         return pack('<BH', abs, 0)
 
     def manage_single_arg_mode(self, opcodes, arg):
@@ -93,42 +93,39 @@ class AssemblerMOS6502(Assembler):
             value = self.parse_integer(arg[1:])
             # label ?
             if value is None:
-                self.add_label_translation(label=arg[1:], size=1, pack='B')
-                return pack_bytes(opcodes['imm'], 0)
+                self.add_label_translation(label=arg[1:], size=1)
             return pack_bytes(opcodes['imm'], value)
 
-        return self.manage_address(opcodes['abs'], opcodes['zp'], arg)
+        return self.manage_address(opcodes['abs'], opcodes.get('zp', None), arg)
 
     def manage_two_args_mode(self, opcodes, arg1, arg2):
         if arg1.startswith('#') or arg2.startswith('#'):
-            raise Exception('invalid mode')
+            return None
         # zero_page_x absolute_x
         if arg2.upper() == 'X':
             return self.manage_address(opcodes['abs_x'], opcodes['zp_x'], arg1)
         if arg2.upper() == 'Y':
             return self.manage_address(opcodes['abs_y'], None, arg1)
-        raise Exception('invalid mode')
 
     def manage_three_args_mode(self, opcodes, *args):
         if any(map(lambda x: x.startswith('#'), args)) or args[0] != '(':
-            raise Exception('invalid mode')
+            return None
         # indirect_x
         if args[2].upper() == 'X':
             return self.manage_address(None, opcodes['ind_x'], args[1])
         if args[2] == ')' and args[3].upper() == 'Y':
             return self.manage_address(None, opcodes['ind_y'], args[1])
-        raise Exception('invalid mode')
 
     def manage_indirect_mode(self, opcodes, *args):
         if args[0] != '(' or args[2] != ')':
-            raise Exception('invalid mode')
+            return None
         return self.manage_address(opcodes['ind'], None, args[1])
 
     def manage_mode(self, tokens, opcodes={}, **kwargs):
         combined_opcodes = opcodes.copy()
         combined_opcodes.update(kwargs)
         if len(tokens) < 2:
-            raise Exception('invalid mode')
+            return None
         if len(tokens) == 2:
             return self.manage_single_arg_mode(combined_opcodes, tokens[1])
         if len(tokens) == 3:
@@ -137,7 +134,6 @@ class AssemblerMOS6502(Assembler):
             return self.manage_indirect_mode(combined_opcodes, *tokens[1:])
         if len(tokens) == 5:
             return self.manage_three_args_mode(combined_opcodes, *tokens[1:])
-        raise Exception('invalid mode')
 
     @opcode('ADC')
     def _adc(self, tokens):
@@ -238,3 +234,17 @@ class AssemblerMOS6502(Assembler):
     @opcode('STY')
     def _sty(self, tokens):
         return self.manage_mode(tokens, zp=0x84, zp_x=0x94, abs=0x8C)
+
+
+def main():
+    import sys
+    asm = AssemblerMOS6502()
+    with open(sys.argv[1]) as f:
+        asm.assemble(f.read())
+    asm.link()
+    with open(sys.argv[2], 'wb') as f:
+        f.write(asm.assembled_bytes)
+
+
+if __name__ == '__main__':
+    main()

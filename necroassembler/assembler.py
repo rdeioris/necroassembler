@@ -35,6 +35,7 @@ class Assembler:
         self.register_directive('org', self.directive_org)
         self.register_directive('include', self.directive_include)
         self.register_directive('db', self.directive_db)
+        self.register_directive('dw', self.directive_dw)
 
     def discover_instructions(self):
         for attr_name in dir(self):
@@ -50,6 +51,7 @@ class Assembler:
         tokenizer.parse(code)
 
         for statement in tokenizer.statements:
+            print(statement)
             statement.assemble(self)
 
     def link(self):
@@ -59,8 +61,9 @@ class Assembler:
             data = self.labels_addresses[address]
             label = data['label']
             true_address = self.get_label_absolute_address_by_name(label)
-            self.assembled_bytes[address] = true_address & 0xff
-            # self.assembled_bytes[address+1] = (true_address >> 8) & 0xff
+            for i in range(0, data['size']):
+                self.assembled_bytes[address +
+                                     i] = (true_address >> (8 * i)) & 0xff
         for _pass in self.post_link_passes:
             _pass()
 
@@ -152,12 +155,29 @@ class Assembler:
             raise Exception('invalid .org value')
         self.org_counter = 0
 
+    def directive_dw(self, tokens):
+        for token in tokens[1:]:
+            blob = b''
+            if token[0] in ('"', '\''):
+                blob = token[1:-1].encode('utf16')
+            else:
+                value = self.parse_integer(token)
+                if value is None:
+                    raise Exception('invalid byte value')
+                blob = necroassembler.pack('<H', value)
+            self.assembled_bytes += blob
+            self.org_counter += len(blob)
+
     def directive_db(self, tokens):
         for token in tokens[1:]:
-            value = self.parse_integer(token)
-            if value is None:
-                raise Exception('invalid .db value')
-            blob = necroassembler.pack('B', value)
+            blob = b''
+            if token[0] in ('"', '\''):
+                blob = token[1:-1].encode('utf8')
+            else:
+                value = self.parse_integer(token)
+                if value is None:
+                    raise Exception('invalid byte value')
+                blob = necroassembler.pack('B', value)
             self.assembled_bytes += blob
             self.org_counter += len(blob)
 
