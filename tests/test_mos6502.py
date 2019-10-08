@@ -1,5 +1,5 @@
 import unittest
-from necroassembler.cpu.mos6502 import AssemblerMOS6502
+from necroassembler.cpu.mos6502 import AssemblerMOS6502, InvalidMode
 
 
 class TestMOS6502(unittest.TestCase):
@@ -75,3 +75,11 @@ class TestMOS6502(unittest.TestCase):
     def test_stack(self):
         self.asm.assemble('TXS\nTSX\nPHA\nPLA\nPHP\nPLP')
         self.assertEqual(self.asm.assembled_bytes, b'\x9A\xBA\x48\x68\x08\x28')
+
+    def test_jmp(self):
+        self.asm.assemble('loop: JMP loop')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x4C\x00\x00')
+
+    def test_invalid_bit(self):
+        self.assertRaises(InvalidMode, self.asm.assemble, 'BIT #$17')

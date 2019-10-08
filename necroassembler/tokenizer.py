@@ -1,3 +1,6 @@
+from necroassembler.exceptions import InvalidOpCodeArguments
+
+
 class Statement:
     def __init__(self, tokens):
         self.tokens = tokens
@@ -19,6 +22,8 @@ class Instruction(Statement):
             if blob is None:
                 raise Exception('invalid instruction {0}'.format(key))
         else:
+            if len(self.tokens) != 1:
+                raise InvalidOpCodeArguments(self)
             blob = instruction
         assembler.assembled_bytes += blob
         assembler.org_counter += len(blob)

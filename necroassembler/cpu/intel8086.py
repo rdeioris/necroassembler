@@ -20,6 +20,7 @@ class AssemblerIntel8086(Assembler):
 
     def register_instructions(self):
         self.register_instruction('CLD', b'\xFC')
+        self.register_instruction('RET', b'\xC3')
 
     def _imm8(self, op, reg, arg):
         value = self.parse_integer(arg)

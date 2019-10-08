@@ -1,5 +1,6 @@
 import unittest
-from necroassembler import Assembler, opcode, pack_be_32s
+from necroassembler import Assembler, opcode
+from necroassembler.utils import pack_be_32s
 
 
 class TestAssembler(unittest.TestCase):

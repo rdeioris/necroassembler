@@ -1,6 +1,12 @@
-
-import necroassembler
 from necroassembler.tokenizer import Tokenizer
+from necroassembler.utils import pack, pack_byte
+
+
+def opcode(name):
+    def wrapper(f):
+        f.opcode = name
+        return f
+    return wrapper
 
 
 class Assembler:
@@ -51,7 +57,6 @@ class Assembler:
         tokenizer.parse(code)
 
         for statement in tokenizer.statements:
-            print(statement)
             statement.assemble(self)
 
     def link(self):
@@ -164,7 +169,7 @@ class Assembler:
                 value = self.parse_integer(token)
                 if value is None:
                     raise Exception('invalid byte value')
-                blob = necroassembler.pack('<H', value)
+                blob = pack('<H', value)
             self.assembled_bytes += blob
             self.org_counter += len(blob)
 
@@ -177,7 +182,7 @@ class Assembler:
                 value = self.parse_integer(token)
                 if value is None:
                     raise Exception('invalid byte value')
-                blob = necroassembler.pack('B', value)
+                blob = pack_byte(value)
             self.assembled_bytes += blob
             self.org_counter += len(blob)
 

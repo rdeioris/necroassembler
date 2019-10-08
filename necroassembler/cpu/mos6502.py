@@ -1,5 +1,11 @@
 
-from necroassembler import Assembler, opcode, pack, pack_bytes
+from necroassembler import Assembler, opcode
+from necroassembler.utils import pack, pack_bytes
+
+
+class InvalidMode(Exception):
+    def __init__(self, tokens):
+        super().__init__('invalid 6502 mode for {0}'.format(tokens[0]))
 
 
 class AssemblerMOS6502(Assembler):
@@ -96,7 +102,8 @@ class AssemblerMOS6502(Assembler):
                 self.add_label_translation(label=arg[1:], size=1)
             return pack_bytes(opcodes['imm'], value)
 
-        return self.manage_address(opcodes['abs'], opcodes.get('zp', None), arg)
+        # use get for 'zp' to support non-zp opcodes
+        return self.manage_address(opcodes['abs'], opcodes.get('zp'), arg)
 
     def manage_two_args_mode(self, opcodes, arg1, arg2):
         if arg1.startswith('#') or arg2.startswith('#'):
@@ -124,16 +131,19 @@ class AssemblerMOS6502(Assembler):
     def manage_mode(self, tokens, opcodes={}, **kwargs):
         combined_opcodes = opcodes.copy()
         combined_opcodes.update(kwargs)
-        if len(tokens) < 2:
-            return None
-        if len(tokens) == 2:
-            return self.manage_single_arg_mode(combined_opcodes, tokens[1])
-        if len(tokens) == 3:
-            return self.manage_two_args_mode(combined_opcodes, tokens[1], tokens[2])
-        if len(tokens) == 4:
-            return self.manage_indirect_mode(combined_opcodes, *tokens[1:])
-        if len(tokens) == 5:
-            return self.manage_three_args_mode(combined_opcodes, *tokens[1:])
+        try:
+            if len(tokens) < 2:
+                return None
+            if len(tokens) == 2:
+                return self.manage_single_arg_mode(combined_opcodes, tokens[1])
+            if len(tokens) == 3:
+                return self.manage_two_args_mode(combined_opcodes, tokens[1], tokens[2])
+            if len(tokens) == 4:
+                return self.manage_indirect_mode(combined_opcodes, *tokens[1:])
+            if len(tokens) == 5:
+                return self.manage_three_args_mode(combined_opcodes, *tokens[1:])
+        except KeyError:
+            raise InvalidMode(tokens)
 
     @opcode('ADC')
     def _adc(self, tokens):
