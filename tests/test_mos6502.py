@@ -32,21 +32,21 @@ class TestMOS6502(unittest.TestCase):
 
     def test_lda_immediate_label_plus_one(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #+test')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #test+')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x06)))
 
     def test_lda_immediate_label_plus_three(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #+++test')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #test+++')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x08)))
 
     def test_lda_immediate_label_plus_dash(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #+-+-test')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #test+-+-')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x05)))
@@ -83,3 +83,20 @@ class TestMOS6502(unittest.TestCase):
 
     def test_invalid_bit(self):
         self.assertRaises(InvalidMode, self.asm.assemble, 'BIT #$17')
+
+    def test_beq(self):
+        self.asm.assemble('loop:\nNOP\nBEQ loop')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\xEA\xF0\xFD')
+
+    def test_beq_numeric(self):
+        self.asm.assemble('BEQ -3')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\xF0\xFD')
+
+    def test_branch(self):
+        self.asm.assemble(
+            'loop: BPL loop\nBMI loop\nBVC loop\nBVS loop\nBCC loop\nBCS loop\nBNE loop\nBEQ loop')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x10\xFE\x30\xFC\x50\xFA\x70\xF8\x90\xF6\xB0\xF4\xD0\xF2\xF0\xF0')

@@ -9,9 +9,9 @@ class TestAssembler(unittest.TestCase):
         hex_prefixes = ('0x',)
 
         @opcode('LOAD')
-        def load(self, tokens):
-            arg = tokens[1]
-            value = self.parse_integer(tokens[1])
+        def load(self, instr):
+            arg = instr.tokens[1]
+            value = self.parse_integer(instr.tokens[1])
             # label ?
             if value is None:
                 self.add_label_translation(label=arg, size=4, pack='>I')

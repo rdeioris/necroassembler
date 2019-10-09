@@ -1,4 +1,4 @@
-from necroassembler.exceptions import InvalidOpCodeArguments
+from necroassembler.exceptions import InvalidOpCodeArguments, UnknownInstruction, InvalidInstruction
 
 
 class Statement:
@@ -19,12 +19,12 @@ class Instruction(Statement):
         if not assembler.case_sensitive:
             key = key.upper()
         if not key in assembler.instructions:
-            raise Exception('unknown instruction {0}'.format(self))
+            raise UnknownInstruction(self)
         instruction = assembler.instructions[key]
         if callable(instruction):
             blob = instruction(self)
             if blob is None:
-                raise Exception('invalid instruction {0}'.format(self))
+                raise InvalidInstruction(self)
         else:
             if len(self.tokens) != 1:
                 raise InvalidOpCodeArguments(self)

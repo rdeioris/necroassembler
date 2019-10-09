@@ -6,6 +6,18 @@ class InvalidOpCodeArguments(Exception):
             'invalid arguments for {0}'.format(subject))
 
 
+class UnknownInstruction(Exception):
+    def __init__(self, subject):
+        super().__init__(
+            'unknown instruction {0}'.format(subject))
+
+
+class InvalidInstruction(Exception):
+    def __init__(self, subject):
+        super().__init__(
+            'invalid instruction {0}'.format(subject))
+
+
 class UnknownLabel(Exception):
     def __init__(self, label, subject):
         super().__init__(

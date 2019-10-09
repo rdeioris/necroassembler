@@ -130,14 +130,14 @@ class Assembler:
             return None
 
     def parse_integer(self, token):
-        formula = self.get_math_formula(token)
-        value = self._internal_parse_integer(token[len(formula):])
+        token, pre_formula, post_formula = self.get_math_formula(token)
+        value = self._internal_parse_integer(token)
         if value is None:
             return None
-        return self.apply_math_formula(formula, value)
+        return self.apply_math_formula(pre_formula, post_formula, value)
 
-    def apply_math_formula(self, formula, value):
-        for op in formula:
+    def apply_math_formula(self, pre_formula, post_formula, value):
+        for op in (pre_formula + post_formula):
             if op == '+':
                 value += 1
             elif op == '-':
@@ -152,21 +152,19 @@ class Assembler:
         return label['org'] + label['base']
 
     def get_label_absolute_address_by_name(self, name):
-        formula = self.get_math_formula(name)
-        name = name[len(formula):]
+        name, pre_formula, post_formula = self.get_math_formula(name)
         if not name in self.labels:
             return None
-        return self.apply_math_formula(formula, self.get_label_absolute_address(self.labels[name]))
+        return self.apply_math_formula(pre_formula, post_formula, self.get_label_absolute_address(self.labels[name]))
 
     def get_label_relative_address(self, label, start):
         return self.get_label_absolute_address(label) - start
 
     def get_label_relative_address_by_name(self, name, start):
-        formula = self.get_math_formula(name)
-        name = name[len(formula):]
+        name, pre_formula, post_formula = self.get_math_formula(name)
         if not name in self.labels:
             return None
-        return self.apply_math_formula(formula, self.get_label_relative_address(self.labels[name], start))
+        return self.apply_math_formula(pre_formula, post_formula, self.get_label_relative_address(self.labels[name], start))
 
     def directive_org(self, instr):
         if len(instr.tokens) != 2:
@@ -210,12 +208,24 @@ class Assembler:
             self.assemble(f.read(), context=filename)
 
     def get_math_formula(self, token):
-        formula = ''
+        pre_formula = ''
+        post_formula = ''
         for char in token:
-            if char in ('+', '-', '<', '>'):
-                formula += char
+            if char in ('<', '>'):
+                pre_formula += char
             else:
-                return formula
+                break
+
+        for char in token[::-1]:
+            if char in ('+', '-'):
+                post_formula += char
+            else:
+                break
+
+        if len(post_formula) > 0:
+            return token[len(pre_formula):-len(post_formula)], pre_formula, post_formula
+
+        return token[len(pre_formula):], pre_formula, post_formula
 
     def register_instruction(self, opcode, logic):
         key = opcode

@@ -59,6 +59,14 @@ class AssemblerMOS6502(Assembler):
     def is_zero_page(self, address):
         return address >= 0 and address <= 0xff
 
+    def manage_branching(self, instr, opcode):
+        arg = instr.tokens[1]
+        address = self.parse_integer(arg)
+        if address is None:
+            self.add_label_translation(
+                label=arg, size=1, relative=True, start=self.current_org + self.org_counter + 1)
+        return pack('<Bb', opcode, address)
+
     def manage_address(self, abs, zp, arg):
 
         address = self.parse_integer(arg)
@@ -160,6 +168,38 @@ class AssemblerMOS6502(Assembler):
         if len(instr.tokens) == 2 and instr.tokens[1].upper() == 'A':
             return b'\x0A'
         return self.manage_mode(instr, zp=0x06, zp_x=0x16, abs=0x0E, abs_x=0x1E)
+
+    @opcode('BPL')
+    def _bpl(self, instr):
+        return self.manage_branching(instr, 0x10)
+
+    @opcode('BMI')
+    def _bmi(self, instr):
+        return self.manage_branching(instr, 0x30)
+
+    @opcode('BVC')
+    def _bvc(self, instr):
+        return self.manage_branching(instr, 0x50)
+
+    @opcode('BVS')
+    def _bvs(self, instr):
+        return self.manage_branching(instr, 0x70)
+
+    @opcode('BCC')
+    def _bcc(self, instr):
+        return self.manage_branching(instr, 0x90)
+
+    @opcode('BCS')
+    def _bcs(self, instr):
+        return self.manage_branching(instr, 0xB0)
+
+    @opcode('BNE')
+    def _bne(self, instr):
+        return self.manage_branching(instr, 0xD0)
+
+    @opcode('BEQ')
+    def _beq(self, instr):
+        return self.manage_branching(instr, 0xF0)
 
     @opcode('BIT')
     def _bit(self, instr):
