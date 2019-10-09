@@ -291,8 +291,7 @@ class AssemblerMOS6502(Assembler):
 def main():
     import sys
     asm = AssemblerMOS6502()
-    with open(sys.argv[1]) as f:
-        asm.assemble(f.read())
+    asm.assemble_file(sys.argv[1])
     asm.link()
     with open(sys.argv[2], 'wb') as f:
         f.write(asm.assembled_bytes)

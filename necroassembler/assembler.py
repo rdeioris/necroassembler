@@ -60,6 +60,10 @@ class Assembler:
         for statement in tokenizer.statements:
             statement.assemble(self)
 
+    def assemble_file(self, filename):
+        with open(filename) as f:
+            self.assemble(f.read(), filename)
+
     def link(self):
         for _pass in self.pre_link_passes:
             _pass()
