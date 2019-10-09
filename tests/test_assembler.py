@@ -14,7 +14,7 @@ class TestAssembler(unittest.TestCase):
             value = self.parse_integer(instr.tokens[1])
             # label ?
             if value is None:
-                self.add_label_translation(label=arg, size=4, pack='>I')
+                self.add_label_translation(label=arg, size=4)
                 return pack_be_32s(0xaabbccdd, 0)
             return pack_be_32s(0xaabbccdd, value)
 
