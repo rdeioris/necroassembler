@@ -39,7 +39,26 @@ class AssemblerGameboy(Assembler):
     def reg_name(self, reg, prefix=''):
         return prefix + reg.lower().replace('+', '_plus').replace('-', '_minus')
 
-    def build_opcode_two_tokens(self, instr, **kwargs):
+    def build_opcode_one_arg(self, instr, **kwargs):
+        arg = instr.tokens[1]
+        key = None
+        data = b''
+        if arg.upper() in (self.regs8 + self.regs16):
+            key = self.reg_name(arg)
+        else:
+            if 'data8' in kwargs:
+                key = 'data8'
+                data = self._data8(arg)
+            elif 'data16' in kwargs:
+                key = 'data16'
+                data = self._data16(arg)
+
+        if key is None:
+            return None
+
+        return pack_byte(kwargs[key]) + data
+
+    def build_opcode_two_args(self, instr, **kwargs):
         dst, src = instr.tokens[1:]
         key = None
         data = b''
@@ -64,7 +83,7 @@ class AssemblerGameboy(Assembler):
 
         return pack_byte(kwargs[key]) + data
 
-    def build_opcode_four_tokens(self, instr, **kwargs):
+    def build_opcode_four_args(self, instr, **kwargs):
         args = instr.tokens[1:]
         key = None
         data = b''
@@ -99,10 +118,12 @@ class AssemblerGameboy(Assembler):
 
     def build_opcode(self, instr, **kwargs):
         args = instr.tokens[1:]
+        if len(args) == 1:
+            return self.build_opcode_one_arg(instr, **kwargs)
         if len(args) == 2:
-            return self.build_opcode_two_tokens(instr, **kwargs)
+            return self.build_opcode_two_args(instr, **kwargs)
         if len(args) == 4:
-            return self.build_opcode_four_tokens(instr, **kwargs)
+            return self.build_opcode_four_args(instr, **kwargs)
 
     @opcode('LD')
     def _ld(self, instr):
@@ -114,6 +135,11 @@ class AssemblerGameboy(Assembler):
                                  a_ind_bc=0x0A,
                                  c_d8=0x0E,
                                  a_ind_hl_plus=0x2A)
+
+    @opcode('INC')
+    def _inc(self, instr):
+        return self.build_opcode(instr,
+                                 bc=0x03, b=0x04, c=0x0C)
 
 
 def main():

@@ -17,3 +17,7 @@ class TestGameboy(unittest.TestCase):
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes,
                          b'\x00\x01\x17\x00\x02\x06\x22\x08\x01\x00\x0A\x0E\x30')
+
+    def test_inc_line0(self):
+        self.asm.assemble('INC BC\nINC B\nINC C')
+        self.assertEqual(self.asm.assembled_bytes, b'\x03\x04\x0C')
