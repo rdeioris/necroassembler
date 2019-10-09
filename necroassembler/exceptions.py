@@ -1,6 +1,12 @@
 
 
 class InvalidOpCodeArguments(Exception):
-    def __init__(self, statement):
+    def __init__(self, subject):
         super().__init__(
-            'invalid arguments for opcode {0}'.format(statement.tokens[0]))
+            'invalid arguments for {0}'.format(subject))
+
+
+class UnknownLabel(Exception):
+    def __init__(self, label, subject):
+        super().__init__(
+            'unknown label "{0}" for {1}'.format(label, subject))

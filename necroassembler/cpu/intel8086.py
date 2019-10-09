@@ -1,4 +1,5 @@
-from necroassembler import Assembler, opcode, pack, pack_bytes
+from necroassembler import Assembler, opcode
+from necroassembler.utils import pack, pack_byte, pack_bytes
 
 
 class AssemblerIntel8086(Assembler):
@@ -36,20 +37,73 @@ class AssemblerIntel8086(Assembler):
             self.add_label_translation(label=arg, size=2)
         return pack('<BH', op + self.regs16.index(reg.upper()), value)
 
+    def _mem(self, arg):
+        value = self.parse_integer(arg)
+        # label ?
+        if value is None:
+            self.add_label_translation(label=arg, size=2)
+        return pack('<H', value)
+
+    def _modrm8(self, reg, rm):
+        base = 0xC0
+        base |= self.regs8.index(reg.upper()) << 5
+        base |= self.regs8.index(rm.upper())
+        return base
+
+    def _modrm16(self, reg, rm):
+        base = 0xC0
+        base |= self.regs16.index(reg.upper()) << 5
+        base |= self.regs16.index(rm.upper())
+        return base
+
     @opcode('MOV')
-    def _mov(self, tokens):
+    def _mov(self, instr):
+        dst, src, *args, = instr.tokens[1:]
+        # mem8, AL
+        if dst == '[' and args[0] == ']' and args[1].upper() == 'AL':
+            return pack_byte(0xA2) + self._mem(src)
+        # mem16, AX
+        if dst == '[' and args[0] == ']' and args[1].upper() == 'AX':
+            return pack_byte(0xA3) + self._mem(src)
+        # reg8, reg8
+        if dst.upper() in self.regs8 and src.upper() in self.regs8:
+            return pack_bytes(0x88, self._modrm8(src, dst))
+        # reg16, reg16
+        if dst.upper() in self.regs8 and src.upper() in self.regs8:
+            return pack_bytes(0x88, self._modrm16(src, dst))
         # reg8, imm8
-        if tokens[1].upper() in self.regs8:
-            return self._imm8(0xB0, *tokens[1:])
+        if dst.upper() in self.regs8:
+            return self._imm8(0xB0, dst, src)
         # reg16, imm16
-        if tokens[1].upper() in self.regs16:
-            return self._imm16(0xB8, *tokens[1:])
+        if dst.upper() in self.regs16:
+            return self._imm16(0xB8, dst, src)
+
+    @opcode('ADD')
+    def _add(self, instr):
+        dst, src, *_ = instr.tokens[1:]
+        # AL, imm8
+        if dst.upper() == 'AL':
+            return self._imm8(0x04, dst, src)
+        # AX, imm16
+        if dst.upper() == 'AX':
+            return self._imm16(0x05, dst, src)
 
     @opcode('INT')
-    def _int(self, tokens):
-        if tokens[1] == '3':
+    def _int(self, instr):
+        arg = instr.tokens[1]
+        if arg == '3':
             return b'\xCC'
-        return pack_bytes(0xCD, self.parse_integer(tokens[1]))
+        return pack_bytes(0xCD, self.parse_integer(arg))
+
+    @opcode('CALL')
+    def _call(self, instr):
+        arg = instr.tokens[1]
+        value = self.parse_integer(arg)
+        # label ?
+        if value is None:
+            self.add_label_translation(
+                label=arg, size=2, relative=True, start=self.current_org + self.org_counter + 1)
+        return pack('<Bh', 0xE8, value)
 
 
 def main():

@@ -1,53 +1,5 @@
-from necroassembler.exceptions import InvalidOpCodeArguments
 
-
-class Statement:
-    def __init__(self, tokens):
-        self.tokens = tokens
-
-    def __str__(self):
-        return self.__class__.__name__ + ' ' + str(self.tokens)
-
-
-class Instruction(Statement):
-    def assemble(self, assembler):
-        key = self.tokens[0]
-        if not assembler.case_sensitive:
-            key = key.upper()
-        if not key in assembler.instructions:
-            raise Exception('unknown instruction {0}'.format(key))
-        instruction = assembler.instructions[key]
-        if callable(instruction):
-            blob = instruction(self.tokens)
-            if blob is None:
-                raise Exception('invalid instruction {0}'.format(key))
-        else:
-            if len(self.tokens) != 1:
-                raise InvalidOpCodeArguments(self)
-            blob = instruction
-        assembler.assembled_bytes += blob
-        assembler.org_counter += len(blob)
-
-
-class Label(Statement):
-    def assemble(self, assembler):
-        key = self.tokens[0]
-        if key in assembler.labels:
-            raise Exception('label already defined')
-        if assembler.parse_integer(key) is not None:
-            raise Exception('invalid label')
-        assembler.labels[key] = {
-            'base': assembler.org_counter, 'org': assembler.current_org}
-
-
-class Directive(Statement):
-    def assemble(self, assembler):
-        key = self.tokens[0][1:]
-        if not assembler.case_sensitive:
-            key = key.upper()
-        if not key in assembler.directives:
-            raise Exception('unknown directive')
-        assembler.directives[key](self.tokens)
+from necroassembler.statements import Instruction, Directive, Label
 
 
 class Tokenizer:
@@ -57,13 +9,14 @@ class Tokenizer:
             super().__init__(
                 'invalid label at line {0}'.format(tokenizer.line))
 
-    def __init__(self, case_sensitive=False):
+    def __init__(self, case_sensitive=False, context=None):
         self.state = self.token
         self.current_token = ''
         self.statements = []
         self.tokens = []
         self.case_sensitive = case_sensitive
         self.line = 1
+        self.context = context
 
     def step(self, char):
         self.state(char)
@@ -109,10 +62,10 @@ class Tokenizer:
                 if len(self.tokens) > 0:
                     if (self.tokens[0].startswith('.')):
                         self.statements.append(
-                            Directive(self.tokens))
+                            Directive(self.tokens, self.line, self.context))
                     else:
                         self.statements.append(
-                            Instruction(self.tokens))
+                            Instruction(self.tokens, self.line, self.context))
                 self.tokens = []
                 if char in (';',):
                     self.state = self.comment
@@ -130,7 +83,8 @@ class Tokenizer:
                 raise Tokenizer.InvalidLabel(self)
             if self.current_token:
                 self.tokens.append(self.current_token)
-            self.statements.append(Label(self.tokens))
+            self.statements.append(
+                Label(self.tokens, self.line, self.context))
             self.state = self.token
             self.current_token = ''
             self.tokens = []

@@ -1,5 +1,6 @@
 from necroassembler.tokenizer import Tokenizer
 from necroassembler.utils import pack, pack_byte
+from necroassembler.exceptions import UnknownLabel
 
 
 def opcode(name):
@@ -52,8 +53,8 @@ class Assembler:
     def register_instructions(self):
         pass
 
-    def assemble(self, code):
-        tokenizer = Tokenizer()
+    def assemble(self, code, context=None):
+        tokenizer = Tokenizer(context=context)
         tokenizer.parse(code)
 
         for statement in tokenizer.statements:
@@ -65,10 +66,18 @@ class Assembler:
         for address in self.labels_addresses:
             data = self.labels_addresses[address]
             label = data['label']
-            true_address = self.get_label_absolute_address_by_name(label)
+            relative = data.get('relative', False)
+            if not relative:
+                true_address = self.get_label_absolute_address_by_name(label)
+            else:
+                true_address = self.get_label_relative_address_by_name(
+                    label, data['start'] + data['size'])
+            if true_address is None:
+                raise UnknownLabel(label, self)
             for i in range(0, data['size']):
                 self.assembled_bytes[address +
                                      i] = (true_address >> (8 * i)) & 0xff
+
         for _pass in self.post_link_passes:
             _pass()
 
@@ -152,16 +161,23 @@ class Assembler:
     def get_label_relative_address(self, label, start):
         return self.get_label_absolute_address(label) - start
 
-    def directive_org(self, tokens):
-        if len(tokens) != 2:
+    def get_label_relative_address_by_name(self, name, start):
+        formula = self.get_math_formula(name)
+        name = name[len(formula):]
+        if not name in self.labels:
+            return None
+        return self.apply_math_formula(formula, self.get_label_relative_address(self.labels[name], start))
+
+    def directive_org(self, instr):
+        if len(instr.tokens) != 2:
             raise Exception('invalid org directive')
-        self.current_org = self.parse_integer(tokens[1])
+        self.current_org = self.parse_integer(instr.tokens[1])
         if self.current_org is None:
             raise Exception('invalid .org value')
         self.org_counter = 0
 
-    def directive_dw(self, tokens):
-        for token in tokens[1:]:
+    def directive_dw(self, instr):
+        for token in instr.tokens[1:]:
             blob = b''
             if token[0] in ('"', '\''):
                 blob = token[1:-1].encode('utf16')
@@ -173,8 +189,8 @@ class Assembler:
             self.assembled_bytes += blob
             self.org_counter += len(blob)
 
-    def directive_db(self, tokens):
-        for token in tokens[1:]:
+    def directive_db(self, instr):
+        for token in instr.tokens[1:]:
             blob = b''
             if token[0] in ('"', '\''):
                 blob = token[1:-1].encode('utf8')
@@ -186,11 +202,12 @@ class Assembler:
             self.assembled_bytes += blob
             self.org_counter += len(blob)
 
-    def directive_include(self, tokens):
-        if len(tokens) != 2:
+    def directive_include(self, instr):
+        if len(instr.tokens) != 2:
             raise Exception('invalid include directive')
-        with open(tokens[1]) as f:
-            self.assemble(f.read())
+        filename = instr.tokens[1]
+        with open(filename) as f:
+            self.assemble(f.read(), context=filename)
 
     def get_math_formula(self, token):
         formula = ''
