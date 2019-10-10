@@ -93,6 +93,12 @@ class Assembler:
         for statement in tokenizer.statements:
             statement.assemble(self)
 
+        # check if we need to fill something
+        if self.current_org_end > 0:
+            if self.current_org + self.org_counter < self.current_org_end:
+                self.assembled_bytes += bytes((self.current_org_end + 1) -
+                                              (self.current_org + self.org_counter))
+
     def assemble_file(self, filename):
         with open(filename) as f:
             self.assemble(f.read(), filename)
