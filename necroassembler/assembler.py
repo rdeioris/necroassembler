@@ -102,7 +102,7 @@ class Assembler:
                 blob = bytes([self.fill_value] * ((self.current_org_end + 1) -
                                                   (self.current_org + self.org_counter)))
                 self.assembled_bytes += blob
-                self.org_counter += blob
+                self.org_counter += len(blob)
 
     def assemble_file(self, filename):
         with open(filename) as f:
@@ -233,18 +233,17 @@ class Assembler:
         self.org_counter = 0
         # check if need to fill
         if previous_org_end > 0:
+            # NOTE: we have to NOT set org_counter here! (leave it as 0, as this is a new one .org)
             # new org is is higher than the previous end
             if self.current_org > previous_org_end:
                 blob = bytes([self.fill_value] * ((previous_org_end + 1) -
                                                   (previous_org + previous_org_counter)))
                 self.assembled_bytes += blob
-                self.org_counter += len(blob)
             # new org is lower than previous end but higher than previous start
             elif self.current_org <= previous_org_end and self.current_org > previous_org:
                 blob += bytes([self.fill_value] * (self.current_org -
                                                    (previous_org + previous_org_counter)))
                 self.assembled_bytes += blob
-                self.org_counter += len(blob)
             else:
                 raise Exception('overlap while filling')
 
@@ -301,7 +300,7 @@ class Assembler:
             raise Exception('invalid fill size')
         value = 0
         if len(instr.tokens) == 3:
-            value = self.parse_integer(instr.tokens[1])
+            value = self.parse_integer(instr.tokens[2])
             if value is None:
                 raise Exception('invalid fill value')
         blob = bytes([value] * size)

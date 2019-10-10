@@ -12,6 +12,7 @@ class AssemblerGameboy(Assembler):
 
     regs8 = ('A', 'F', 'B', 'C', 'D', 'E', 'H', 'L')
     regs16 = ('AF', 'BC', 'DE', 'HL', 'HL+', 'HL-', 'SP')
+    conditions = ('Z', 'C', 'NZ', 'NC')
 
     fill_value = 0xFF
 
@@ -45,7 +46,7 @@ class AssemblerGameboy(Assembler):
         arg = instr.tokens[1]
         key = None
         data = b''
-        if arg.upper() in (self.regs8 + self.regs16):
+        if arg.upper() in (self.regs8 + self.regs16 + self.conditions):
             key = self.reg_name(arg)
         else:
             if 'data8' in kwargs:
@@ -80,16 +81,37 @@ class AssemblerGameboy(Assembler):
                 key = self.reg_name(dst) + '_d16'
                 data = self._data16(src)
 
+        elif dst.upper() in self.conditions:
+            key = self.reg_name(dst) + '_a16'
+            data = self._data16(src)
+
+        if src.upper() in self.regs8:
+            if dst.upper() in self.regs8:
+                key = self.reg_name(dst) + '_' + self.reg_name(src)
+            # avoid 8bit value in 16bit register
+            elif dst.upper() not in self.regs16:
+                key = 'd8_' + self.reg_name(src)
+                data = self._data8(dst)
+
         if key is None:
             return None
 
         return pack_byte(kwargs[key]) + data
 
+    def build_cb_opcode(self, instr, **kwargs):
+        if len(instr.tokens) == 3:
+            bn = instr.tokens[1]
+            reg = instr.tokens[2]
+            if reg not in self.regs8:
+                return None
+            key = 'b' + str(bn) + '_' + self.reg_name(reg)
+            return pack_bytes(0xCB, kwargs[key])
+
     def build_opcode_four_args(self, instr, **kwargs):
         args = instr.tokens[1:]
         key = None
         data = b''
-        if args[0] == '(' and args[2] == ')':
+        if args[0] in ('(', '[') and args[2] in (')', ']'):
             dst = args[1]
             src = args[3]
             # invalid combo
@@ -101,7 +123,7 @@ class AssemblerGameboy(Assembler):
                 key = 'ind_a16_' + self.reg_name(src)
                 data = self._data16(dst)
 
-        elif args[1] == '(' and args[3] == ')':
+        elif args[1] in ('(', '[') and args[3] in (')', ']'):
             dst = args[0]
             src = args[2]
             # invalid combo
@@ -118,12 +140,31 @@ class AssemblerGameboy(Assembler):
 
         return pack_byte(kwargs[key]) + data
 
+    def build_opcode_three_args(self, instr, **kwargs):
+        args = instr.tokens[1:]
+        key = None
+        data = b''
+        if args[0] in ('(', '[') and args[2] in (')', ']'):
+            arg = args[1]
+            if arg.upper() in self.regs16:
+                key = 'ind_' + self.reg_name(arg)
+            else:
+                key = 'ind_a16_'
+                data = self._data16(arg)
+
+        if key is None:
+            return None
+
+        return pack_byte(kwargs[key]) + data
+
     def build_opcode(self, instr, **kwargs):
         args = instr.tokens[1:]
         if len(args) == 1:
             return self.build_opcode_one_arg(instr, **kwargs)
         if len(args) == 2:
             return self.build_opcode_two_args(instr, **kwargs)
+        if len(args) == 3:
+            return self.build_opcode_three_args(instr, **kwargs)
         if len(args) == 4:
             return self.build_opcode_four_args(instr, **kwargs)
 
@@ -136,12 +177,74 @@ class AssemblerGameboy(Assembler):
                                  ind_a16_sp=0x08,
                                  a_ind_bc=0x0A,
                                  c_d8=0x0E,
-                                 a_ind_hl_plus=0x2A)
+                                 a_ind_hl_plus=0x2A,
+                                 hl_d16=0x21,
+                                 de_d16=0x11,
+                                 ind_a16_a=0xEA,
+                                 a_d8=0x43,
+                                 a_ind_a16=0xFA,
+                                 ind_hl_minus_a=0x32,
+                                 ind_hl_plus_a=0x22,
+                                 d_d8=0x16,
+                                 d_a=0x57,
+                                 a_d=0x7A,
+                                 sp_d16=0x31)
 
     @opcode('INC')
     def _inc(self, instr):
         return self.build_opcode(instr,
+                                 ind_hl=0x34, a=0x3C, d=0x14,
                                  bc=0x03, b=0x04, c=0x0C)
+
+    @opcode('JP')
+    def _jp(self, instr):
+        return self.build_opcode(instr,
+                                 z_a16=0xCA,
+                                 nc_a16=0xD2,
+                                 nz_a16=0xC2,
+                                 data16=0xC3)
+
+    @opcode('CALL')
+    def _call(self, instr):
+        return self.build_opcode(instr,
+                                 z_a16=0xCC,
+                                 nz_a16=0xC4,
+                                 data16=0xCD)
+
+    @opcode('XOR')
+    def _xor(self, instr):
+        return self.build_opcode(instr, a=0xAF)
+
+    @opcode('CP')
+    def _cp(self, instr):
+        return self.build_opcode(instr, data8=0xFE,
+                                 a_l=0xBD, l=0xBD)
+
+    @opcode('BIT')
+    def _bit(self, instr):
+        return self.build_cb_opcode(instr, b0_a=0x47,
+                                    b1_a=0x4F,
+                                    b2_a=0x57,
+                                    b3_a=0x5F,
+                                    b7_h=0x7C)
+
+    @opcode('DEC')
+    def _dec(self, instr):
+        return self.build_opcode(instr, ind_hl=0x35, de=0x1B)
+
+    @opcode('RET')
+    def _ret(self, instr):
+        if len(instr.tokens) == 1:
+            return b'0xC9'
+        return self.build_opcode(instr, nz=0xC0)
+
+    @opcode('AND')
+    def _and(self, instr):
+        return self.build_opcode(instr, data8=0xE6)
+
+    @opcode('OR')
+    def _or(self, instr):
+        return self.build_opcode(instr, e=0xB3)
 
 
 def main():
