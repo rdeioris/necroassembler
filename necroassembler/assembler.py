@@ -1,6 +1,7 @@
 from necroassembler.tokenizer import Tokenizer
 from necroassembler.utils import pack, pack_byte
-from necroassembler.exceptions import UnknownLabel
+from necroassembler.exceptions import UnknownLabel, UnsupportedNestedMacro
+from necroassembler.macros import Macro
 
 
 def opcode(name):
@@ -34,6 +35,8 @@ class Assembler:
         self.current_org = 0x00
         self.org_counter = 0
         self.labels_addresses = {}
+        self.macros = {}
+        self.macro_recording = None
 
         self.register_directives()
         self.register_defines()
@@ -41,6 +44,8 @@ class Assembler:
         self.register_instructions()
 
     def register_directives(self):
+        self.register_directive('macro', self.macro_start)
+        self.register_directive('endmacro', self.macro_end)
         self.register_directive('org', self.directive_org)
         self.register_directive('include', self.directive_include)
         self.register_directive('define', self.directive_define)
@@ -64,6 +69,20 @@ class Assembler:
 
     def register_instructions(self):
         pass
+
+    def macro_start(self, instr):
+        if self.macro_recording is not None:
+            raise UnsupportedNestedMacro(instr)
+        self.macro_recording = Macro(instr.tokens[1:])
+        key = instr.tokens[1]
+        if not self.case_sensitive:
+            key = key.upper()
+        self.macros[key] = self.macro_recording
+
+    def macro_end(self, instr):
+        if self.macro_recording is None:
+            raise NotInMacroRecordingMode(instr)
+        self.macro_recording = None
 
     def assemble(self, code, context=None):
         tokenizer = Tokenizer(context=context)

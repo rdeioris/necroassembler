@@ -28,3 +28,15 @@ class UnknownDirective(Exception):
     def __init__(self, subject):
         super().__init__(
             'unknown directive {0}'.format(subject))
+
+
+class UnsupportedNestedMacro(Exception):
+    def __init__(self, subject):
+        super().__init__(
+            'nested macros are not supported {0}'.format(subject))
+
+
+class NotInMacroRecordingMode(Exception):
+    def __init__(self, subject):
+        super().__init__(
+            'not in macro recording mode {0}'.format(subject))

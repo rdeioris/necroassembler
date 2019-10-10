@@ -1,6 +1,7 @@
 import unittest
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_be_32s
+from necroassembler.exceptions import UnsupportedNestedMacro
 
 
 class TestAssembler(unittest.TestCase):
@@ -29,3 +30,47 @@ class TestAssembler(unittest.TestCase):
     def test_assemble_db(self):
         self.asm.assemble('  .db 0x17 ; hello world, i am a comment')
         self.assertEqual(self.asm.assembled_bytes, b'\x17')
+
+    def test_macro_simple(self):
+        self.asm.assemble("""
+        .macro HELLO
+        LOAD 1
+        LOAD 2
+        LOAD 3
+        .endmacro
+        HELLO
+        HELLO
+        """)
+        opcode = b'\xAA\xBB\xCC\xDD'
+        arg1 = b'\x00\x00\x00\x01'
+        arg2 = b'\x00\x00\x00\x02'
+        arg3 = b'\x00\x00\x00\x03'
+        self.assertEqual(self.asm.assembled_bytes,
+                         (opcode+arg1+opcode+arg2+opcode+arg3) * 2)
+
+    def test_macro_args(self):
+        self.asm.assemble("""
+        .macro HELLO arg0 arg1 arg2
+        LOAD arg0
+        LOAD arg1
+        LOAD arg2
+        .endmacro
+        HELLO 1 2 3
+        HELLO 1,2,3
+        HELLO,1,2 3
+        """)
+        opcode = b'\xAA\xBB\xCC\xDD'
+        arg1 = b'\x00\x00\x00\x01'
+        arg2 = b'\x00\x00\x00\x02'
+        arg3 = b'\x00\x00\x00\x03'
+        self.assertEqual(self.asm.assembled_bytes,
+                         (opcode+arg1+opcode+arg2+opcode+arg3) * 3)
+
+    def test_macro_nested(self):
+        code = """
+        .macro HELLO
+        .macro NESTED
+        .endmacro
+        .endmacro
+        """
+        self.assertRaises(UnsupportedNestedMacro, self.asm.assemble, code)

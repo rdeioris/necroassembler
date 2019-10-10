@@ -16,10 +16,23 @@ class Statement:
 
 class Instruction(Statement):
     def assemble(self, assembler):
+        # first check if we are in macro recording mode
+        if assembler.macro_recording is not None:
+            macro = assembler.macro_recording
+            macro.add_instruction(self)
+            return
+
         substitute_with_dict(self.tokens, assembler.defines)
+
         key = self.tokens[0]
         if not assembler.case_sensitive:
             key = key.upper()
+
+        if key in assembler.macros:
+            macro = assembler.macros[key]
+            macro.assemble(assembler, self.tokens)
+            return
+
         if not key in assembler.instructions:
             raise UnknownInstruction(self)
         instruction = assembler.instructions[key]
