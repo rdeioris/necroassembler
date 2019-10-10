@@ -61,6 +61,7 @@ class Assembler:
         self.register_directive('dw_to_ascii', self.directive_dw_to_ascii)
         self.register_directive('db_to_asciiz', self.directive_db_to_asciiz)
         self.register_directive('dw_to_asciiz', self.directive_dw_to_asciiz)
+        self.register_directive('fill', self.directive_fill)
 
     def register_defines(self):
         pass
@@ -98,8 +99,10 @@ class Assembler:
         # check if we need to fill something
         if self.current_org_end > 0:
             if self.current_org + self.org_counter < self.current_org_end:
-                self.assembled_bytes += bytes([self.fill_value] * ((self.current_org_end + 1) -
-                                                                   (self.current_org + self.org_counter)))
+                blob = bytes([self.fill_value] * ((self.current_org_end + 1) -
+                                                  (self.current_org + self.org_counter)))
+                self.assembled_bytes += blob
+                self.org_counter += blob
 
     def assemble_file(self, filename):
         with open(filename) as f:
@@ -232,12 +235,16 @@ class Assembler:
         if previous_org_end > 0:
             # new org is is higher than the previous end
             if self.current_org > previous_org_end:
-                self.assembled_bytes += bytes([self.fill_value] * ((previous_org_end + 1) -
-                                                                   (previous_org + previous_org_counter)))
+                blob = bytes([self.fill_value] * ((previous_org_end + 1) -
+                                                  (previous_org + previous_org_counter)))
+                self.assembled_bytes += blob
+                self.org_counter += len(blob)
             # new org is lower than previous end but higher than previous start
             elif self.current_org <= previous_org_end and self.current_org > previous_org:
-                self.assembled_bytes += bytes([self.fill_value] * (self.current_org -
-                                                                   (previous_org + previous_org_counter)))
+                blob += bytes([self.fill_value] * (self.current_org -
+                                                   (previous_org + previous_org_counter)))
+                self.assembled_bytes += blob
+                self.org_counter += len(blob)
             else:
                 raise Exception('overlap while filling')
 
@@ -286,11 +293,27 @@ class Assembler:
         self.assembled_bytes += b'\x00'
         self.org_counter += 1
 
+    def directive_fill(self, instr):
+        if len(instr.tokens) != 2 and len(instr.tokens) != 3:
+            raise Exception('invalid fill directive')
+        size = self.parse_integer(instr.tokens[1])
+        if size is None:
+            raise Exception('invalid fill size')
+        value = 0
+        if len(instr.tokens) == 3:
+            value = self.parse_integer(instr.tokens[1])
+            if value is None:
+                raise Exception('invalid fill value')
+        blob = bytes([value] * size)
+        self.assembled_bytes += blob
+        self.org_counter += len(blob)
+
     def directive_db_to_ascii(self, instr):
         def db_to_str(address, true_address):
             blob = format(true_address, '03d').encode('ascii')
             for b in blob:
                 self.assembled_bytes[address] = b
+                self.org_counter += 1
                 address += 1
 
         for token in instr.tokens[1:]:
@@ -338,7 +361,9 @@ class Assembler:
             raise Exception('invalid incbin directive')
         filename = instr.tokens[1]
         with open(filename, 'rb') as f:
-            self.assembled_bytes += f.read()
+            blob = f.read()
+            self.assembled_bytes += blob
+            self.org_counter += len(blob)
 
     def get_math_formula(self, token):
         pre_formula = ''
