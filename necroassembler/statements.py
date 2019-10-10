@@ -1,4 +1,5 @@
-from necroassembler.exceptions import InvalidOpCodeArguments, UnknownInstruction, InvalidInstruction
+from necroassembler.exceptions import InvalidOpCodeArguments, UnknownInstruction, InvalidInstruction, UnknownDirective
+from necroassembler.utils import substitute_with_dict
 
 
 class Statement:
@@ -9,12 +10,13 @@ class Statement:
 
     def __str__(self):
         if self.context is not None:
-            return '{0} at line {1}: {2}'.format(self.context, self.line, str(self.tokens))
-        return 'line {0}: {1}'.format(self.line, str(self.tokens))
+            return 'at line {1} of {0}: {2}'.format(self.context, self.line, str(self.tokens))
+        return 'at line {0}: {1}'.format(self.line, str(self.tokens))
 
 
 class Instruction(Statement):
     def assemble(self, assembler):
+        substitute_with_dict(self.tokens, assembler.defines)
         key = self.tokens[0]
         if not assembler.case_sensitive:
             key = key.upper()
@@ -46,9 +48,11 @@ class Label(Statement):
 
 class Directive(Statement):
     def assemble(self, assembler):
+        # skip directive for defines substitution
+        substitute_with_dict(self.tokens, assembler.defines, 1)
         key = self.tokens[0][1:]
         if not assembler.case_sensitive:
             key = key.upper()
         if not key in assembler.directives:
-            raise Exception('unknown directive')
+            raise UnknownDirective(self)
         assembler.directives[key](self)

@@ -19,3 +19,10 @@ def pack_byte(b):
 
 def pack(fmt, *args):
     return struct.pack(fmt, *[n if n is not None else 0 for n in args])
+
+
+def substitute_with_dict(tokens, _dict, start=0):
+    for i in range(start, len(tokens)):
+        name = tokens[i]
+        if name in _dict:
+            tokens[i] = _dict[name]

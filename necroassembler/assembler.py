@@ -26,6 +26,7 @@ class Assembler:
     def __init__(self):
         self.instructions = {}
         self.directives = {}
+        self.defines = {}
         self.assembled_bytes = bytearray()
         self.labels = {}
         self.pre_link_passes = []
@@ -35,14 +36,25 @@ class Assembler:
         self.labels_addresses = {}
 
         self.register_directives()
+        self.register_defines()
         self.discover_instructions()
         self.register_instructions()
 
     def register_directives(self):
         self.register_directive('org', self.directive_org)
         self.register_directive('include', self.directive_include)
+        self.register_directive('define', self.directive_define)
         self.register_directive('db', self.directive_db)
+        self.register_directive('byte', self.directive_db)
         self.register_directive('dw', self.directive_dw)
+        self.register_directive('word', self.directive_dw)
+        self.register_directive('db_to_ascii', self.directive_db_to_ascii)
+        self.register_directive('dw_to_ascii', self.directive_dw_to_ascii)
+        self.register_directive('db_to_asciiz', self.directive_db_to_asciiz)
+        self.register_directive('dw_to_asciiz', self.directive_dw_to_asciiz)
+
+    def register_defines(self):
+        pass
 
     def discover_instructions(self):
         for attr_name in dir(self):
@@ -78,9 +90,12 @@ class Assembler:
                     label, data['start'] + data['size'])
             if true_address is None:
                 raise UnknownLabel(label, self)
-            for i in range(0, data['size']):
-                self.assembled_bytes[address +
-                                     i] = (true_address >> (8 * i)) & 0xff
+            if 'hook' in data:
+                data['hook'](address, true_address)
+            else:
+                for i in range(0, data['size']):
+                    self.assembled_bytes[address +
+                                         i] = (true_address >> (8 * i)) & 0xff
 
         for _pass in self.post_link_passes:
             _pass()
@@ -89,7 +104,7 @@ class Assembler:
         combined_data = data.copy()
         combined_data.update(kwargs)
         self.labels_addresses[len(
-            self.assembled_bytes) + 1] = combined_data
+            self.assembled_bytes) + combined_data.get('offset', 1)] = combined_data
 
     def _internal_parse_integer(self, token):
         for prefix in self.hex_prefixes:
@@ -178,6 +193,11 @@ class Assembler:
             raise Exception('invalid .org value')
         self.org_counter = 0
 
+    def directive_define(self, instr):
+        if len(instr.tokens) != 3:
+            raise Exception('invalid define directive')
+        self.defines[instr.tokens[1]] = instr.tokens[2]
+
     def directive_dw(self, instr):
         for token in instr.tokens[1:]:
             blob = b''
@@ -186,20 +206,74 @@ class Assembler:
             else:
                 value = self.parse_integer(token)
                 if value is None:
-                    raise Exception('invalid byte value')
+                    self.add_label_translation(label=token, size=2, offset=0)
                 blob = pack('<H', value)
             self.assembled_bytes += blob
             self.org_counter += len(blob)
+
+    def directive_dw_to_ascii(self, instr):
+        def dw_to_str(address, true_address):
+            blob = format(true_address, '05d').encode('ascii')
+            for b in blob:
+                self.assembled_bytes[address] = b
+                address += 1
+
+        for token in instr.tokens[1:]:
+            blob = b''
+            if token[0] in ('"', '\''):
+                blob = str(int(token[1:-1].encode('utf16'))).encode('ascii')
+            else:
+                value = self.parse_integer(token)
+                if value is None:
+                    self.add_label_translation(
+                        label=token, offset=0, hook=dw_to_str)
+                    blob = bytes(5)
+                else:
+                    blob = str(value).encode('ascii')
+            self.assembled_bytes += blob
+            self.org_counter += len(blob)
+
+    def directive_dw_to_asciiz(self, instr):
+        self.directive_dw_to_ascii(instr)
+        self.assembled_bytes += b'\x00'
+        self.org_counter += 1
+
+    def directive_db_to_ascii(self, instr):
+        def db_to_str(address, true_address):
+            blob = format(true_address, '03d').encode('ascii')
+            for b in blob:
+                self.assembled_bytes[address] = b
+                address += 1
+
+        for token in instr.tokens[1:]:
+            blob = b''
+            if token[0] in ('"', '\''):
+                blob = str(int(token[1:-1].encode('ascii'))).encode('ascii')
+            else:
+                value = self.parse_integer(token)
+                if value is None:
+                    self.add_label_translation(
+                        label=token, offset=0, hook=db_to_str)
+                    blob = bytes(3)
+                else:
+                    blob = str(value).encode('ascii')
+            self.assembled_bytes += blob
+            self.org_counter += len(blob)
+
+    def directive_db_to_asciiz(self, instr):
+        self.directive_db_to_ascii(instr)
+        self.assembled_bytes += b'\x00'
+        self.org_counter += 1
 
     def directive_db(self, instr):
         for token in instr.tokens[1:]:
             blob = b''
             if token[0] in ('"', '\''):
-                blob = token[1:-1].encode('utf8')
+                blob = token[1:-1].encode('ascii')
             else:
                 value = self.parse_integer(token)
                 if value is None:
-                    raise Exception('invalid byte value')
+                    self.add_label_translation(label=token, size=1, offset=0)
                 blob = pack_byte(value)
             self.assembled_bytes += blob
             self.org_counter += len(blob)
@@ -242,3 +316,6 @@ class Assembler:
         if not self.case_sensitive:
             key = key.upper()
         self.directives[key] = logic
+
+    def register_define(self, name, value):
+        self.defines[name] = value
