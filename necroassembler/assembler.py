@@ -1,6 +1,6 @@
 from necroassembler.tokenizer import Tokenizer
 from necroassembler.utils import pack, pack_byte
-from necroassembler.exceptions import UnknownLabel, UnsupportedNestedMacro
+from necroassembler.exceptions import UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode
 from necroassembler.macros import Macro
 
 
@@ -33,6 +33,7 @@ class Assembler:
         self.pre_link_passes = []
         self.post_link_passes = []
         self.current_org = 0x00
+        self.current_org_end = 0
         self.org_counter = 0
         self.labels_addresses = {}
         self.macros = {}
@@ -48,6 +49,7 @@ class Assembler:
         self.register_directive('endmacro', self.macro_end)
         self.register_directive('org', self.directive_org)
         self.register_directive('include', self.directive_include)
+        self.register_directive('incbin', self.directive_incbin)
         self.register_directive('define', self.directive_define)
         self.register_directive('db', self.directive_db)
         self.register_directive('byte', self.directive_db)
@@ -205,12 +207,31 @@ class Assembler:
         return self.apply_math_formula(pre_formula, post_formula, self.get_label_relative_address(self.labels[name], start))
 
     def directive_org(self, instr):
-        if len(instr.tokens) != 2:
+        previous_org = self.current_org
+        previous_org_end = self.current_org_end
+        previous_org_counter = self.org_counter
+        if len(instr.tokens) != 2 and len(instr.tokens) != 3:
             raise Exception('invalid org directive')
         self.current_org = self.parse_integer(instr.tokens[1])
         if self.current_org is None:
             raise Exception('invalid .org value')
+        if len(instr.tokens) == 3:
+            self.current_org_end = self.parse_integer(instr.tokens[2])
+            if self.current_org_end is None or self.current_org_end < self.current_org:
+                raise Exception('invalid .org end value')
         self.org_counter = 0
+        # check if need to fill
+        if previous_org_end > 0:
+            # new org is is higher than the previous end
+            if self.current_org > previous_org_end:
+                self.assembled_bytes += bytes((previous_org_end + 1) -
+                                              (previous_org + previous_org_counter))
+            # new org is lower than previous end but higher than previous start
+            elif self.current_org <= previous_org_end and self.current_org > previous_org:
+                self.assembled_bytes += bytes(self.current_org -
+                                              (previous_org + previous_org_counter))
+            else:
+                raise Exception('overlap while filling')
 
     def directive_define(self, instr):
         if len(instr.tokens) != 3:
@@ -303,6 +324,13 @@ class Assembler:
         filename = instr.tokens[1]
         with open(filename) as f:
             self.assemble(f.read(), context=filename)
+
+    def directive_incbin(self, instr):
+        if len(instr.tokens) != 2:
+            raise Exception('invalid incbin directive')
+        filename = instr.tokens[1]
+        with open(filename, 'rb') as f:
+            self.assembled_bytes += f.read()
 
     def get_math_formula(self, token):
         pre_formula = ''
