@@ -149,7 +149,7 @@ class AssemblerGameboy(Assembler):
             if arg.upper() in self.regs16:
                 key = 'ind_' + self.reg_name(arg)
             else:
-                key = 'ind_a16_'
+                key = 'ind_a16'
                 data = self._data16(arg)
 
         if key is None:
@@ -181,7 +181,7 @@ class AssemblerGameboy(Assembler):
                                  hl_d16=0x21,
                                  de_d16=0x11,
                                  ind_a16_a=0xEA,
-                                 a_d8=0x43,
+                                 a_d8=0x3E,
                                  a_ind_a16=0xFA,
                                  ind_hl_minus_a=0x32,
                                  ind_hl_plus_a=0x22,
@@ -235,7 +235,7 @@ class AssemblerGameboy(Assembler):
     @opcode('RET')
     def _ret(self, instr):
         if len(instr.tokens) == 1:
-            return b'0xC9'
+            return b'\xC9'
         return self.build_opcode(instr, nz=0xC0)
 
     @opcode('AND')
@@ -252,6 +252,23 @@ def main():
     asm = AssemblerGameboy()
     asm.assemble_file(sys.argv[1])
     asm.link()
+
+    # fix checksums
+
+    # header checksum
+    header_checksum = 0
+    for i in range(0x134, 0x14d):
+        header_checksum = header_checksum - int(asm.assembled_bytes[i]) - 1
+    asm.assembled_bytes[0x14d] = header_checksum & 0xFF
+
+    # global checksum
+    global_checksum = 0
+    for b in asm.assembled_bytes:
+        global_checksum += int(b)
+
+    asm.assembled_bytes[0x14e] = (global_checksum >> 8) & 0xFF
+    asm.assembled_bytes[0x14f] = global_checksum & 0xFF
+
     with open(sys.argv[2], 'wb') as f:
         f.write(asm.assembled_bytes)
 

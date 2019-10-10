@@ -40,6 +40,7 @@ class Assembler:
         self.labels_addresses = {}
         self.macros = {}
         self.macro_recording = None
+        self.log = False
 
         self.register_directives()
         self.register_defines()
@@ -62,6 +63,7 @@ class Assembler:
         self.register_directive('db_to_asciiz', self.directive_db_to_asciiz)
         self.register_directive('dw_to_asciiz', self.directive_dw_to_asciiz)
         self.register_directive('fill', self.directive_fill)
+        self.register_directive('log', self.directive_log)
 
     def register_defines(self):
         pass
@@ -94,7 +96,15 @@ class Assembler:
         tokenizer.parse(code)
 
         for statement in tokenizer.statements:
+            current_index = len(self.assembled_bytes)
             statement.assemble(self)
+            if self.log:
+                new_index = len(self.assembled_bytes)
+                if new_index == current_index:
+                    print('not assembled {0}'.format(statement))
+                else:
+                    print('assembled {0} -> {1} at 0x{2:x}'.format(statement,
+                                                                   self.assembled_bytes[current_index:], current_index))
 
         # check if we need to fill something
         if self.current_org_end > 0:
@@ -135,8 +145,8 @@ class Assembler:
     def add_label_translation(self, data={}, **kwargs):
         combined_data = data.copy()
         combined_data.update(kwargs)
-        self.labels_addresses[len(
-            self.assembled_bytes) + combined_data.get('offset', 1)] = combined_data
+        index = len(self.assembled_bytes) + combined_data.get('offset', 1)
+        self.labels_addresses[index] = combined_data
 
     def _internal_parse_integer(self, token):
         for prefix in self.hex_prefixes:
@@ -233,6 +243,10 @@ class Assembler:
         self.org_counter = 0
         # check if need to fill
         if previous_org_end > 0:
+            # overlap check:
+            if previous_org + previous_org_counter > self.current_org:
+                raise Exception(
+                    'overlap of addresses between {0:x} and {1:x}'.format(self.current_org, previous_org + previous_org_counter))
             # NOTE: we have to NOT set org_counter here! (leave it as 0, as this is a new one .org)
             # new org is is higher than the previous end
             if self.current_org > previous_org_end:
@@ -291,6 +305,17 @@ class Assembler:
         self.directive_dw_to_ascii(instr)
         self.assembled_bytes += b'\x00'
         self.org_counter += 1
+
+    def directive_log(self, instr):
+        if len(instr.tokens) > 1:
+            if instr.tokens[1].upper() == 'ON':
+                self.log = True
+            elif instr.tokens[1].upper() == 'OFF':
+                self.log = False
+            else:
+                raise Exception('invalid log value')
+        else:
+            self.log = True
 
     def directive_fill(self, instr):
         if len(instr.tokens) != 2 and len(instr.tokens) != 3:
