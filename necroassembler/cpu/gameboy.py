@@ -13,6 +13,8 @@ class AssemblerGameboy(Assembler):
     regs8 = ('A', 'F', 'B', 'C', 'D', 'E', 'H', 'L')
     regs16 = ('AF', 'BC', 'DE', 'HL', 'HL+', 'HL-', 'SP')
 
+    fill_value = 0xFF
+
     def register_instructions(self):
         self.register_instruction('NOP', b'\x00')
         self.register_instruction('RRCA', b'\x0F')

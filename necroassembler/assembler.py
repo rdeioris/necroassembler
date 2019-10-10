@@ -24,6 +24,8 @@ class Assembler:
 
     case_sensitive = False
 
+    fill_value = 0
+
     def __init__(self):
         self.instructions = {}
         self.directives = {}
@@ -96,8 +98,8 @@ class Assembler:
         # check if we need to fill something
         if self.current_org_end > 0:
             if self.current_org + self.org_counter < self.current_org_end:
-                self.assembled_bytes += bytes((self.current_org_end + 1) -
-                                              (self.current_org + self.org_counter))
+                self.assembled_bytes += bytes([self.fill_value] * ((self.current_org_end + 1) -
+                                                                   (self.current_org + self.org_counter)))
 
     def assemble_file(self, filename):
         with open(filename) as f:
@@ -230,12 +232,12 @@ class Assembler:
         if previous_org_end > 0:
             # new org is is higher than the previous end
             if self.current_org > previous_org_end:
-                self.assembled_bytes += bytes((previous_org_end + 1) -
-                                              (previous_org + previous_org_counter))
+                self.assembled_bytes += bytes([self.fill_value] * ((previous_org_end + 1) -
+                                                                   (previous_org + previous_org_counter)))
             # new org is lower than previous end but higher than previous start
             elif self.current_org <= previous_org_end and self.current_org > previous_org:
-                self.assembled_bytes += bytes(self.current_org -
-                                              (previous_org + previous_org_counter))
+                self.assembled_bytes += bytes([self.fill_value] * (self.current_org -
+                                                                   (previous_org + previous_org_counter)))
             else:
                 raise Exception('overlap while filling')
 
