@@ -21,3 +21,12 @@ class TestGameboy(unittest.TestCase):
     def test_inc_line0(self):
         self.asm.assemble('INC BC\nINC B\nINC C')
         self.assertEqual(self.asm.assembled_bytes, b'\x03\x04\x0C')
+
+    def test_jr(self):
+        self.asm.assemble('JR NZ,-1')
+        self.assertEqual(self.asm.assembled_bytes, b'\x20\xff')
+
+    def test_jr_label(self):
+        self.asm.assemble('start:NOP\nJR NZ,start')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x00\x20\xfd')
