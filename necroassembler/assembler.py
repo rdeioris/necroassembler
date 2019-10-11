@@ -44,7 +44,7 @@ class Assembler:
 
         self.register_directives()
         self.register_defines()
-        self.discover_instructions()
+        self._discover_instructions()
         self.register_instructions()
 
     def register_directives(self):
@@ -68,7 +68,7 @@ class Assembler:
     def register_defines(self):
         pass
 
-    def discover_instructions(self):
+    def _discover_instructions(self):
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
             if callable(attr) and hasattr(attr, 'opcode'):
@@ -191,7 +191,7 @@ class Assembler:
             return None
 
     def parse_integer(self, token):
-        token, pre_formula, post_formula = self.get_math_formula(token)
+        token, pre_formula, post_formula = self._get_math_formula(token)
         value = self._internal_parse_integer(token)
         if value is None:
             return None
@@ -220,7 +220,7 @@ class Assembler:
         return label['org'] + label['base']
 
     def get_label_absolute_address_by_name(self, name):
-        name, pre_formula, post_formula = self.get_math_formula(name)
+        name, pre_formula, post_formula = self._get_math_formula(name)
         if not name in self.labels:
             return None
         return self.apply_math_formula(pre_formula, post_formula, self.get_label_absolute_address(self.labels[name]))
@@ -229,7 +229,7 @@ class Assembler:
         return self.get_label_absolute_address(label) - start
 
     def get_label_relative_address_by_name(self, name, start):
-        name, pre_formula, post_formula = self.get_math_formula(name)
+        name, pre_formula, post_formula = self._get_math_formula(name)
         if not name in self.labels:
             return None
         return self.apply_math_formula(pre_formula, post_formula, self.get_label_relative_address(self.labels[name], start))
@@ -396,7 +396,7 @@ class Assembler:
             self.assembled_bytes += blob
             self.org_counter += len(blob)
 
-    def get_math_formula(self, token):
+    def _get_math_formula(self, token):
         pre_formula = ''
         post_formula = ''
         for char in token:
