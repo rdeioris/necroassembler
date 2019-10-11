@@ -61,10 +61,8 @@ class AssemblerMOS6502(Assembler):
 
     def manage_branching(self, instr, opcode):
         arg = instr.tokens[1]
-        address = self.parse_integer(arg)
-        if address is None:
-            self.add_label_translation(
-                label=arg, size=1, relative=True, start=self.current_org + self.org_counter + 1)
+        address = self.parse_integer_or_label(
+            arg, size=1, relative=True, start=self.current_org + self.org_counter + 1)
         return pack('<Bb', opcode, address)
 
     def manage_address(self, abs, zp, arg):
@@ -103,10 +101,7 @@ class AssemblerMOS6502(Assembler):
         arg = instr.tokens[1]
         # immediate ?
         if arg.startswith('#'):
-            value = self.parse_integer(arg[1:])
-            # label ?
-            if value is None:
-                self.add_label_translation(label=arg[1:], size=1)
+            value = self.parse_integer_or_label(arg[1:], size=1)
             return pack_bytes(opcodes['imm'], value)
 
         # use get for 'zp' to support non-zp opcodes

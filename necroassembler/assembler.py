@@ -197,8 +197,15 @@ class Assembler:
             return None
         return self.apply_math_formula(pre_formula, post_formula, value)
 
+    def parse_integer_or_label(self, arg, **kwargs):
+        value = self.parse_integer(arg)
+        # label ?
+        if value is None:
+            self.add_label_translation(label=arg, **kwargs)
+        return value
+
     def apply_math_formula(self, pre_formula, post_formula, value):
-        for op in (pre_formula + post_formula):
+        for op in pre_formula + post_formula:
             if op == '+':
                 value += 1
             elif op == '-':

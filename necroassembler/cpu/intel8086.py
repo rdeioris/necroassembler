@@ -24,24 +24,15 @@ class AssemblerIntel8086(Assembler):
         self.register_instruction('RET', b'\xC3')
 
     def _imm8(self, op, reg, arg):
-        value = self.parse_integer(arg)
-        # label ?
-        if value is None:
-            self.add_label_translation(label=arg, size=1)
+        value = self.parse_integer_or_label(arg, size=1)
         return pack_bytes(op + self.regs8.index(reg.upper()), value)
 
     def _imm16(self, op, reg, arg):
-        value = self.parse_integer(arg)
-        # label ?
-        if value is None:
-            self.add_label_translation(label=arg, size=2)
+        value = self.parse_integer_or_label(arg, size=2)
         return pack('<BH', op + self.regs16.index(reg.upper()), value)
 
     def _mem(self, arg):
-        value = self.parse_integer(arg)
-        # label ?
-        if value is None:
-            self.add_label_translation(label=arg, size=2)
+        value = self.parse_integer_or_label(arg, size=2)
         return pack('<H', value)
 
     def _modrm8(self, reg, rm):
@@ -98,11 +89,8 @@ class AssemblerIntel8086(Assembler):
     @opcode('CALL')
     def _call(self, instr):
         arg = instr.tokens[1]
-        value = self.parse_integer(arg)
-        # label ?
-        if value is None:
-            self.add_label_translation(
-                label=arg, size=2, relative=True, start=self.current_org + self.org_counter + 1)
+        value = self.parse_integer_or_label(
+            arg, size=2, relative=True, start=self.current_org + self.org_counter + 1)
         return pack('<Bh', 0xE8, value)
 
 

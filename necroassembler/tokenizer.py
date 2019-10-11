@@ -1,16 +1,20 @@
-
+'''Exposes the assembly source code tokenization features'''
 from necroassembler.statements import Instruction, Directive, Label
 
 
-class Tokenizer:
+class InvalidLabel(Exception):
+    '''Raised when a label is specified after other tokens'''
 
-    class InvalidLabel(Exception):
-        def __init__(self, tokenizer):
-            super().__init__(
-                'invalid label at line {0}'.format(tokenizer.line))
+    def __init__(self, tokenizer):
+        super().__init__(
+            'invalid label at line {0}'.format(tokenizer.line))
+
+
+class Tokenizer:
+    '''Builds a list of tokenized statements from assembly source code'''
 
     def __init__(self, case_sensitive=False, context=None):
-        self.state = self.token
+        self.state = self._state_token
         self.current_token = ''
         self.statements = []
         self.tokens = []
@@ -19,99 +23,122 @@ class Tokenizer:
         self.context = context
 
     def step(self, char):
+        """Advances the Tokenizer State Machine
+
+        :param str char:  the character that will be passed to the State Machine
+
+        """
         self.state(char)
 
-    def string(self, char):
+    def _state_string(self, char):
         if char == '\\':
-            self.state = self.escaped_string
+            self.state = self._state_escaped_string
             return
         if char == '"':
             if self.current_token:
                 self.tokens.append('"' + self.current_token + '"')
             self.current_token = ''
-            self.state = self.token
+            self.state = self._state_token
             return
         self.current_token += char
 
-    def escaped_string(self, char):
+    def _state_escaped_string(self, char):
         self.current_token += char
-        self.state = self.string
+        self.state = self._state_string
 
-    def escaped_char(self, char):
+    def _state_escaped_char(self, char):
         self.current_token += char
-        self.state = self.char
+        self.state = self._state_char
 
-    def char(self, char):
+    def _state_char(self, char):
         if char == '\\':
-            self.state = self.escaped_char
+            self.state = self._state_escaped_char
             return
         if char == '\'':
             if self.current_token:
                 self.tokens.append('\'' + self.current_token + '\'')
             self.current_token = ''
-            self.state = self.token
+            self.state = self._state_token
             return
         self.current_token += char
 
-    def token(self, char):
-        if char in (' ', '\n', '\r', '\t', ',', ';'):
-            if self.current_token:
-                self.tokens.append(self.current_token)
-            self.current_token = ''
-            if char in ('\n', '\r', ';'):
-                if len(self.tokens) > 0:
-                    if (self.tokens[0].startswith('.')):
-                        self.statements.append(
-                            Directive(self.tokens, self.line, self.context))
-                    else:
-                        self.statements.append(
-                            Instruction(self.tokens, self.line, self.context))
-                self.tokens = []
-                if char in (';',):
-                    self.state = self.comment
+    def _token_spaces(self, char):
+        if self.current_token:
+            self.tokens.append(self.current_token)
+        self.current_token = ''
+        if char in ('\n', '\r', ';'):
+            if self.tokens:
+                if self.tokens[0].startswith('.'):
+                    self.statements.append(
+                        Directive(self.tokens, self.line, self.context))
                 else:
-                    self.state = self.token
+                    self.statements.append(
+                        Instruction(self.tokens, self.line, self.context))
+            self.tokens = []
+            if char in (';',):
+                self.state = self._state_comment
+            else:
+                self.state = self._state_token
+
+    def _token_brackets(self, char):
+        if self.current_token:
+            self.tokens.append(self.current_token)
+        self.tokens.append(char)
+        self.current_token = ''
+
+    def _token_colon(self):
+        if self.tokens:
+            raise InvalidLabel(self)
+        if self.current_token:
+            self.tokens.append(self.current_token)
+        self.statements.append(
+            Label(self.tokens, self.line, self.context))
+        self.state = self._state_token
+        self.current_token = ''
+        self.tokens = []
+
+    def _token_string(self):
+        if self.current_token:
+            self.tokens.append(self.current_token)
+        self.current_token = ''
+        self.state = self._state_string
+
+    def _token_char(self):
+        if self.current_token:
+            self.tokens.append(self.current_token)
+        self.current_token = ''
+        self.state = self._state_char
+
+    def _state_token(self, char):
+        if char in (' ', '\n', '\r', '\t', ',', ';'):
+            self._token_spaces(char)
             return
         if char in ('(', ')', '[', ']', '{', '}'):
-            if self.current_token:
-                self.tokens.append(self.current_token)
-            self.tokens.append(char)
-            self.current_token = ''
+            self._token_brackets(char)
             return
         if char == ':':
-            if len(self.tokens) > 0:
-                raise Tokenizer.InvalidLabel(self)
-            if self.current_token:
-                self.tokens.append(self.current_token)
-            self.statements.append(
-                Label(self.tokens, self.line, self.context))
-            self.state = self.token
-            self.current_token = ''
-            self.tokens = []
+            self._token_colon()
             return
         if char == '"':
-            if self.current_token:
-                self.tokens.append(self.current_token)
-            self.current_token = ''
-            self.state = self.string
+            self._token_string()
             return
         if char == '\'':
-            if self.current_token:
-                self.tokens.append(self.current_token)
-            self.current_token = ''
-            self.state = self.char
+            self._token_char()
             return
         self.current_token += char
 
-    def comment(self, char):
+    def _state_comment(self, char):
         if char in ('\n', '\r'):
-            self.state = self.token
-        return
+            self.state = self._state_token
 
     def parse(self, code):
+        """Tokenizes a block of code
+
+        :param str code: the source code to tokenize
+        """
         # hack for avoiding losing the last statement
         code += '\n'
-        for b in code:
-            if b == '\n':
+        for byte in code:
+            if byte == '\n':
                 self.line += 1
-            self.step(b)
+            self.step(byte)
