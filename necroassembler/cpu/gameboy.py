@@ -34,8 +34,7 @@ class AssemblerGameboy(Assembler):
                 self.add_label_translation(
                     label=arg, size=1, relative=True, start=self.current_org + self.org_counter + 1)
                 return pack('b', value)
-            else:
-                self.add_label_translation(label=arg, size=1)
+            self.add_label_translation(label=arg, size=1)
         return pack_byte(value)
 
     def _data16(self, arg):
@@ -52,7 +51,7 @@ class AssemblerGameboy(Assembler):
         arg = instr.tokens[1]
         key = None
         data = b''
-        if arg.upper() in (self.regs8 + self.regs16 + self.conditions):
+        if arg.upper() in self.regs8 + self.regs16 + self.conditions:
             key = self.reg_name(arg)
         else:
             if 'relative' in kwargs:
@@ -112,7 +111,7 @@ class AssemblerGameboy(Assembler):
 
         return pack_byte(kwargs[key]) + data
 
-    def build_cb_opcode(self, instr, **kwargs):
+    def _build_cb_opcode(self, instr, **kwargs):
         if len(instr.tokens) == 2:
             reg = instr.tokens[1]
             if reg.upper() not in self.regs8:
@@ -120,12 +119,13 @@ class AssemblerGameboy(Assembler):
             key = self.reg_name(reg)
             return pack_bytes(0xCB, kwargs[key])
         if len(instr.tokens) == 3:
-            bn = instr.tokens[1]
+            bit_number = instr.tokens[1]
             reg = instr.tokens[2]
             if reg not in self.regs8:
                 return None
-            key = 'b' + str(bn) + '_' + self.reg_name(reg)
+            key = 'b' + str(bit_number) + '_' + self.reg_name(reg)
             return pack_bytes(0xCB, kwargs[key])
+        return None
 
     def build_opcode_four_args(self, instr, **kwargs):
         args = instr.tokens[1:]
@@ -197,6 +197,7 @@ class AssemblerGameboy(Assembler):
             return self.build_opcode_three_args(instr, **kwargs)
         if len(args) == 4:
             return self.build_opcode_four_args(instr, **kwargs)
+        return None
 
     @opcode('LD')
     def _ld(self, instr):
@@ -269,15 +270,15 @@ class AssemblerGameboy(Assembler):
 
     @opcode('BIT')
     def _bit(self, instr):
-        return self.build_cb_opcode(instr, b0_a=0x47,
-                                    b1_a=0x4F,
-                                    b2_a=0x57,
-                                    b3_a=0x5F,
-                                    b7_h=0x7C)
+        return self._build_cb_opcode(instr, b0_a=0x47,
+                                     b1_a=0x4F,
+                                     b2_a=0x57,
+                                     b3_a=0x5F,
+                                     b7_h=0x7C)
 
     @opcode('RL')
     def _rl(self, instr):
-        return self.build_cb_opcode(instr, c=0x11)
+        return self._build_cb_opcode(instr, c=0x11)
 
     @opcode('DEC')
     def _dec(self, instr):
@@ -343,14 +344,14 @@ def main():
 
     # global checksum
     global_checksum = 0
-    for b in asm.assembled_bytes:
-        global_checksum += int(b)
+    for byte in asm.assembled_bytes:
+        global_checksum += int(byte)
 
     asm.assembled_bytes[0x14e] = (global_checksum >> 8) & 0xFF
     asm.assembled_bytes[0x14f] = global_checksum & 0xFF
 
-    with open(sys.argv[2], 'wb') as f:
-        f.write(asm.assembled_bytes)
+    with open(sys.argv[2], 'wb') as stream:
+        stream.write(asm.assembled_bytes)
 
 
 if __name__ == '__main__':
