@@ -90,7 +90,7 @@ class AssemblerIntel8086(Assembler):
     def _call(self, instr):
         arg = instr.tokens[1]
         value = self.parse_integer_or_label(
-            arg, size=2, relative=True, start=self.current_org + self.org_counter + 1)
+            arg, size=2, relative=True, start=self.current_org + self.org_counter + 3)
         return pack('<Bh', 0xE8, value)
 
 
