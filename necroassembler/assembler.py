@@ -131,15 +131,32 @@ class Assembler:
                 true_address = self.get_label_absolute_address_by_name(label)
             else:
                 true_address = self.get_label_relative_address_by_name(
-                    label, data['start'] + data['size'])
+                    label, data['start'])
             if true_address is None:
                 raise UnknownLabel(label, self)
+            if 'left_shift' in data:
+                true_address = true_address << data['left_shift']
+            if 'right_shift' in data:
+                true_address = true_address >> data['right_shift']
             if 'hook' in data:
                 data['hook'](address, true_address)
             else:
-                for i in range(0, data['size']):
-                    self.assembled_bytes[address +
-                                         i] = (true_address >> (8 * i)) & 0xff
+                size = data['size']
+                for i in range(0, size):
+                    value = (true_address >> (8 * i)) & 0xff
+                    right_and = 0xff
+                    if 'bits' in data:
+                        max_bit = i * 8 + 7
+                        min_bit = max_bit - 7
+                        #  compute bits operations
+                        if max_bit >= data['bits'][1] and min_bit <= data['bits'][0]:
+                            left = max_bit - data['bits'][1]
+                            right = data['bits'][0] - min_bit
+                            if left >= 7:
+                                left = 0
+                            if right < 7:
+                                right_and = (0xff >> (7 - right))
+                    self.assembled_bytes[address+i] |= value & right_and
 
         for _pass in self.post_link_passes:
             _pass()

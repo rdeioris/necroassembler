@@ -1,5 +1,5 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_bytes
+from necroassembler.utils import pack_le_u16
 from necroassembler.exceptions import UnkownRegister, InvalidRegister, InvalideImmediateValue
 
 
@@ -23,8 +23,12 @@ class AssemblerThumb(Assembler):
         raise UnkownRegister(instr)
 
     def _offset(self, instr, arg, bits):
-        return self.parse_integer_or_label(arg, bits=bits,
+        return self.parse_integer_or_label(arg,
+                                           bits=bits,
                                            relative=True,
+                                           size=2,
+                                           offset=0,
+                                           right_shift=1,
                                            start=self.current_org + self.org_counter + 4)
 
     def _imm(self, instr, arg, bits):
@@ -32,23 +36,26 @@ class AssemblerThumb(Assembler):
             raise InvalideImmediateValue(instr)
         return self._offset(instr, arg[1:], bits)
 
+    def _build_opcode(self, left, right):
+        return pack_le_u16(left << 8 | right & 0xFF)
+
     @opcode('MOV')
     def _mov(self, instr):
         reg, imm = instr.tokens[1:]
-        return pack_bytes(0b00100 | self._low_reg(instr, reg), self._imm(instr, imm, 8))
+        return self._build_opcode(0b00100000 | self._low_reg(instr, reg),  self._imm(instr, imm, (7, 0)))
 
     @opcode('ADD')
     def _add(self, instr):
         reg_d, reg_s, op = instr.tokens[1:]
         imm = 0
         if op.startswith('#'):
-            op = self._imm(instr, op, 3) & 0x07
+            op = self._imm(instr, op, (2, 0)) & 0x07
             imm = 1 << 2
         else:
             op = self._low_reg(instr, op)
-        return pack_bytes(0b0001100 | imm | op >> 2, op << 6 | self._low_reg(instr, reg_s) << 3 | self._low_reg(instr, reg_d))
+        return self._build_opcode(0b00011000 | imm | (op >> 2), (op << 6) | (self._low_reg(instr, reg_s) << 3) | self._low_reg(instr, reg_d))
 
     @opcode('B')
     def _b(self, instr):
-        offset = self._offset(instr, instr.tokens[1], 11)
-        return pack_bytes(0b11100 | offset, offset)
+        offset = self._offset(instr, instr.tokens[1], (10, 0))
+        return self._build_opcode(0b11100000 | (offset & 0x07), offset)

@@ -32,7 +32,7 @@ class AssemblerGameboy(Assembler):
         if value is None:
             if relative:
                 self.add_label_translation(
-                    label=arg, size=1, relative=True, start=self.current_org + self.org_counter + 1)
+                    label=arg, size=1, relative=True, start=self.current_org + self.org_counter + 2)
                 return pack('b', value)
             self.add_label_translation(label=arg, size=1)
         return pack_byte(value)

@@ -62,7 +62,7 @@ class AssemblerMOS6502(Assembler):
     def manage_branching(self, instr, opcode):
         arg = instr.tokens[1]
         address = self.parse_integer_or_label(
-            arg, size=1, relative=True, start=self.current_org + self.org_counter + 1)
+            arg, size=1, relative=True, start=self.current_org + self.org_counter + 2)
         return pack('<Bb', opcode, address)
 
     def manage_address(self, abs, zp, arg):
