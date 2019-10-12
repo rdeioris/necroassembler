@@ -57,21 +57,43 @@ class AssemblerThumb(Assembler):
         off5 = self._imm(instr, off5, (10, 6))
         return self._build_opcode(0b00010000 | (off5 >> 2), (off5 << 6) | (self._low_reg(instr, rs) << 3) | self._low_reg(instr, rd))
 
-    @opcode('MOV')
-    def _mov(self, instr):
-        reg, imm = instr.tokens[1:]
-        return self._build_opcode(0b00100000 | self._low_reg(instr, reg),  self._imm(instr, imm, (7, 0)))
-
     @opcode('ADD')
     def _add(self, instr):
-        reg_d, reg_s, op = instr.tokens[1:]
+        reg_d, reg_s, *op = instr.tokens[1:]
+        if not op:
+            return self._build_opcode(0b00110000 | self._low_reg(instr, reg_d),  self._imm(instr, reg_s, (7, 0)))
         imm = 0
+        op = op[0]
         if op.startswith('#'):
             op = self._imm(instr, op, (2, 0)) & 0x07
             imm = 1 << 2
         else:
             op = self._low_reg(instr, op)
         return self._build_opcode(0b00011000 | imm | (op >> 2), (op << 6) | (self._low_reg(instr, reg_s) << 3) | self._low_reg(instr, reg_d))
+
+    @opcode('SUB')
+    def _sub(self, instr):
+        reg_d, reg_s, *op = instr.tokens[1:]
+        if not op:
+            return self._build_opcode(0b00111000 | self._low_reg(instr, reg_d),  self._imm(instr, reg_s, (7, 0)))
+        imm = 0
+        op = op[0]
+        if op.startswith('#'):
+            op = self._imm(instr, op, (2, 0)) & 0x07
+            imm = 1 << 2
+        else:
+            op = self._low_reg(instr, op)
+        return self._build_opcode(0b00011010 | imm | (op >> 2), (op << 6) | (self._low_reg(instr, reg_s) << 3) | self._low_reg(instr, reg_d))
+
+    @opcode('MOV')
+    def _mov(self, instr):
+        reg, imm = instr.tokens[1:]
+        return self._build_opcode(0b00100000 | self._low_reg(instr, reg),  self._imm(instr, imm, (7, 0)))
+
+    @opcode('CMP')
+    def _mov(self, instr):
+        reg, imm = instr.tokens[1:]
+        return self._build_opcode(0b00101000 | self._low_reg(instr, reg),  self._imm(instr, imm, (7, 0)))
 
     @opcode('B')
     def _b(self, instr):
