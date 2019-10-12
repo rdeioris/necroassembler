@@ -39,6 +39,24 @@ class AssemblerThumb(Assembler):
     def _build_opcode(self, left, right):
         return pack_le_u16(left << 8 | right & 0xFF)
 
+    @opcode('LSL')
+    def _lsl(self, instr):
+        rd, rs, off5 = instr.tokens[1:]
+        off5 = self._imm(instr, off5, (10, 6))
+        return self._build_opcode(0b00000000 | (off5 >> 2), (off5 << 6) | (self._low_reg(instr, rs) << 3) | self._low_reg(instr, rd))
+
+    @opcode('LSR')
+    def _lsr(self, instr):
+        rd, rs, off5 = instr.tokens[1:]
+        off5 = self._imm(instr, off5, (10, 6))
+        return self._build_opcode(0b00001000 | (off5 >> 2), (off5 << 6) | (self._low_reg(instr, rs) << 3) | self._low_reg(instr, rd))
+
+    @opcode('ASR')
+    def _asr(self, instr):
+        rd, rs, off5 = instr.tokens[1:]
+        off5 = self._imm(instr, off5, (10, 6))
+        return self._build_opcode(0b00010000 | (off5 >> 2), (off5 << 6) | (self._low_reg(instr, rs) << 3) | self._low_reg(instr, rd))
+
     @opcode('MOV')
     def _mov(self, instr):
         reg, imm = instr.tokens[1:]
@@ -58,4 +76,4 @@ class AssemblerThumb(Assembler):
     @opcode('B')
     def _b(self, instr):
         offset = self._offset(instr, instr.tokens[1], (10, 0))
-        return self._build_opcode(0b11100000 | (offset & 0x07), offset)
+        return self._build_opcode(0b11100000 | (offset >> 5), offset)
