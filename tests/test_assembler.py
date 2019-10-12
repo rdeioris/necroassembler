@@ -1,6 +1,6 @@
 import unittest
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_be_32s
+from necroassembler.utils import pack_be_u32s
 from necroassembler.exceptions import UnsupportedNestedMacro
 
 
@@ -16,8 +16,8 @@ class TestAssembler(unittest.TestCase):
             # label ?
             if value is None:
                 self.add_label_translation(label=arg, size=4)
-                return pack_be_32s(0xaabbccdd, 0)
-            return pack_be_32s(0xaabbccdd, value)
+                return pack_be_u32s(0xaabbccdd, 0)
+            return pack_be_u32s(0xaabbccdd, value)
 
     def setUp(self):
         self.asm = self.DumbAssembler()

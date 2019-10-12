@@ -40,3 +40,21 @@ class NotInMacroRecordingMode(Exception):
     def __init__(self, subject):
         super().__init__(
             'not in macro recording mode {0}'.format(subject))
+
+
+class UnkownRegister(Exception):
+    def __init__(self, subject):
+        super().__init__(
+            'unkown cpu register {0}'.format(subject))
+
+
+class InvalidRegister(Exception):
+    def __init__(self, subject):
+        super().__init__(
+            'unkown cpu register {0}'.format(subject))
+
+
+class InvalideImmediateValue(Exception):
+    def __init__(self, subject):
+        super().__init__(
+            'invalid immediate value {0}'.format(subject))

@@ -1,5 +1,5 @@
 from necroassembler.tokenizer import Tokenizer
-from necroassembler.utils import pack, pack_byte
+from necroassembler.utils import pack, pack_byte, pack_le_u16, pack_le_u32
 from necroassembler.exceptions import UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode
 from necroassembler.macros import Macro
 
@@ -58,6 +58,8 @@ class Assembler:
         self.register_directive('byte', self.directive_db)
         self.register_directive('dw', self.directive_dw)
         self.register_directive('word', self.directive_dw)
+        self.register_directive('dd', self.directive_dd)
+        self.register_directive('dword', self.directive_dd)
         self.register_directive('db_to_ascii', self.directive_db_to_ascii)
         self.register_directive('dw_to_ascii', self.directive_dw_to_ascii)
         self.register_directive('db_to_asciiz', self.directive_db_to_asciiz)
@@ -202,6 +204,7 @@ class Assembler:
         # label ?
         if value is None:
             self.add_label_translation(label=arg, **kwargs)
+            return 0
         return value
 
     def apply_math_formula(self, pre_formula, post_formula, value):
@@ -282,7 +285,20 @@ class Assembler:
                 value = self.parse_integer(token)
                 if value is None:
                     self.add_label_translation(label=token, size=2, offset=0)
-                blob = pack('<H', value)
+                blob = pack_le_u16(value)
+            self.assembled_bytes += blob
+            self.org_counter += len(blob)
+
+    def directive_dd(self, instr):
+        for token in instr.tokens[1:]:
+            blob = b''
+            if token[0] in ('"', '\''):
+                blob = token[1:-1].encode('utf32')
+            else:
+                value = self.parse_integer(token)
+                if value is None:
+                    self.add_label_translation(label=token, size=4, offset=0)
+                blob = pack_le_u32(value)
             self.assembled_bytes += blob
             self.org_counter += len(blob)
 
