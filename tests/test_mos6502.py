@@ -25,28 +25,28 @@ class TestMOS6502(unittest.TestCase):
 
     def test_lda_immediate_label(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #test')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #<test')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x05)))
 
     def test_lda_immediate_label_plus_one(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #test+')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #<test+')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x06)))
 
     def test_lda_immediate_label_plus_three(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #test+++')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #>test+++')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
-            (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x08)))
+            (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x13)))
 
     def test_lda_immediate_label_plus_dash(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #test+-+-')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #<test+-+-')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x05)))

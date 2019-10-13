@@ -22,6 +22,8 @@ class AssemblerMOS6502(Assembler):
 
     oct_prefixes = ('@',)
 
+    special_prefixes = ('#',)
+
     def register_instructions(self):
 
         self.register_instruction('BRK', b'\x00')

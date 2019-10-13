@@ -38,8 +38,27 @@ def pack(fmt, *args):
     return struct.pack(fmt, *[n if n is not None else 0 for n in args])
 
 
-def substitute_with_dict(tokens, _dict, start=0):
+def in_bit_range(value, number_of_bits):
+    max_value = int('1' * number_of_bits, 2)
+    return value & max_value == value
+
+
+def in_bit_range_signed(value, number_of_bits):
+    if value < 0:
+        max_value = int('1' * number_of_bits, 2)
+        value += max_value // 2
+    else:
+        max_value = int('1' * (number_of_bits-1), 2)
+    return value & max_value == value
+
+
+def substitute_with_dict(tokens, _dict, start, prefixes=(), suffixes=()):
     for i in range(start, len(tokens)):
         name = tokens[i]
         if name in _dict:
             tokens[i] = _dict[name]
+        for prefix in prefixes:
+            if name.startswith(prefix):
+                new_name = name[len(prefix):]
+                if new_name in _dict:
+                    tokens[i] = prefix + _dict[new_name]

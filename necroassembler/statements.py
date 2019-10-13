@@ -22,7 +22,8 @@ class Instruction(Statement):
             macro.add_instruction(self)
             return
 
-        substitute_with_dict(self.tokens, assembler.defines)
+        substitute_with_dict(self.tokens, assembler.defines, 0,
+                             assembler.special_prefixes, assembler.special_suffixes)
 
         key = self.tokens[0]
         if not assembler.case_sensitive:

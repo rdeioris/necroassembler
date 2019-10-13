@@ -24,6 +24,18 @@ class UnknownLabel(Exception):
             'unknown label "{0}" for {1}'.format(label, subject))
 
 
+class AlignmentError(Exception):
+    def __init__(self, label, subject):
+        super().__init__(
+            'wrong alignment for label "{0}" for {1}'.format(label, subject))
+
+
+class NotInBitRange(Exception):
+    def __init__(self, label, value, max_bits, subject):
+        super().__init__(
+            'value {1} of label "{0}" is not in the {2} bit range for {3}'.format(label, value, max_bits, subject))
+
+
 class UnknownDirective(Exception):
     def __init__(self, subject):
         super().__init__(

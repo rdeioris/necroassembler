@@ -1,6 +1,6 @@
 from necroassembler.tokenizer import Tokenizer
-from necroassembler.utils import pack, pack_byte, pack_le_u16, pack_le_u32
-from necroassembler.exceptions import UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode
+from necroassembler.utils import pack, pack_byte, pack_le_u16, pack_le_u32, in_bit_range_signed, in_bit_range
+from necroassembler.exceptions import UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode, AlignmentError, NotInBitRange
 from necroassembler.macros import Macro
 
 
@@ -21,6 +21,9 @@ class Assembler:
     oct_suffixes = ()
     dec_prefixes = ()
     dec_suffixes = ()
+
+    special_prefixes = ()
+    special_suffixes = ()
 
     case_sensitive = False
 
@@ -134,17 +137,36 @@ class Assembler:
                     label, data['start'])
             if true_address is None:
                 raise UnknownLabel(label, self)
+            if 'alignment' in data:
+                if true_address % data['alignment'] != 0:
+                    raise AlignmentError(label, self)
             if 'left_shift' in data:
                 true_address = true_address << data['left_shift']
             if 'right_shift' in data:
                 true_address = true_address >> data['right_shift']
+
             if 'hook' in data:
                 data['hook'](address, true_address)
             else:
                 size = data['size']
+                total_bits = size * 8
+
+                if 'bits' in data:
+                    total_bits = data['bits'][0] - data['bits'][1] + 1
+
+                if relative:
+                    if not in_bit_range_signed(true_address, total_bits):
+                        raise NotInBitRange(
+                            label, true_address, total_bits, self)
+                else:
+                    if true_address < 0 or not in_bit_range(true_address, total_bits):
+                        raise NotInBitRange(
+                            label, true_address, total_bits, self)
+
                 for i in range(0, size):
                     value = (true_address >> (8 * i)) & 0xff
                     right_and = 0xff
+                    left_shift = 0
                     if 'bits' in data:
                         max_bit = i * 8 + 7
                         min_bit = max_bit - 7
@@ -152,11 +174,12 @@ class Assembler:
                         if max_bit >= data['bits'][1] and min_bit <= data['bits'][0]:
                             left = max_bit - data['bits'][1]
                             right = data['bits'][0] - min_bit
-                            if left >= 7:
-                                left = 0
+                            if left < 7:
+                                left_shift = 7 - left
                             if right < 7:
                                 right_and = (0xff >> (7 - right))
-                    self.assembled_bytes[address+i] |= value & right_and
+                    self.assembled_bytes[address +
+                                         i] |= (value << left_shift) & right_and
 
         for _pass in self.post_link_passes:
             _pass()
@@ -225,15 +248,26 @@ class Assembler:
         return value
 
     def apply_math_formula(self, pre_formula, post_formula, value):
-        for op in pre_formula + post_formula:
+        low_counter = 0
+        shifted_value = 0
+        has_shifted_value = False
+
+        for op in pre_formula:
+            if op == '>':
+                value >>= 8
+            elif op == '<':
+                shifted_value |= (value & 0xFF) << (8 * low_counter)
+                low_counter += 1
+                has_shifted_value = True
+
+        if has_shifted_value:
+            value = shifted_value
+
+        for op in post_formula:
             if op == '+':
                 value += 1
             elif op == '-':
                 value -= 1
-            elif op == '>':
-                value >>= 8
-            elif op == '<':
-                value <<= 8
         return value
 
     def get_label_absolute_address(self, label):
