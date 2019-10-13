@@ -71,3 +71,11 @@ class TestThumb(unittest.TestCase):
     def test_b_unaligned(self):
         self.asm.assemble('loop: b loop+')
         self.assertRaises(AlignmentError, self.asm.link)
+
+    def test_b_add_rd_hs(self):
+        self.asm.assemble('ADD r7, r15')
+        self.assertEqual(self.asm.assembled_bytes, b'\x7F\x44')
+
+    def test_ldrb_rd_rb_imm(self):
+        self.asm.assemble('LDRB r0, [r1, #8]')
+        self.assertEqual(self.asm.assembled_bytes, b'\x88\x78')
