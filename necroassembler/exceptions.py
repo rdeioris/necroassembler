@@ -36,6 +36,12 @@ class NotInBitRange(Exception):
             'value {1} of label "{0}" is not in the {2} bit range for {3}'.format(label, value, max_bits, subject))
 
 
+class OnlyForwardAddressesAllowed(Exception):
+    def __init__(self, label, value, subject):
+        super().__init__(
+            'value {1} of label "{0}" is not higher than the start for {2}'.format(label, value, subject))
+
+
 class UnknownDirective(Exception):
     def __init__(self, subject):
         super().__init__(

@@ -49,7 +49,29 @@ class AssemblerThumb(Assembler):
     def _imm(self, instr, arg, shift=0):
         if not arg.startswith('#'):
             raise InvalideImmediateValue(instr)
-        return self.parse_integer(arg[1:]) >> shift
+        value = self.parse_integer(arg[1:])
+        if not value:
+            raise InvalideImmediateValue(instr)
+        return value >> shift
+
+    def _word8(self, instr, arg, shift=0):
+        if not arg.startswith('#'):
+            raise InvalideImmediateValue(instr)
+        value = self.parse_integer(arg[1:])
+        if not value:
+            pc = self.current_org + self.org_counter + 4
+            self.add_label_translation(label=arg[1:],
+                                       bits=(7, 0),
+                                       relative=True,
+                                       only_forward=True,
+                                       size=2,
+                                       offset=0,
+                                       alignment=4,
+                                       right_shift=2,
+                                       # bit 1 of pc must be turned off
+                                       start=pc & ~(0b10))
+            value = 0
+        return value >> shift
 
     def _build_opcode(self, left, right):
         return pack_le_u16(left << 8 | right & 0xFF)
@@ -93,7 +115,7 @@ class AssemblerThumb(Assembler):
         op = op[0]
         if op.startswith('#'):
             if reg_s.lower() in ('r15', 'pc'):
-                return self._build_opcode(0b10100000 | self._low_reg(instr, reg_d), self._imm(instr, op, 2))
+                return self._build_opcode(0b10100000 | self._low_reg(instr, reg_d), self._word8(instr, op, 2))
             if reg_s.lower() in ('r13', 'sp'):
                 return self._build_opcode(0b10101000 | self._low_reg(instr, reg_d), self._imm(instr, op, 2))
 
@@ -220,7 +242,7 @@ class AssemblerThumb(Assembler):
             return None
 
         if pc.lower() in ('r15', 'pc'):
-            return self._build_opcode(0b01001000 | self._low_reg(instr, rd), self._imm(instr, imm, 2))
+            return self._build_opcode(0b01001000 | self._low_reg(instr, rd), self._word8(instr, imm, 2))
 
         if pc.lower() in ('r13', 'sp'):
             return self._build_opcode(0b10011000 | self._low_reg(instr, rd), self._imm(instr, imm, 2))
@@ -364,7 +386,7 @@ class AssemblerThumb(Assembler):
                                    offset=2,
                                    alignment=2,
                                    right_shift=1,
-                                   filter=lambda x: x & 0x7FF, # get first 11 bits
+                                   filter=lambda x: x & 0x7FF,  # get first 11 bits
                                    skip_bit_check=True,
                                    start=self.current_org + self.org_counter + 4)
         return self._build_opcode(0b11110000, 0) + self._build_opcode(0b11111000, 0)

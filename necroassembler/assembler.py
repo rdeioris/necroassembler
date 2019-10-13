@@ -1,6 +1,6 @@
 from necroassembler.tokenizer import Tokenizer
 from necroassembler.utils import pack, pack_byte, pack_le_u16, pack_le_u32, in_bit_range_signed, in_bit_range
-from necroassembler.exceptions import UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode, AlignmentError, NotInBitRange
+from necroassembler.exceptions import UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode, AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed
 from necroassembler.macros import Macro
 
 
@@ -69,6 +69,7 @@ class Assembler:
         self.register_directive('dw_to_asciiz', self.directive_dw_to_asciiz)
         self.register_directive('fill', self.directive_fill)
         self.register_directive('log', self.directive_log)
+        self.register_directive('align', self.directive_align)
 
     def register_defines(self):
         pass
@@ -108,8 +109,8 @@ class Assembler:
                 if new_index == current_index:
                     print('not assembled {0}'.format(statement))
                 else:
-                    print('assembled {0} -> {1} at 0x{2:x}'.format(statement,
-                                                                   self.assembled_bytes[current_index:], current_index))
+                    print('assembled {0} -> ({1}) at 0x{2:x}'.format(statement,
+                                                                   ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_index:]]), current_index))
 
         # check if we need to fill something
         if self.current_org_end > 0:
@@ -131,15 +132,18 @@ class Assembler:
             label = data['label']
             relative = data.get('relative', False)
             skip_bit_check = data.get('skip_bit_check', False)
+            only_forward = data.get('only_forward', False)
+            absolute_address = self.get_label_absolute_address_by_name(label)
             if not relative:
-                true_address = self.get_label_absolute_address_by_name(label)
+                true_address = absolute_address
             else:
                 true_address = self.get_label_relative_address_by_name(
                     label, data['start'])
             if true_address is None:
                 raise UnknownLabel(label, self)
+
             if 'alignment' in data:
-                if true_address % data['alignment'] != 0:
+                if absolute_address % data['alignment'] != 0:
                     raise AlignmentError(label, self)
 
             if 'left_shift' in data:
@@ -160,6 +164,10 @@ class Assembler:
                     total_bits = data['bits'][0] - data['bits'][1] + 1
 
                 if relative:
+                    if only_forward:
+                        if true_address < 0:
+                            raise OnlyForwardAddressesAllowed(
+                                label, true_address, self)
                     if not skip_bit_check and not in_bit_range_signed(true_address, total_bits):
                         raise NotInBitRange(
                             label, true_address, total_bits, self)
@@ -402,7 +410,7 @@ class Assembler:
         size = self.parse_integer(instr.tokens[1])
         if size is None:
             raise Exception('invalid fill size')
-        value = 0
+        value = self.fill_value
         if len(instr.tokens) == 3:
             value = self.parse_integer(instr.tokens[2])
             if value is None:
@@ -410,6 +418,19 @@ class Assembler:
         blob = bytes([value] * size)
         self.assembled_bytes += blob
         self.org_counter += len(blob)
+
+    def directive_align(self, instr):
+        if len(instr.tokens) != 2:
+            raise Exception('invalid align directive')
+        size = self.parse_integer(instr.tokens[1])
+        if size is None:
+            raise Exception('invalid align size')
+
+        mod = (self.current_org + self.org_counter) % size
+        if mod != 0:
+            blob = bytes([self.fill_value]) * (size - mod)
+            self.assembled_bytes += blob
+            self.org_counter += len(blob)
 
     def directive_db_to_ascii(self, instr):
         def db_to_str(address, true_address):
