@@ -79,3 +79,19 @@ class TestThumb(unittest.TestCase):
     def test_ldrb_rd_rb_imm(self):
         self.asm.assemble('LDRB r0, [r1, #8]')
         self.assertEqual(self.asm.assembled_bytes, b'\x88\x78')
+
+    def test_bl_num(self):
+        self.asm.assemble('BL 0x200000')
+        self.assertEqual(self.asm.assembled_bytes, b'\x00\xF2\x00\xF8')
+
+    def test_bl_num_too_far(self):
+        self.assertRaises(NotInBitRange, self.asm.assemble, 'BL 0x500000')
+
+    def test_bl(self):
+        self.asm.assemble('BL far\n.org 0x200000\nfar:')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\xFF\xF1\xFE\xFF')
+
+    def test_bl_too_far(self):
+        self.asm.assemble('BL far\n.org 0x500000\nfar:')
+        self.assertRaises(NotInBitRange, self.asm.link)

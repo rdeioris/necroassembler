@@ -1,6 +1,6 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_le_u16
-from necroassembler.exceptions import UnkownRegister, InvalidRegister, InvalideImmediateValue
+from necroassembler.utils import pack_le_u16, in_bit_range_signed
+from necroassembler.exceptions import UnkownRegister, InvalidRegister, InvalideImmediateValue, NotInBitRange
 
 
 class AssemblerThumb(Assembler):
@@ -92,6 +92,11 @@ class AssemblerThumb(Assembler):
         imm = 0
         op = op[0]
         if op.startswith('#'):
+            if reg_s.lower() in ('r15', 'pc'):
+                return self._build_opcode(0b10100000 | self._low_reg(instr, reg_d), self._imm(instr, op, 2))
+            if reg_s.lower() in ('r13', 'sp'):
+                return self._build_opcode(0b10101000 | self._low_reg(instr, reg_d), self._imm(instr, op, 2))
+
             op = self._imm(instr, op) & 0x07
             imm = 1 << 2
         else:
@@ -217,6 +222,9 @@ class AssemblerThumb(Assembler):
         if pc.lower() in ('r15', 'pc'):
             return self._build_opcode(0b01001000 | self._low_reg(instr, rd), self._imm(instr, imm, 2))
 
+        if pc.lower() in ('r13', 'sp'):
+            return self._build_opcode(0b10011000 | self._low_reg(instr, rd), self._imm(instr, imm, 2))
+
         rb, ro = pc, imm
 
         if rb.lower() in self.low_regs and ro.lower() in self.low_regs:
@@ -235,6 +243,9 @@ class AssemblerThumb(Assembler):
 
         if open_bracket != '[' or close_bracket != ']':
             return None
+
+        if rb.lower() in ('r13', 'sp'):
+            return self._build_opcode(0b10010000 | self._low_reg(instr, rd), self._imm(instr, ro, 2))
 
         if ro.lower() in self.low_regs:
             return self._build_opcode(0b01010000 | (self._low_reg(instr, ro) >> 7),
@@ -327,6 +338,36 @@ class AssemblerThumb(Assembler):
 
         return self._build_opcode(0b01011110 | (self._low_reg(instr, ro) >> 7),
                                   self._low_reg(instr, ro) << 6 | self._low_reg(instr, rb) << 3 | self._low_reg(instr, rd))
+
+    @opcode('BL')
+    def _bl(self, instr):
+        offset = instr.tokens[1]
+        address = self.parse_integer(offset)
+        if address:
+            if not in_bit_range_signed(address, 23):
+                raise NotInBitRange('', address, 23, instr)
+            address >>= 1
+            address0 = address >> 11
+            address1 = address & 0x7ff
+            return self._build_opcode(0b11110000 | (address0 >> 8), address0) + self._build_opcode(0b11111000 | (address1 >> 8), address1)
+        self.add_label_translation(label=offset, bits=(10, 0),
+                                   relative=True,
+                                   size=2,
+                                   offset=0,
+                                   alignment=2,
+                                   right_shift=12,  # 11 + 1
+                                   skip_bit_check=True,
+                                   start=self.current_org + self.org_counter + 4)
+        self.add_label_translation(label=offset, bits=(10, 0),
+                                   relative=True,
+                                   size=2,
+                                   offset=2,
+                                   alignment=2,
+                                   right_shift=1,
+                                   filter=lambda x: x & 0x7FF, # get first 11 bits
+                                   skip_bit_check=True,
+                                   start=self.current_org + self.org_counter + 4)
+        return self._build_opcode(0b11110000, 0) + self._build_opcode(0b11111000, 0)
 
     @opcode('B')
     def _b(self, instr):

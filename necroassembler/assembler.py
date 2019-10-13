@@ -130,6 +130,7 @@ class Assembler:
             data = self.labels_addresses[address]
             label = data['label']
             relative = data.get('relative', False)
+            skip_bit_check = data.get('skip_bit_check', False)
             if not relative:
                 true_address = self.get_label_absolute_address_by_name(label)
             else:
@@ -140,10 +141,14 @@ class Assembler:
             if 'alignment' in data:
                 if true_address % data['alignment'] != 0:
                     raise AlignmentError(label, self)
+
             if 'left_shift' in data:
                 true_address = true_address << data['left_shift']
             if 'right_shift' in data:
                 true_address = true_address >> data['right_shift']
+
+            if 'filter' in data:
+                true_address = data['filter'](true_address)
 
             if 'hook' in data:
                 data['hook'](address, true_address)
@@ -155,11 +160,11 @@ class Assembler:
                     total_bits = data['bits'][0] - data['bits'][1] + 1
 
                 if relative:
-                    if not in_bit_range_signed(true_address, total_bits):
+                    if not skip_bit_check and not in_bit_range_signed(true_address, total_bits):
                         raise NotInBitRange(
                             label, true_address, total_bits, self)
                 else:
-                    if true_address < 0 or not in_bit_range(true_address, total_bits):
+                    if not skip_bit_check and true_address < 0 or not in_bit_range(true_address, total_bits):
                         raise NotInBitRange(
                             label, true_address, total_bits, self)
 
