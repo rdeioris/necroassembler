@@ -50,7 +50,7 @@ class AssemblerThumb(Assembler):
         if not arg.startswith('#'):
             raise InvalideImmediateValue(instr)
         value = self.parse_integer(arg[1:])
-        if not value:
+        if value is None:
             raise InvalideImmediateValue(instr)
         return value >> shift
 
@@ -58,7 +58,7 @@ class AssemblerThumb(Assembler):
         if not arg.startswith('#'):
             raise InvalideImmediateValue(instr)
         value = self.parse_integer(arg[1:])
-        if not value:
+        if value is None:
             pc = self.current_org + self.org_counter + 4
             self.add_label_translation(label=arg[1:],
                                        bits=(7, 0),
@@ -276,7 +276,7 @@ class AssemblerThumb(Assembler):
         if ro.lower() in self.high_regs + self.high_regs_aliases:
             raise InvalidRegister(instr)
 
-        return self._build_opcode(0b01100000 | self._imm(instr, ro, 2) >> 3, self._imm(instr, ro, 2) << 6 | self._low_reg(instr, rb) << 3 | self._low_reg(instr, rd))
+        return self._build_opcode(0b01100000 | self._imm(instr, ro, 2) >> 5, self._imm(instr, ro, 2) << 6 | self._low_reg(instr, rb) << 3 | self._low_reg(instr, rd))
 
     @opcode('STRB')
     def _strb(self, instr):
@@ -379,6 +379,7 @@ class AssemblerThumb(Assembler):
                                    alignment=2,
                                    right_shift=12,  # 11 + 1
                                    skip_bit_check=True,
+                                   combined_bit_check=23,
                                    start=self.current_org + self.org_counter + 4)
         self.add_label_translation(label=offset, bits=(10, 0),
                                    relative=True,
@@ -388,6 +389,7 @@ class AssemblerThumb(Assembler):
                                    right_shift=1,
                                    filter=lambda x: x & 0x7FF,  # get first 11 bits
                                    skip_bit_check=True,
+                                   combined_bit_check=23,
                                    start=self.current_org + self.org_counter + 4)
         return self._build_opcode(0b11110000, 0) + self._build_opcode(0b11111000, 0)
 
@@ -395,3 +397,8 @@ class AssemblerThumb(Assembler):
     def _b(self, instr):
         offset = self._offset(instr, instr.tokens[1], (10, 0), 2)
         return self._build_opcode(0b11100000 | (offset >> 5), offset)
+
+    @opcode('BNE')
+    def _bne(self, instr):
+        offset = self._offset(instr, instr.tokens[1], (7, 0), 2)
+        return self._build_opcode(0b11010001, offset)

@@ -110,7 +110,7 @@ class Assembler:
                     print('not assembled {0}'.format(statement))
                 else:
                     print('assembled {0} -> ({1}) at 0x{2:x}'.format(statement,
-                                                                   ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_index:]]), current_index))
+                                                                     ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_index:]]), current_index))
 
         # check if we need to fill something
         if self.current_org_end > 0:
@@ -146,6 +146,20 @@ class Assembler:
                 if absolute_address % data['alignment'] != 0:
                     raise AlignmentError(label, self)
 
+            if 'combined_bit_check' in data:
+                if relative:
+                    if only_forward:
+                        if true_address < 0:
+                            raise OnlyForwardAddressesAllowed(
+                                label, true_address, self)
+                    if not in_bit_range_signed(true_address, data['combined_bit_check']):
+                        raise NotInBitRange(
+                            label, true_address, data['combined_bit_check'], self)
+                else:
+                    if true_address < 0 or not in_bit_range(true_address, data['combined_bit_check']):
+                        raise NotInBitRange(
+                            label, true_address, data['combined_bit_check'], self)
+
             if 'left_shift' in data:
                 true_address = true_address << data['left_shift']
             if 'right_shift' in data:
@@ -178,8 +192,7 @@ class Assembler:
 
                 for i in range(0, size):
                     value = (true_address >> (8 * i)) & 0xff
-                    right_and = 0xff
-                    left_shift = 0
+                    skip = False
                     if 'bits' in data:
                         max_bit = i * 8 + 7
                         min_bit = max_bit - 7
@@ -188,11 +201,14 @@ class Assembler:
                             left = max_bit - data['bits'][1]
                             right = data['bits'][0] - min_bit
                             if left < 7:
-                                left_shift = 7 - left
+                                value <<= 7 - left
                             if right < 7:
-                                right_and = (0xff >> (7 - right))
-                    self.assembled_bytes[address +
-                                         i] |= (value << left_shift) & right_and
+                                value &= (0xff >> (7 - right))
+                        else:
+                            skip = True
+
+                    if not skip:
+                        self.assembled_bytes[address + i] |= value
 
         for _pass in self.post_link_passes:
             _pass()
