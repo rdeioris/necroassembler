@@ -1,41 +1,57 @@
 import struct
+from necroassembler.exceptions import NotInBitRange
 
 
-def pack_bytes(*args):
+def pack_byte(*args):
     return struct.pack('B' * len(args), *[n & 0xff if n is not None else 0 for n in args])
 
 
-def pack_le_u32s(*args):
+def pack_le32s(*args):
+    return struct.pack('<' + ('i' * len(args)),
+                       *[n & 0xffffffff if n is not None else 0 for n in args])
+
+
+def pack_le32u(*args):
     return struct.pack('<' + ('I' * len(args)),
                        *[n & 0xffffffff if n is not None else 0 for n in args])
 
 
-def pack_be_u32s(*args):
-    return struct.pack('>' + ('I' * len(args)), *args)
+def pack_le16s(*args):
+    return struct.pack('<' + ('h' * len(args)),
+                       *[n & 0xffff if n is not None else 0 for n in args])
 
 
-def pack_byte(byte):
-    return struct.pack('B', byte & 0xFF)
-
-
-def pack_le_u32(value):
-    return struct.pack('<I', value & 0xFFFFFFFF)
-
-
-def pack_be_u32(value):
-    return struct.pack('>I', value & 0xFFFFFFFF)
-
-
-def pack_le_u16(value):
-    return struct.pack('<H', value & 0xFFFF)
-
-
-def pack_be_u16(value):
-    return struct.pack('>H', value & 0xFFFF)
+def pack_le16u(*args):
+    return struct.pack('<' + ('H' * len(args)),
+                       *[n & 0xffff if n is not None else 0 for n in args])
 
 
 def pack(fmt, *args):
     return struct.pack(fmt, *[n if n is not None else 0 for n in args])
+
+
+def pack_bits(base, *args):
+    for arg in args:
+        (end, start), value, *signed = arg
+        if end < start:
+            raise Exception('invalid range')
+        total_bits = end - start + 1
+        if signed:
+            if not in_bit_range_signed(value, total_bits):
+                raise Exception('not in bit range')
+        else:
+            if not in_bit_range(value, total_bits):
+                raise Exception('not in bit range')
+        base |= (value << start) & (pow(2, end + 1) - 1)
+    return base
+
+
+def pack_bits_le32u(base, *args):
+    return pack_le32u(pack_bits(base, *args))
+
+
+def pack_bits_le16u(base, *args):
+    return pack_le16u(pack_bits(base, *args))
 
 
 def in_bit_range(value, number_of_bits):

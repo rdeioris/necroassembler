@@ -1,6 +1,6 @@
 import unittest
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_be_u32s
+from necroassembler.utils import pack_be_u32s, pack_bits
 from necroassembler.exceptions import UnsupportedNestedMacro
 
 
@@ -74,3 +74,22 @@ class TestAssembler(unittest.TestCase):
         .endmacro
         """
         self.assertRaises(UnsupportedNestedMacro, self.asm.assemble, code)
+
+    def test_pack_bits(self):
+        self.assertEqual(pack_bits(0b00000000000,
+                                   ((2, 0), 3),
+                                   ((10, 7), 15)
+                                   ), 0b11110000011)
+
+    def test_pack_bits_bigger_base(self):
+        self.assertEqual(pack_bits(0b100000000000,
+                                   ((2, 0), 3),
+                                   ((10, 7), 15),
+                                   ((4, 4), 1),
+                                   ), 0b111110010011)
+
+    def test_pack_bits_signed(self):
+        self.assertEqual(pack_bits(0b00000000000,
+                                   ((2, 0), -2, True),
+                                   ((10, 7), 15)
+                                   ), 0b11110000110)

@@ -1,5 +1,5 @@
 from necroassembler.tokenizer import Tokenizer
-from necroassembler.utils import pack, pack_byte, pack_le_u16, pack_le_u32, in_bit_range_signed, in_bit_range
+from necroassembler.utils import pack, pack_byte, pack_le32u, pack_le16u, in_bit_range_signed, in_bit_range, pack_bits
 from necroassembler.exceptions import UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode, AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed
 from necroassembler.macros import Macro
 
@@ -125,14 +125,15 @@ class Assembler:
             self.assemble(f.read(), filename)
 
     def link(self):
+
         for _pass in self.pre_link_passes:
             _pass()
+
         for address in self.labels_addresses:
             data = self.labels_addresses[address]
             label = data['label']
             relative = data.get('relative', False)
-            skip_bit_check = data.get('skip_bit_check', False)
-            only_forward = data.get('only_forward', False)
+
             absolute_address = self.get_label_absolute_address_by_name(label)
             if not relative:
                 true_address = absolute_address
@@ -146,27 +147,10 @@ class Assembler:
                 if absolute_address % data['alignment'] != 0:
                     raise AlignmentError(label, self)
 
-            if 'combined_bit_check' in data:
-                if relative:
-                    if only_forward:
-                        if true_address < 0:
-                            raise OnlyForwardAddressesAllowed(
-                                label, true_address, self)
-                    if not in_bit_range_signed(true_address, data['combined_bit_check']):
-                        raise NotInBitRange(
-                            label, true_address, data['combined_bit_check'], self)
-                else:
-                    if true_address < 0 or not in_bit_range(true_address, data['combined_bit_check']):
-                        raise NotInBitRange(
-                            label, true_address, data['combined_bit_check'], self)
-
-            if 'left_shift' in data:
-                true_address = true_address << data['left_shift']
-            if 'right_shift' in data:
-                true_address = true_address >> data['right_shift']
-
+            print(hex(true_address))
             if 'filter' in data:
                 true_address = data['filter'](true_address)
+            print(hex(true_address))
 
             if 'hook' in data:
                 data['hook'](address, true_address)
@@ -177,38 +161,25 @@ class Assembler:
                 if 'bits' in data:
                     total_bits = data['bits'][0] - data['bits'][1] + 1
 
+                bits_to_check = data.get('bits_check', total_bits)
+
                 if relative:
-                    if only_forward:
-                        if true_address < 0:
-                            raise OnlyForwardAddressesAllowed(
-                                label, true_address, self)
-                    if not skip_bit_check and not in_bit_range_signed(true_address, total_bits):
+                    if not in_bit_range_signed(true_address, bits_to_check):
                         raise NotInBitRange(
-                            label, true_address, total_bits, self)
+                            label, true_address, bits_to_check, self)
                 else:
-                    if not skip_bit_check and true_address < 0 or not in_bit_range(true_address, total_bits):
+                    if true_address < 0 or not in_bit_range(true_address, bits_to_check):
                         raise NotInBitRange(
-                            label, true_address, total_bits, self)
+                            label, true_address, bits_to_check, self)
+
+                if 'bits' in data:
+                    true_address = pack_bits(
+                        0, (data['bits'], true_address, relative))
+                    print(hex(true_address))
 
                 for i in range(0, size):
-                    value = (true_address >> (8 * i)) & 0xff
-                    skip = False
-                    if 'bits' in data:
-                        max_bit = i * 8 + 7
-                        min_bit = max_bit - 7
-                        #  compute bits operations
-                        if max_bit >= data['bits'][1] and min_bit <= data['bits'][0]:
-                            left = max_bit - data['bits'][1]
-                            right = data['bits'][0] - min_bit
-                            if left < 7:
-                                value <<= 7 - left
-                            if right < 7:
-                                value &= (0xff >> (7 - right))
-                        else:
-                            skip = True
-
-                    if not skip:
-                        self.assembled_bytes[address + i] |= value
+                    value = (true_address >> (8 * i)) & 0xFF
+                    self.assembled_bytes[address + i] |= value
 
         for _pass in self.post_link_passes:
             _pass()
@@ -365,7 +336,7 @@ class Assembler:
                 value = self.parse_integer(token)
                 if value is None:
                     self.add_label_translation(label=token, size=2, offset=0)
-                blob = pack_le_u16(value)
+                blob = pack_le16u(value)
             self.assembled_bytes += blob
             self.org_counter += len(blob)
 
@@ -378,7 +349,7 @@ class Assembler:
                 value = self.parse_integer(token)
                 if value is None:
                     self.add_label_translation(label=token, size=4, offset=0)
-                blob = pack_le_u32(value)
+                blob = pack_le32u(value)
             self.assembled_bytes += blob
             self.org_counter += len(blob)
 

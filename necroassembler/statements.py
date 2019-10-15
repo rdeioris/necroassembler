@@ -48,6 +48,31 @@ class Instruction(Statement):
         assembler.assembled_bytes += blob
         assembler.org_counter += len(blob)
 
+    def match(self, *args, start=1):
+        if (len(self.tokens) - start) != len(args):
+            return False
+        for index, pattern in enumerate(args):
+            if pattern is None:
+                continue
+            if callable(pattern):
+                if pattern(self.tokens[index+1]):
+                    continue
+            else:
+                if isinstance(pattern, str):
+                    if self.tokens[index + start].upper() == pattern.upper():
+                        continue
+                if any([self.tokens[index + start].upper() == x.upper() for x in pattern]):
+                    continue
+            return False
+        return True
+
+    def apply(self, *args, start=1):
+        out = []
+        for index, arg in enumerate(args):
+            if arg is not None:
+                out.append(arg(self.tokens[index + start]))
+        return out
+
 
 class Label(Statement):
     def assemble(self, assembler):
