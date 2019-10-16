@@ -1,5 +1,5 @@
 import unittest
-from necroassembler.cpu.mos6502 import AssemblerMOS6502, InvalidMode
+from necroassembler.cpu.mos6502 import AssemblerMOS6502, InvalidMode, UnsupportedModeForOpcode
 
 
 class TestMOS6502(unittest.TestCase):
@@ -82,7 +82,7 @@ class TestMOS6502(unittest.TestCase):
         self.assertEqual(self.asm.assembled_bytes, b'\x4C\x00\x00')
 
     def test_invalid_bit(self):
-        self.assertRaises(InvalidMode, self.asm.assemble, 'BIT #$17')
+        self.assertRaises(UnsupportedModeForOpcode, self.asm.assemble, 'BIT #$17')
 
     def test_beq(self):
         self.asm.assemble('loop:\nNOP\nBEQ loop')

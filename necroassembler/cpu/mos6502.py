@@ -1,6 +1,6 @@
 
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack, pack_byte
+from necroassembler.utils import pack, pack_le16u, pack_byte
 
 
 class InvalidMode(Exception):
@@ -12,6 +12,23 @@ class AbsoluteAddressNotAllowed(Exception):
     def __init__(self, instr):
         super().__init__(
             'absolute address not allowed for {0}'.format(instr))
+
+
+class UnsupportedModeForOpcode(Exception):
+    def __init__(self, instr):
+        super().__init__(
+            'unsupported upcode mode {0}'.format(instr))
+
+
+def IMMEDIATE(x): return len(x) > 1 and x.startswith('#')
+
+
+def ADDRESS(x): return x and not x.startswith('#')
+
+
+REG_A = 'A'
+REG_X = 'X'
+REG_Y = 'Y'
 
 
 class AssemblerMOS6502(Assembler):
@@ -67,7 +84,7 @@ class AssemblerMOS6502(Assembler):
             arg, size=1, relative=True, start=self.current_org + self.org_counter + 2)
         return pack('<Bb', opcode, address)
 
-    def manage_address(self, abs, zp, arg):
+    def _manage_address(self, abs, zp, arg):
 
         address = self.parse_integer(arg)
 
@@ -99,58 +116,26 @@ class AssemblerMOS6502(Assembler):
         self.add_label_translation(label=arg, size=2)
         return pack('<BH', abs, 0)
 
-    def manage_single_arg_mode(self, opcodes, instr):
-        arg = instr.tokens[1]
-        # immediate ?
-        if arg.startswith('#'):
-            value = self.parse_integer_or_label(arg[1:], size=1)
-            return pack_byte(opcodes['imm'], value)
-
-        # use get for 'zp' to support non-zp opcodes
-        return self.manage_address(opcodes['abs'], opcodes.get('zp'), arg)
-
-    def manage_two_args_mode(self, opcodes, instr):
-        arg1, arg2 = instr.tokens[1:]
-        if arg1.startswith('#') or arg2.startswith('#'):
-            return None
-        # zero_page_x absolute_x
-        if arg2.upper() == 'X':
-            return self.manage_address(opcodes['abs_x'], opcodes['zp_x'], arg1)
-        if arg2.upper() == 'Y':
-            return self.manage_address(opcodes['abs_y'], None, arg1)
-
-    def manage_three_args_mode(self, opcodes, instr):
-        arg1, arg2, arg3, arg4 = instr.tokens[1:]
-        if any(map(lambda x: x.startswith('#'), instr.tokens[1:])) or arg1 != '(':
-            return None
-        # indirect_x
-        if arg3.upper() == 'X':
-            return self.manage_address(None, opcodes['ind_x'], arg2)
-        if arg4 == ')' and arg4.upper() == 'Y':
-            return self.manage_address(None, opcodes['ind_y'], arg2)
-
-    def manage_indirect_mode(self, opcodes, instr):
-        arg1, arg2, arg3 = instr.tokens[1:]
-        if arg1 != '(' or arg3 != ')':
-            return None
-        return self.manage_address(opcodes['ind'], None, arg2)
-
-    def manage_mode(self, instr, opcodes={}, **kwargs):
-        combined_opcodes = opcodes.copy()
-        combined_opcodes.update(kwargs)
+    def manage_mode(self, instr, **kwargs):
         try:
-            if len(instr.tokens) < 2:
-                return None
-            if len(instr.tokens) == 2:
-                return self.manage_single_arg_mode(combined_opcodes, instr)
-            if len(instr.tokens) == 3:
-                return self.manage_two_args_mode(combined_opcodes, instr)
-            if len(instr.tokens) == 4:
-                return self.manage_indirect_mode(combined_opcodes, instr)
-            if len(instr.tokens) == 5:
-                return self.manage_three_args_mode(combined_opcodes, instr)
-        except KeyError:
-            raise InvalidMode(instr)
+            if instr.match(REG_A):
+                return pack_byte(kwargs['a'])
+            if instr.match(IMMEDIATE):
+                return pack_byte(kwargs['imm'], self.parse_integer_or_label(instr.tokens[1][1:], size=1))
+            if instr.match(ADDRESS):
+                return self._manage_address(kwargs.get('abs'), kwargs.get('zp'), instr.tokens[1])
+            if instr.match(ADDRESS, REG_X):
+                return self._manage_address(kwargs.get('abs_x'), kwargs.get('zp_x'), instr.tokens[1])
+            if instr.match(ADDRESS, REG_Y):
+                return self._manage_address(kwargs.get('abs_y'), kwargs.get('zp_y'), instr.tokens[1])
+            if instr.match('(', ADDRESS, REG_X, ')'):
+                return self._manage_address(None, kwargs['ind_x'], instr.tokens[2])
+            if instr.match('(', ADDRESS, ')', REG_Y):
+                return self._manage_address(None, kwargs['ind_y'], instr.tokens[2])
+        except:
+            raise UnsupportedModeForOpcode(instr)
+
+        raise InvalidMode(instr)
 
     @opcode('ADC')
     def _adc(self, instr):
@@ -162,9 +147,7 @@ class AssemblerMOS6502(Assembler):
 
     @opcode('ASL')
     def _asl(self, instr):
-        if len(instr.tokens) == 2 and instr.tokens[1].upper() == 'A':
-            return b'\x0A'
-        return self.manage_mode(instr, zp=0x06, zp_x=0x16, abs=0x0E, abs_x=0x1E)
+        return self.manage_mode(instr, a=0x0A, zp=0x06, zp_x=0x16, abs=0x0E, abs_x=0x1E)
 
     @opcode('BPL')
     def _bpl(self, instr):
@@ -248,9 +231,7 @@ class AssemblerMOS6502(Assembler):
 
     @opcode('LSR')
     def _lsr(self, instr):
-        if len(instr.tokens) == 2 and instr.tokens[1].upper() == 'A':
-            return b'\x4A'
-        return self.manage_mode(instr, zp=0x46, zp_x=0x56, abs=0x4E, abs_x=0x5E)
+        return self.manage_mode(instr, a=0x4A, zp=0x46, zp_x=0x56, abs=0x4E, abs_x=0x5E)
 
     @opcode('ORA')
     def _ora(self, instr):
@@ -258,15 +239,11 @@ class AssemblerMOS6502(Assembler):
 
     @opcode('ROL')
     def _rol(self, instr):
-        if len(instr.tokens) == 2 and instr.tokens[1].upper() == 'A':
-            return b'\x2A'
-        return self.manage_mode(instr, zp=0x26, zp_x=0x36, abs=0x2E, abs_x=0x3E)
+        return self.manage_mode(instr, a=0x2A, zp=0x26, zp_x=0x36, abs=0x2E, abs_x=0x3E)
 
     @opcode('ROR')
     def _ror(self, instr):
-        if len(instr.tokens) == 2 and instr.tokens[1].upper() == 'A':
-            return b'\x6A'
-        return self.manage_mode(instr, zp=0x66, zp_x=0x76, abs=0x6E, abs_x=0x7E)
+        return self.manage_mode(instr, a=0x6A, zp=0x66, zp_x=0x76, abs=0x6E, abs_x=0x7E)
 
     @opcode('SBC')
     def _sbc(self, instr):
