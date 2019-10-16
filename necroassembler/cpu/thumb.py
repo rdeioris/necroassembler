@@ -1,6 +1,6 @@
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_bits_le16u, pack_le16u, in_bit_range_signed, pack_bit
-from necroassembler.exceptions import UnkownRegister, InvalidRegister, InvalideImmediateValue, NotInBitRange
+from necroassembler.exceptions import AssemblerException, UnkownRegister, InvalidRegister, InvalideImmediateValue, NotInBitRange
 
 LOW_REGS = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7')
 HIGH_REGS_TRUE = ('r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15')
@@ -19,9 +19,8 @@ def LABEL(x): return x and not x.startswith('#')
 def INTERRUPT(x): return x.isdigit()
 
 
-class InvalidRList(Exception):
-    def __init__(self, token):
-        super().__init__('invalid rlist format {0}'.format(token))
+class InvalidRList(AssemblerException):
+    message = 'invalid rlist format'
 
 
 class AssemblerThumb(Assembler):
@@ -55,7 +54,7 @@ class AssemblerThumb(Assembler):
     def _imm(self, arg):
         value = self.parse_integer(arg[1:])
         if value is None:
-            raise InvalideImmediateValue(None)
+            raise InvalideImmediateValue()
         return value
 
     def _word8(self, arg):
@@ -94,18 +93,18 @@ class AssemblerThumb(Assembler):
             if '-' in token:
                 r_start, r_end = token.split('-')
                 if not r_start.lower() in LOW_REGS:
-                    raise InvalidRList(token)
+                    raise InvalidRList()
                 if not r_end.lower() in LOW_REGS:
-                    raise InvalidRList(token)
+                    raise InvalidRList()
 
                 first = self._low_r(r_start)
                 last = self._low_r(r_end)
                 if first > last:
-                    raise InvalidRList(token)
+                    raise InvalidRList()
                 for reg in range(first, last+1):
                     rlist = pack_bit(rlist, (reg, 1))
                 continue
-            raise InvalidRList(token)
+            raise InvalidRList()
 
         return rlist
 
@@ -358,7 +357,7 @@ class AssemblerThumb(Assembler):
         address = self.parse_integer(offset)
         if address:
             if not in_bit_range_signed(address, 23):
-                raise NotInBitRange('', address, 23, instr)
+                raise NotInBitRange(address, 23)
             address >>= 1
             address0 = address >> 11
             address1 = address & 0x7ff

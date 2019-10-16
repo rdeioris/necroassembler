@@ -1,78 +1,78 @@
+class AssemblerException(Exception):
+    message = None
+
+    def __init__(self):
+        super().__init__(self.message)
 
 
-class InvalidOpCodeArguments(Exception):
-    def __init__(self, subject):
-        super().__init__(
-            'invalid arguments for {0}'.format(subject))
+class InvalidOpCodeArguments(AssemblerException):
+    message = 'invalid arguments for opcode'
 
 
-class UnknownInstruction(Exception):
-    def __init__(self, subject):
-        super().__init__(
-            'unknown instruction {0}'.format(subject))
+class UnknownInstruction(AssemblerException):
+    message = 'unknown instruction'
 
 
-class InvalidInstruction(Exception):
-    def __init__(self, subject):
-        super().__init__(
-            'invalid instruction {0}'.format(subject))
+class InvalidInstruction(AssemblerException):
+    message = 'invalid instruction'
 
 
-class UnknownLabel(Exception):
-    def __init__(self, label, subject):
-        super().__init__(
-            'unknown label "{0}" for {1}'.format(label, subject))
+class UnknownLabel(AssemblerException):
+    def __init__(self, label):
+        self.message = 'unknown label "{0}"'.format(label)
+        super().__init__()
 
 
-class AlignmentError(Exception):
-    def __init__(self, label, subject):
-        super().__init__(
-            'wrong alignment for label "{0}" for {1}'.format(label, subject))
+class AlignmentError(AssemblerException):
+    def __init__(self, label):
+        self.message = 'wrong alignment for label "{0}"'.format(label)
+        super().__init__()
 
 
-class NotInBitRange(Exception):
-    def __init__(self, label, value, max_bits, subject):
-        super().__init__(
-            'value {1} of label "{0}" is not in the {2} bit range for {3}'.format(label, value, max_bits, subject))
+class NotInBitRange(AssemblerException):
+    def __init__(self, value, max_bits, label=None):
+        self.message = 'value {0} is not in the {1} bit range'.format(
+            value, max_bits)
+        if label is not None:
+            self.message = 'label {2} with value {0} is not in the {1} bit range'.format(
+                value, max_bits, label)
+        super().__init__()
 
 
-class OnlyForwardAddressesAllowed(Exception):
-    def __init__(self, label, value, subject):
-        super().__init__(
-            'value {1} of label "{0}" is not higher than the start for {2}'.format(label, value, subject))
+class OnlyForwardAddressesAllowed(AssemblerException):
+    def __init__(self, label, value):
+        self.message = 'value {1} of label "{0}" is not higher than the start location'.format(
+            label, value)
+        super().__init__()
 
 
-class UnknownDirective(Exception):
-    def __init__(self, subject):
-        super().__init__(
-            'unknown directive {0}'.format(subject))
+class UnknownDirective(AssemblerException):
+    message = 'unknown directive'
 
 
-class UnsupportedNestedMacro(Exception):
-    def __init__(self, subject):
-        super().__init__(
-            'nested macros are not supported {0}'.format(subject))
+class UnsupportedNestedMacro(AssemblerException):
+    message = 'nested macros are not supported'
 
 
-class NotInMacroRecordingMode(Exception):
-    def __init__(self, subject):
-        super().__init__(
-            'not in macro recording mode {0}'.format(subject))
+class NotInMacroRecordingMode(AssemblerException):
+    message = 'not in macro recording mode'
 
 
-class UnkownRegister(Exception):
-    def __init__(self, subject):
-        super().__init__(
-            'unkown cpu register {0}'.format(subject))
+class UnkownRegister(AssemblerException):
+    message = 'unknown cpu register'
 
 
-class InvalidRegister(Exception):
-    def __init__(self, subject):
-        super().__init__(
-            'unkown cpu register {0}'.format(subject))
+class InvalidRegister(AssemblerException):
+    message = 'invalid cpu register'
 
 
-class InvalideImmediateValue(Exception):
-    def __init__(self, subject):
-        super().__init__(
-            'invalid immediate value {0}'.format(subject))
+class InvalideImmediateValue(AssemblerException):
+    message = 'invalid immediate value'
+
+
+class InvalidArgumentsForDirective(AssemblerException):
+    message = 'invalid arguments for directive'
+
+
+class AddressOverlap(AssemblerException):
+    message = 'address overlap'

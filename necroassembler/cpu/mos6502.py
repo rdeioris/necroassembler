@@ -1,23 +1,19 @@
 
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack, pack_le16u, pack_byte
+from necroassembler.exceptions import AssemblerException
 
 
-class InvalidMode(Exception):
-    def __init__(self, instr):
-        super().__init__('invalid 6502 mode for {0}'.format(instr))
+class InvalidMode(AssemblerException):
+    message = 'invalid 6502 mode'
 
 
-class AbsoluteAddressNotAllowed(Exception):
-    def __init__(self, instr):
-        super().__init__(
-            'absolute address not allowed for {0}'.format(instr))
+class AbsoluteAddressNotAllowed(AssemblerException):
+    message = 'absolute address not allowed'
 
 
-class UnsupportedModeForOpcode(Exception):
-    def __init__(self, instr):
-        super().__init__(
-            'unsupported upcode mode {0}'.format(instr))
+class UnsupportedModeForOpcode(AssemblerException):
+    message = 'unsupported upcode mode'
 
 
 def IMMEDIATE(x): return len(x) > 1 and x.startswith('#')
@@ -94,7 +90,7 @@ class AssemblerMOS6502(Assembler):
             if zp is not None and self.is_zero_page(address):
                 return pack_byte(zp, address)
             if abs is None:
-                raise Exception('absolute address mode not allowed')
+                raise AbsoluteAddressNotAllowed()
             return pack('<BH', abs, address)
 
         # label management
@@ -103,7 +99,7 @@ class AssemblerMOS6502(Assembler):
         address = self.get_label_absolute_address_by_name(arg)
         if address is None:
             if abs is None:
-                raise Exception('absolute address mode not allowed')
+                raise AbsoluteAddressNotAllowed()
             self.add_label_translation(label=arg, size=2)
             return pack('<BH', abs, 0)
 
@@ -112,7 +108,7 @@ class AssemblerMOS6502(Assembler):
 
         # normal labeling (postpone to linking phase)
         if abs is None:
-            raise Exception('absolute address mode not allowed')
+            raise AbsoluteAddressNotAllowed()
         self.add_label_translation(label=arg, size=2)
         return pack('<BH', abs, 0)
 
@@ -133,9 +129,9 @@ class AssemblerMOS6502(Assembler):
             if instr.match('(', ADDRESS, ')', REG_Y):
                 return self._manage_address(None, kwargs['ind_y'], instr.tokens[2])
         except:
-            raise UnsupportedModeForOpcode(instr)
+            raise UnsupportedModeForOpcode()
 
-        raise InvalidMode(instr)
+        raise InvalidMode()
 
     @opcode('ADC')
     def _adc(self, instr):
