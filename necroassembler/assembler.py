@@ -141,6 +141,7 @@ class Assembler:
             else:
                 true_address = self.get_label_relative_address_by_name(
                     label, data['start'])
+
             if true_address is None:
                 raise UnknownLabel(label)
 
@@ -191,11 +192,9 @@ class Assembler:
         for _pass in self.post_link_passes:
             _pass()
 
-    def add_label_translation(self, data={}, **kwargs):
-        combined_data = data.copy()
-        combined_data.update(kwargs)
-        index = len(self.assembled_bytes) + combined_data.get('offset', 1)
-        self.labels_addresses[index] = combined_data
+    def add_label_translation(self, **kwargs):
+        index = len(self.assembled_bytes) + kwargs.get('offset', 1)
+        self.labels_addresses[index] = kwargs
 
     def _internal_parse_integer(self, token):
         for prefix in self.hex_prefixes:

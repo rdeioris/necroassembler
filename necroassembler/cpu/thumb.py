@@ -80,6 +80,7 @@ class AssemblerThumb(Assembler):
         if value is None:
             pc = self.current_org + self.org_counter + 4
             self.add_label_translation(label=arg[1:],
+                                       relative=True,
                                        bits=(7, 0),
                                        size=2,
                                        offset=0,
@@ -363,7 +364,10 @@ class AssemblerThumb(Assembler):
 
     @opcode('STRH')
     def _strh(self, instr):
-        pass
+        if instr.match(LOW_REGS, '[', LOW_REGS, LOW_REGS, ']'):
+            rd, rb, ro = instr.apply(
+                low_reg, None, low_reg, low_reg, None)
+            return self._build_opcode(0b0101001000000000, ((8, 6), ro), ((5, 3), rb), ((2, 0), rd))
 
     @opcode('BL')
     def _bl(self, instr):
