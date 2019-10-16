@@ -14,7 +14,7 @@ class AbsoluteAddressNotAllowed(AssemblerException):
 
 
 class UnsupportedModeForOpcode(AssemblerException):
-    message = 'unsupported upcode mode'
+    message = 'unsupported opcode mode'
 
 
 def _check_immediate(token):
@@ -128,26 +128,47 @@ class AssemblerMOS6502(Assembler):
         return pack('<BH', absolute, 0)
 
     def _manage_mode(self, instr, mode):
-        try:
-            if instr.match(REG_A):
-                return pack_byte(mode.accumulator)
-            if instr.match(IMMEDIATE):
-                return pack_byte(mode.immediate,
-                                 self.parse_integer_or_label(instr.tokens[1][1:], size=1))
-            if instr.match(ADDRESS):
-                return self._manage_address(mode.absolute, mode.zero_page, instr.tokens[1])
-            if instr.match(ADDRESS, REG_X):
-                return self._manage_address(mode.absolute_x, mode.zero_page_x, instr.tokens[1])
-            if instr.match(ADDRESS, REG_Y):
-                return self._manage_address(mode.absolute_y, zero_page_y, instr.tokens[1])
-            if instr.match('(', ADDRESS, ')'):
-                return self._manage_address(mode.indirect, None, instr.tokens[2])
-            if instr.match('(', ADDRESS, REG_X, ')'):
-                return self._manage_address(None, mode.indirect_x, instr.tokens[2])
-            if instr.match('(', ADDRESS, ')', REG_Y):
-                return self._manage_address(None, mode.indirect_y, instr.tokens[2])
-        except:
-            raise UnsupportedModeForOpcode()
+
+        if instr.match(REG_A):
+            if mode.accumulator is None:
+                raise UnsupportedModeForOpcode()
+            return pack_byte(mode.accumulator)
+
+        if instr.match(IMMEDIATE):
+            if mode.immediate is None:
+                raise UnsupportedModeForOpcode()
+            return pack_byte(mode.immediate,
+                             self.parse_integer_or_label(instr.tokens[1][1:], size=1))
+
+        if instr.match(ADDRESS):
+            if mode.absolute is None and mode.zero_page is None:
+                raise UnsupportedModeForOpcode()
+            return self._manage_address(mode.absolute, mode.zero_page, instr.tokens[1])
+
+        if instr.match(ADDRESS, REG_X):
+            if mode.absolute_x is None and mode.zero_page_x is None:
+                raise UnsupportedModeForOpcode()
+            return self._manage_address(mode.absolute_x, mode.zero_page_x, instr.tokens[1])
+
+        if instr.match(ADDRESS, REG_Y):
+            if mode.absolute_y is None and mode.zero_page_y is None:
+                raise UnsupportedModeForOpcode()
+            return self._manage_address(mode.absolute_y, mode.zero_page_y, instr.tokens[1])
+
+        if instr.match('(', ADDRESS, ')'):
+            if mode.indirect is None:
+                raise UnsupportedModeForOpcode()
+            return self._manage_address(mode.indirect, None, instr.tokens[2])
+
+        if instr.match('(', ADDRESS, REG_X, ')'):
+            if mode.indirect_x is None:
+                raise UnsupportedModeForOpcode()
+            return self._manage_address(None, mode.indirect_x, instr.tokens[2])
+
+        if instr.match('(', ADDRESS, ')', REG_Y):
+            if mode.indirect_y is None:
+                raise UnsupportedModeForOpcode()
+            return self._manage_address(None, mode.indirect_y, instr.tokens[2])
 
         raise InvalidMode()
 
