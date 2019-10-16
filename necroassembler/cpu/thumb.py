@@ -1,6 +1,7 @@
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_bits_le16u, pack_le16u, in_bit_range_signed, pack_bit
-from necroassembler.exceptions import AssemblerException, UnkownRegister, InvalidRegister, InvalideImmediateValue, NotInBitRange
+from necroassembler.exceptions import (
+    AssemblerException, InvalidRegister, UnknownRegister, InvalideImmediateValue, NotInBitRange)
 
 LOW_REGS = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7')
 HIGH_REGS_TRUE = ('r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15')
@@ -10,13 +11,39 @@ PC = ('pc', 'r15')
 SP = ('sp', 'r13')
 
 
-def IMMEDIATE(x): return len(x) > 1 and x.startswith('#')
+def _immediate(token):
+    return len(token) > 1 and token.startswith('#')
 
 
-def LABEL(x): return x and not x.startswith('#')
+def _label(token):
+    return token and not token.startswith('#')
 
 
-def INTERRUPT(x): return x.isdigit()
+def _interrupt(token):
+    return token.isdigit()
+
+
+IMMEDIATE = _immediate
+LABEL = _label
+INTERRUPT = _interrupt
+
+
+def low_reg(reg):
+    if reg.lower() in HIGH_REGS:
+        raise InvalidRegister()
+    if not reg.lower() in LOW_REGS:
+        raise UnknownRegister()
+    return int(reg[1:])
+
+
+def high_reg(reg):
+    if reg.lower() in HIGH_REGS_ALIASES:
+        return HIGH_REGS_ALIASES.index(reg.lower()) + 3
+    if reg.lower() in LOW_REGS:
+        raise InvalidRegister()
+    if reg.lower() not in HIGH_REGS:
+        raise UnknownRegister()
+    return int(reg[1:]) - 8
 
 
 class InvalidRList(AssemblerException):
@@ -30,15 +57,6 @@ class AssemblerThumb(Assembler):
     bin_prefixes = ('0b', '0y')
 
     special_prefixes = ('#',)
-
-    def _low_r(self, reg):
-        return int(reg[1:])
-
-    def _high_r(self, reg):
-        if reg.lower() in HIGH_REGS_ALIASES:
-            return HIGH_REGS_ALIASES.index(reg.lower()) + 3
-
-        return int(reg[1:]) - 8
 
     def _offset(self, arg, bits, alignment):
         return self.parse_integer_or_label(arg,
@@ -79,7 +97,7 @@ class AssemblerThumb(Assembler):
 
     def _alu(self, instr, op):
         if instr.match(LOW_REGS, LOW_REGS):
-            rd, rs = instr.apply(self._low_r, self._low_r)
+            rd, rs = instr.apply(low_reg, low_reg)
             return self._build_opcode(0b0100000000000000, ((9, 6), op), ((5, 3), rs), ((2, 0), rd))
 
     def _rlist(self, tokens):
@@ -87,7 +105,7 @@ class AssemblerThumb(Assembler):
         rlist = 0
         for token in tokens:
             if token in LOW_REGS:
-                bit_to_set = self._low_r(token)
+                bit_to_set = low_reg(token)
                 rlist = pack_bit(rlist, (bit_to_set, 1))
                 continue
             if '-' in token:
@@ -97,8 +115,8 @@ class AssemblerThumb(Assembler):
                 if not r_end.lower() in LOW_REGS:
                     raise InvalidRList()
 
-                first = self._low_r(r_start)
-                last = self._low_r(r_end)
+                first = low_reg(r_start)
+                last = low_reg(r_end)
                 if first > last:
                     raise InvalidRList()
                 for reg in range(first, last+1):
@@ -114,49 +132,49 @@ class AssemblerThumb(Assembler):
     @opcode('LSL')
     def _lsl(self, instr):
         if instr.match(LOW_REGS, LOW_REGS, IMMEDIATE):
-            rd, rs, imm = instr.apply(self._low_r, self._low_r, self._imm)
+            rd, rs, imm = instr.apply(low_reg, low_reg, self._imm)
             return self._build_opcode(0b0000000000000000, ((10, 6), imm), ((5, 3), rs), ((2, 0), rd))
         return self._alu(instr, 0b0010)
 
     @opcode('LSR')
     def _lsr(self, instr):
         if instr.match(LOW_REGS, LOW_REGS, IMMEDIATE):
-            rd, rs, imm = instr.apply(self._low_r, self._low_r, self._imm)
+            rd, rs, imm = instr.apply(low_reg, low_reg, self._imm)
             return self._build_opcode(0b0000100000000000, ((10, 6), imm), ((5, 3), rs), ((2, 0), rd))
         return self._alu(instr, 0b0011)
 
     @opcode('ASR')
     def _asr(self, instr):
         if instr.match(LOW_REGS, LOW_REGS, IMMEDIATE):
-            rd, rs, imm = instr.apply(self._low_r, self._low_r, self._imm)
+            rd, rs, imm = instr.apply(low_reg, low_reg, self._imm)
             return self._build_opcode(0b0001000000000000, ((10, 6), imm), ((5, 3), rs), ((2, 0), rd))
         return self._alu(instr, 0b0100)
 
     @opcode('ADD')
     def _add(self, instr):
         if instr.match(LOW_REGS, LOW_REGS, LOW_REGS):
-            rd, rs, rn = instr.apply(self._low_r, self._low_r, self._low_r)
+            rd, rs, rn = instr.apply(low_reg, low_reg, low_reg)
             return self._build_opcode(0b0001100000000000, ((8, 6), rn), ((5, 3), rs), ((2, 0), rd))
         if instr.match(LOW_REGS, LOW_REGS, IMMEDIATE):
-            rd, rs, imm = instr.apply(self._low_r, self._low_r, self._imm)
+            rd, rs, imm = instr.apply(low_reg, low_reg, self._imm)
             return self._build_opcode(0b0001110000000000, ((8, 6), imm), ((5, 3), rs), ((2, 0), rd))
         if instr.match(LOW_REGS, IMMEDIATE):
-            rd, imm = instr.apply(self._low_r, self._imm)
+            rd, imm = instr.apply(low_reg, self._imm)
             return self._build_opcode(0b0011000000000000, ((10, 8), rd), ((7, 0), imm))
         if instr.match(LOW_REGS, HIGH_REGS):
-            rd, hs = instr.apply(self._low_r, self._high_r)
+            rd, hs = instr.apply(low_reg, high_reg)
             return self._build_opcode(0b0100010001000000, ((5, 3), hs), ((2, 0), rd))
         if instr.match(HIGH_REGS, LOW_REGS):
-            hd, rs = instr.apply(self._high_r, self._low_r)
+            hd, rs = instr.apply(high_reg, low_reg)
             return self._build_opcode(0b0100010010000000, ((5, 3), rs), ((2, 0), hd))
         if instr.match(HIGH_REGS, HIGH_REGS):
-            hd, hs = instr.apply(self._high_r, self._high_r)
+            hd, hs = instr.apply(high_reg, high_reg)
             return self._build_opcode(0b0100010011000000, ((5, 3), hs), ((2, 0), hd))
         if instr.match(LOW_REGS, PC, IMMEDIATE):
-            rd, imm = instr.apply(self._low_r, None, self._imm)
+            rd, imm = instr.apply(low_reg, None, self._imm)
             return self._build_opcode(0b1010000000000000, ((10, 8), rd), ((7, 0), imm))
         if instr.match(LOW_REGS, SP, IMMEDIATE):
-            rd, imm = instr.apply(self._low_r, None, self._imm)
+            rd, imm = instr.apply(low_reg, None, self._imm)
             return self._build_opcode(0b1010100000000000, ((10, 8), rd), ((7, 0), imm))
         if instr.match(SP, IMMEDIATE):
             imm, = instr.apply(None, self._imm)
@@ -165,49 +183,49 @@ class AssemblerThumb(Assembler):
     @opcode('SUB')
     def _sub(self, instr):
         if instr.match(LOW_REGS, LOW_REGS, LOW_REGS):
-            rd, rs, rn = instr.apply(self._low_r, self._low_r, self._low_r)
+            rd, rs, rn = instr.apply(low_reg, low_reg, low_reg)
             return self._build_opcode(0b0001101000000000, ((8, 6), rn), ((5, 3), rs), ((2, 0), rd))
         if instr.match(LOW_REGS, LOW_REGS, IMMEDIATE):
-            rd, rs, imm = instr.apply(self._low_r, self._low_r, self._imm)
+            rd, rs, imm = instr.apply(low_reg, low_reg, self._imm)
             return self._build_opcode(0b0001111000000000, ((8, 6), imm), ((5, 3), rs), ((2, 0), rd))
         if instr.match(LOW_REGS, IMMEDIATE):
-            rd, imm = instr.apply(self._low_r, self._imm)
+            rd, imm = instr.apply(low_reg, self._imm)
             return self._build_opcode(0b0011100000000000, ((10, 8), rd), ((7, 0), imm))
 
     @opcode('MOV')
     def _mov(self, instr):
         if instr.match(LOW_REGS, IMMEDIATE):
-            rd, imm = instr.apply(self._low_r, self._imm)
+            rd, imm = instr.apply(low_reg, self._imm)
             return self._build_opcode(0b0010000000000000, ((10, 8), rd), ((7, 0), imm))
 
         if instr.match(LOW_REGS, HIGH_REGS):
-            rd, hs = instr.apply(self._low_r, self._high_r)
+            rd, hs = instr.apply(low_reg, high_reg)
             return self._build_opcode(0b0100011001000000, ((5, 3), hs), ((2, 0), rd))
 
         if instr.match(HIGH_REGS, LOW_REGS):
-            hd, rs = instr.apply(self._high_r, self._low_r)
+            hd, rs = instr.apply(high_reg, low_reg)
             return self._build_opcode(0b0100011010000000, ((5, 3), rs), ((2, 0), hd))
 
         if instr.match(HIGH_REGS, HIGH_REGS):
-            hd, hs = instr.apply(self._high_r, self._high_r)
+            hd, hs = instr.apply(high_reg, high_reg)
             return self._build_opcode(0b0100011011000000, ((5, 3), hs), ((2, 0), hd))
 
     @opcode('CMP')
     def _cmp(self, instr):
         if instr.match(LOW_REGS, IMMEDIATE):
-            rd, imm = instr.apply(self._low_r, self._imm)
+            rd, imm = instr.apply(low_reg, self._imm)
             return self._build_opcode(0b0010100000000000, ((10, 8), rd), ((7, 0), imm))
 
         if instr.match(LOW_REGS, HIGH_REGS):
-            rd, hs = instr.apply(self._low_r, self._high_r)
+            rd, hs = instr.apply(low_reg, high_reg)
             return self._build_opcode(0b0100010101000000, ((5, 3), hs), ((2, 0), rd))
 
         if instr.match(HIGH_REGS, LOW_REGS):
-            hd, rs = instr.apply(self._high_r, self._low_r)
+            hd, rs = instr.apply(high_reg, low_reg)
             return self._build_opcode(0b0100010110000000, ((5, 3), rs), ((2, 0), hd))
 
         if instr.match(HIGH_REGS, HIGH_REGS):
-            hd, hs = instr.apply(self._high_r, self._high_r)
+            hd, hs = instr.apply(high_reg, high_reg)
             return self._build_opcode(0b0100010111000000, ((5, 3), hs), ((2, 0), hd))
 
         return self._alu(instr, 0b1010)
@@ -263,80 +281,80 @@ class AssemblerThumb(Assembler):
     @opcode('BX')
     def _bx(self, instr):
         if instr.match(LOW_REGS):
-            rs, = instr.apply(self._low_r)
+            rs, = instr.apply(low_reg)
             return self._build_opcode(0b0100011100000000, ((5, 3), rs))
         if instr.match(HIGH_REGS):
-            hs, = instr.apply(self._high_r)
+            hs, = instr.apply(high_reg)
             return self._build_opcode(0b0100011101000000, ((5, 3), hs))
 
     @opcode('LDR')
     def _ldr(self, instr):
         if instr.match(LOW_REGS, '[', PC, IMMEDIATE, ']'):
-            rd, imm = instr.apply(self._low_r, None, None, self._word8, None)
+            rd, imm = instr.apply(low_reg, None, None, self._word8, None)
             return self._build_opcode(0b0100100000000000, ((10, 8), rd), ((7, 0), imm >> 2))
 
         if instr.match(LOW_REGS, '[', LOW_REGS, LOW_REGS, ']'):
             rd, rb, ro = instr.apply(
-                self._low_r, None, self._low_r, self._low_r, None)
+                low_reg, None, low_reg, low_reg, None)
             return self._build_opcode(0b0101100000000000, ((8, 6), ro), ((5, 3), rb), ((2, 0), rd))
 
         if instr.match(LOW_REGS, '[', LOW_REGS, IMMEDIATE, ']'):
             rd, rb, imm = instr.apply(
-                self._low_r, None, self._low_r, self._imm, None)
+                low_reg, None, low_reg, self._imm, None)
             return self._build_opcode(0b0110100000000000, ((10, 6), imm >> 2), ((5, 3), rb), ((2, 0), rd))
 
         if instr.match(LOW_REGS, '[', SP, IMMEDIATE, ']'):
-            rd, imm = instr.apply(self._low_r, None, None, self._word8, None)
+            rd, imm = instr.apply(low_reg, None, None, self._word8, None)
             return self._build_opcode(0b1001100000000000, ((10, 8), rd), ((7, 0), imm >> 2))
 
     @opcode('LDRB')
     def _ldrb(self, instr):
         if instr.match(LOW_REGS, '[', LOW_REGS, LOW_REGS, ']'):
             rd, rb, ro = instr.apply(
-                self._low_r, None, self._low_r, self._low_r, None)
+                low_reg, None, low_reg, low_reg, None)
             return self._build_opcode(0b0101110000000000, ((8, 6), ro), ((5, 3), rb), ((2, 0), rd))
 
         if instr.match(LOW_REGS, '[', LOW_REGS, IMMEDIATE, ']'):
             rd, rb, imm = instr.apply(
-                self._low_r, None, self._low_r, self._imm, None)
+                low_reg, None, low_reg, self._imm, None)
             return self._build_opcode(0b0111100000000000, ((10, 6), imm >> 2), ((5, 3), rb), ((2, 0), rd))
 
     @opcode('LDRH')
     def _ldrh(self, instr):
         if instr.match(LOW_REGS, '[', LOW_REGS, LOW_REGS, ']'):
             rd, rb, ro = instr.apply(
-                self._low_r, None, self._low_r, self._low_r, None)
+                low_reg, None, low_reg, low_reg, None)
             return self._build_opcode(0b010110000000000, ((8, 6), ro), ((5, 3), rb), ((2, 0), rd))
 
         if instr.match(LOW_REGS, '[', LOW_REGS, IMMEDIATE, ']'):
             rd, rb, imm = instr.apply(
-                self._low_r, None, self._low_r, self._imm, None)
+                low_reg, None, low_reg, self._imm, None)
             return self._build_opcode(0b1000100000000000, ((10, 6), imm), ((5, 3), rb), ((2, 0), rd))
 
     @opcode('LDSB')
     def _ldsb(self, instr):
         if instr.match(LOW_REGS, '[', LOW_REGS, LOW_REGS, ']'):
             rd, rb, ro = instr.apply(
-                self._low_r, None, self._low_r, self._low_r, None)
+                low_reg, None, low_reg, low_reg, None)
             return self._build_opcode(0b0101011000000000, ((8, 6), ro), ((5, 3), rb), ((2, 0), rd))
 
     @opcode('LDSH')
     def _ldsh(self, instr):
         if instr.match(LOW_REGS, '[', LOW_REGS, LOW_REGS, ']'):
             rd, rb, ro = instr.apply(
-                self._low_r, None, self._low_r, self._low_r, None)
+                low_reg, None, low_reg, low_reg, None)
             return self._build_opcode(0b0101111000000000, ((8, 6), ro), ((5, 3), rb), ((2, 0), rd))
 
     @opcode('STR')
     def _str(self, instr):
         if instr.match(LOW_REGS, '[', LOW_REGS, LOW_REGS, ']'):
             rd, rb, ro = instr.apply(
-                self._low_r, None, self._low_r, self._low_r, None)
+                low_reg, None, low_reg, low_reg, None)
             return self._build_opcode(0b0101000000000000, ((8, 6), ro), ((5, 3), rb), ((2, 0), rd))
 
         if instr.match(LOW_REGS, '[', LOW_REGS, IMMEDIATE, ']'):
             rd, rb, imm = instr.apply(
-                self._low_r, None, self._low_r, self._imm, None)
+                low_reg, None, low_reg, self._imm, None)
             return self._build_opcode(0b0110100000000000, ((10, 6), imm >> 2), ((5, 3), rb), ((2, 0), rd))
 
     @opcode('STRB')

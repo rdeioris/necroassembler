@@ -64,7 +64,7 @@ class NotInMacroRecordingMode(AssemblerException):
     message = 'not in macro recording mode'
 
 
-class UnkownRegister(AssemblerException):
+class UnknownRegister(AssemblerException):
     message = 'unknown cpu register'
 
 
