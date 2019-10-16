@@ -350,8 +350,7 @@ def main():
     asm.assembled_bytes[0x14e] = (global_checksum >> 8) & 0xFF
     asm.assembled_bytes[0x14f] = global_checksum & 0xFF
 
-    with open(sys.argv[2], 'wb') as stream:
-        stream.write(asm.assembled_bytes)
+    asm.save(sys.argv[2])
 
 
 if __name__ == '__main__':

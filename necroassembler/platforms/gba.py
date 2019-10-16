@@ -15,8 +15,7 @@ def main():
         header_checksum = header_checksum - int(asm.assembled_bytes[i])
     asm.assembled_bytes[0xBD] = (header_checksum - 0x19) & 0xFF
 
-    with open(sys.argv[2], 'wb') as stream:
-        stream.write(asm.assembled_bytes)
+    asm.save(sys.argv[2])
 
 
 if __name__ == '__main__':

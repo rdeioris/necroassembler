@@ -124,6 +124,10 @@ class Assembler:
         with open(filename) as f:
             self.assemble(f.read(), filename)
 
+    def save(self, filename):
+        with open(filename, 'wb') as handle:
+            handle.write(self.assembled_bytes)
+
     def _resolve_labels(self):
         for address in self.labels_addresses:
             data = self.labels_addresses[address]
