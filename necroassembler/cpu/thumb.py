@@ -1,5 +1,5 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_bits_le16u, pack_le16u, in_bit_range_signed
+from necroassembler.utils import pack_bits_le16u, pack_le16u, in_bit_range_signed, pack_bit
 from necroassembler.exceptions import UnkownRegister, InvalidRegister, InvalideImmediateValue, NotInBitRange
 
 LOW_REGS = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7')
@@ -17,6 +17,11 @@ def LABEL(x): return x and not x.startswith('#')
 
 
 def INTERRUPT(x): return x.isdigit()
+
+
+class InvalidRList(Exception):
+    def __init__(self, token):
+        super().__init__('invalid rlist format {0}'.format(token))
 
 
 class AssemblerThumb(Assembler):
@@ -78,6 +83,32 @@ class AssemblerThumb(Assembler):
             rd, rs = instr.apply(self._low_r, self._low_r)
             return self._build_opcode(0b0100000000000000, ((9, 6), op), ((5, 3), rs), ((2, 0), rd))
 
+    def _rlist(self, tokens):
+
+        rlist = 0
+        for token in tokens:
+            if token in LOW_REGS:
+                bit_to_set = self._low_r(token)
+                rlist = pack_bit(rlist, (bit_to_set, 1))
+                continue
+            if '-' in token:
+                r_start, r_end = token.split('-')
+                if not r_start.lower() in LOW_REGS:
+                    raise InvalidRList(token)
+                if not r_end.lower() in LOW_REGS:
+                    raise InvalidRList(token)
+
+                first = self._low_r(r_start)
+                last = self._low_r(r_end)
+                if first > last:
+                    raise InvalidRList(token)
+                for reg in range(first, last+1):
+                    rlist = pack_bit(rlist, (reg, 1))
+                continue
+            raise InvalidRList(token)
+
+        return rlist
+
     def _build_opcode(self, value, *args):
         return pack_bits_le16u(value, *args)
 
@@ -134,7 +165,15 @@ class AssemblerThumb(Assembler):
 
     @opcode('SUB')
     def _sub(self, instr):
-        pass
+        if instr.match(LOW_REGS, LOW_REGS, LOW_REGS):
+            rd, rs, rn = instr.apply(self._low_r, self._low_r, self._low_r)
+            return self._build_opcode(0b0001101000000000, ((8, 6), rn), ((5, 3), rs), ((2, 0), rd))
+        if instr.match(LOW_REGS, LOW_REGS, IMMEDIATE):
+            rd, rs, imm = instr.apply(self._low_r, self._low_r, self._imm)
+            return self._build_opcode(0b0001111000000000, ((8, 6), imm), ((5, 3), rs), ((2, 0), rd))
+        if instr.match(LOW_REGS, IMMEDIATE):
+            rd, imm = instr.apply(self._low_r, self._imm)
+            return self._build_opcode(0b0011100000000000, ((10, 8), rd), ((7, 0), imm))
 
     @opcode('MOV')
     def _mov(self, instr):
@@ -323,7 +362,7 @@ class AssemblerThumb(Assembler):
             address >>= 1
             address0 = address >> 11
             address1 = address & 0x7ff
-            return self._build_opcode(0b111100000000, ((10, 0), address0)) + self._build_opcode(0b111110000000, ((10, 0), address1))
+            return self._build_opcode(0b1111000000000000, ((10, 0), address0)) + self._build_opcode(0b1111100000000000, ((10, 0), address1))
 
         self.add_label_translation(label=offset,
                                    bits=(10, 0),
@@ -331,7 +370,8 @@ class AssemblerThumb(Assembler):
                                    size=2,
                                    offset=0,
                                    alignment=2,
-                                   filter=lambda x: x >> 12,  # shift 11 + 1
+                                   filter=lambda x: x >> 1,
+                                   post_filter=lambda x: x >> 11,
                                    bits_check=23,
                                    start=self.current_org + self.org_counter + 4)
         self.add_label_translation(label=offset,
@@ -340,8 +380,9 @@ class AssemblerThumb(Assembler):
                                    size=2,
                                    offset=2,
                                    alignment=2,
-                                   # get first 11 bits (+ shifting)
-                                   filter=lambda x: (x >> 1) & 0x7FF,
+                                   filter=lambda x: x >> 1,
+                                   # get first 11 bits
+                                   post_filter=lambda x: x & 0x7FF,
                                    bits_check=23,
                                    start=self.current_org + self.org_counter + 4)
 
@@ -413,3 +454,18 @@ class AssemblerThumb(Assembler):
     def _swi(self, instr):
         if instr.match(INTERRUPT):
             return self._build_opcode(0b1101111100000000, ((7, 0), int(instr.tokens[1])))
+
+    @opcode('PUSH')
+    def _push(self, instr):
+        if len(instr.tokens) < 4:
+            return None
+
+        if instr.tokens[1] != '{' or instr.tokens[-1] != '}':
+            return None
+
+        lr = 0
+        if instr.tokens[-2].lower() == 'lr':
+            lr = 1
+
+        rlist = self._rlist(instr.tokens[2:-(1+lr)])
+        return self._build_opcode(0b1011010000000000, ((11, 11), lr), ((7, 0), rlist))

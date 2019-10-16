@@ -1,5 +1,5 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack, pack_byte, pack_bytes
+from necroassembler.utils import pack_byte, pack_le16u, pack_8s
 
 
 class AssemblerGameboy(Assembler):
@@ -33,7 +33,7 @@ class AssemblerGameboy(Assembler):
             if relative:
                 self.add_label_translation(
                     label=arg, size=1, relative=True, start=self.current_org + self.org_counter + 2)
-                return pack('b', value)
+                return pack_8s(value)
             self.add_label_translation(label=arg, size=1)
         return pack_byte(value)
 
@@ -42,7 +42,7 @@ class AssemblerGameboy(Assembler):
         # label ?
         if value is None:
             self.add_label_translation(label=arg, size=2)
-        return pack('<H', value)
+        return pack_le16u(value)
 
     def reg_name(self, reg, prefix=''):
         return prefix + reg.lower().replace('+', '_plus').replace('-', '_minus')
@@ -117,14 +117,14 @@ class AssemblerGameboy(Assembler):
             if reg.upper() not in self.regs8:
                 return None
             key = self.reg_name(reg)
-            return pack_bytes(0xCB, kwargs[key])
+            return pack_byte(0xCB, kwargs[key])
         if len(instr.tokens) == 3:
             bit_number = instr.tokens[1]
             reg = instr.tokens[2]
             if reg not in self.regs8:
                 return None
             key = 'b' + str(bit_number) + '_' + self.reg_name(reg)
-            return pack_bytes(0xCB, kwargs[key])
+            return pack_byte(0xCB, kwargs[key])
         return None
 
     def build_opcode_four_args(self, instr, **kwargs):

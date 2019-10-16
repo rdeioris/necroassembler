@@ -124,11 +124,7 @@ class Assembler:
         with open(filename) as f:
             self.assemble(f.read(), filename)
 
-    def link(self):
-
-        for _pass in self.pre_link_passes:
-            _pass()
-
+    def _resolve_labels(self):
         for address in self.labels_addresses:
             data = self.labels_addresses[address]
             label = data['label']
@@ -143,43 +139,51 @@ class Assembler:
             if true_address is None:
                 raise UnknownLabel(label, self)
 
+            if 'hook' in data:
+                data['hook'](address, true_address)
+                continue
+
+            if 'filter' in data:
+                true_address = data['filter'](true_address)
+
             if 'alignment' in data:
                 if absolute_address % data['alignment'] != 0:
                     raise AlignmentError(label, self)
 
-            print(hex(true_address))
-            if 'filter' in data:
-                true_address = data['filter'](true_address)
-            print(hex(true_address))
+            size = data['size']
+            total_bits = size * 8
 
-            if 'hook' in data:
-                data['hook'](address, true_address)
+            if 'bits' in data:
+                total_bits = data['bits'][0] - data['bits'][1] + 1
+
+            bits_to_check = data.get('bits_check', total_bits)
+
+            if relative:
+                if not in_bit_range_signed(true_address, bits_to_check):
+                    raise NotInBitRange(
+                        label, true_address, bits_to_check, self)
             else:
-                size = data['size']
-                total_bits = size * 8
+                if true_address < 0 or not in_bit_range(true_address, bits_to_check):
+                    raise NotInBitRange(
+                        label, true_address, bits_to_check, self)
 
-                if 'bits' in data:
-                    total_bits = data['bits'][0] - data['bits'][1] + 1
+            if 'post_filter' in data:
+                true_address = data['post_filter'](true_address)
 
-                bits_to_check = data.get('bits_check', total_bits)
+            if 'bits' in data:
+                true_address = pack_bits(
+                    0, (data['bits'], true_address, relative), check_bits='bits_check' not in data)
 
-                if relative:
-                    if not in_bit_range_signed(true_address, bits_to_check):
-                        raise NotInBitRange(
-                            label, true_address, bits_to_check, self)
-                else:
-                    if true_address < 0 or not in_bit_range(true_address, bits_to_check):
-                        raise NotInBitRange(
-                            label, true_address, bits_to_check, self)
+            for i in range(0, size):
+                value = (true_address >> (8 * i)) & 0xFF
+                self.assembled_bytes[address + i] |= value
 
-                if 'bits' in data:
-                    true_address = pack_bits(
-                        0, (data['bits'], true_address, relative))
-                    print(hex(true_address))
+    def link(self):
 
-                for i in range(0, size):
-                    value = (true_address >> (8 * i)) & 0xFF
-                    self.assembled_bytes[address + i] |= value
+        for _pass in self.pre_link_passes:
+            _pass()
+
+        self._resolve_labels()
 
         for _pass in self.post_link_passes:
             _pass()

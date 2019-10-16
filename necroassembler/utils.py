@@ -6,6 +6,10 @@ def pack_byte(*args):
     return struct.pack('B' * len(args), *[n & 0xff if n is not None else 0 for n in args])
 
 
+def pack_8s(*args):
+    return struct.pack('b' * len(args), *[n & 0xff if n is not None else 0 for n in args])
+
+
 def pack_le32s(*args):
     return struct.pack('<' + ('i' * len(args)),
                        *[n & 0xffffffff if n is not None else 0 for n in args])
@@ -13,6 +17,16 @@ def pack_le32s(*args):
 
 def pack_le32u(*args):
     return struct.pack('<' + ('I' * len(args)),
+                       *[n & 0xffffffff if n is not None else 0 for n in args])
+
+
+def pack_be32u(*args):
+    return struct.pack('>' + ('I' * len(args)),
+                       *[n & 0xffffffff if n is not None else 0 for n in args])
+
+
+def pack_be32s(*args):
+    return struct.pack('>' + ('i' * len(args)),
                        *[n & 0xffffffff if n is not None else 0 for n in args])
 
 
@@ -30,20 +44,27 @@ def pack(fmt, *args):
     return struct.pack(fmt, *[n if n is not None else 0 for n in args])
 
 
-def pack_bits(base, *args):
+def pack_bits(base, *args, check_bits=True):
     for arg in args:
         (end, start), value, *signed = arg
         if end < start:
             raise Exception('invalid range')
-        total_bits = end - start + 1
-        if signed:
-            if not in_bit_range_signed(value, total_bits):
-                raise Exception('not in bit range')
-        else:
-            if not in_bit_range(value, total_bits):
-                raise Exception('not in bit range')
+        if check_bits:
+            total_bits = end - start + 1
+            if signed:
+                if not in_bit_range_signed(value, total_bits):
+                    raise Exception('not in bit range')
+            else:
+                if not in_bit_range(value, total_bits):
+                    raise Exception('not in bit range')
+
         base |= (value << start) & (pow(2, end + 1) - 1)
     return base
+
+
+def pack_bit(base, *args, check_bits=True):
+    new_args = [((x, x), y) for x, y in args]
+    return pack_bits(base, *new_args, check_bits=check_bits)
 
 
 def pack_bits_le32u(base, *args):

@@ -1,6 +1,6 @@
 
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack, pack_bytes
+from necroassembler.utils import pack, pack_byte
 
 
 class InvalidMode(Exception):
@@ -75,7 +75,7 @@ class AssemblerMOS6502(Assembler):
         if address is not None:
              # valid zero_page ?
             if zp is not None and self.is_zero_page(address):
-                return pack_bytes(zp, address)
+                return pack_byte(zp, address)
             if abs is None:
                 raise Exception('absolute address mode not allowed')
             return pack('<BH', abs, address)
@@ -91,7 +91,7 @@ class AssemblerMOS6502(Assembler):
             return pack('<BH', abs, 0)
 
         if zp is not None and self.is_zero_page(address):
-            return pack_bytes(zp, address)
+            return pack_byte(zp, address)
 
         # normal labeling (postpone to linking phase)
         if abs is None:
@@ -104,7 +104,7 @@ class AssemblerMOS6502(Assembler):
         # immediate ?
         if arg.startswith('#'):
             value = self.parse_integer_or_label(arg[1:], size=1)
-            return pack_bytes(opcodes['imm'], value)
+            return pack_byte(opcodes['imm'], value)
 
         # use get for 'zp' to support non-zp opcodes
         return self.manage_address(opcodes['abs'], opcodes.get('zp'), arg)

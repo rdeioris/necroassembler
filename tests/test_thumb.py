@@ -93,5 +93,17 @@ class TestThumb(unittest.TestCase):
         self.assertEqual(self.asm.assembled_bytes, b'\xFF\xF1\xFE\xFF')
 
     def test_bl_too_far(self):
-        self.asm.assemble('BL far\n.org 0x800000\nfar:')
+        self.asm.assemble('BL far\n.org 0x1000000\nfar:')
         self.assertRaises(NotInBitRange, self.asm.link)
+
+    def test_push_rlist(self):
+        self.asm.assemble('PUSH {r0,r1,r2, r3-r6}')
+        self.assertEqual(self.asm.assembled_bytes, b'\x7F\xB4')
+
+    def test_push_rlist_lr(self):
+        self.asm.assemble('PUSH {lr}')
+        self.assertEqual(self.asm.assembled_bytes, b'\x00\xBC')
+
+    def test_push_rlist_lr_r0(self):
+        self.asm.assemble('PUSH {r0,lr}')
+        self.assertEqual(self.asm.assembled_bytes, b'\x01\xBC')
