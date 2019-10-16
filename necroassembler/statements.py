@@ -44,8 +44,9 @@ class Instruction(Statement):
                 if blob is None:
                     raise InvalidInstruction(self)
             except AssemblerException as exc:
-                # trick for re-rising the exception with more infos
-                raise exc.__class__(self) from None
+                # trick for adding more infos to the exception
+                exc.args = (exc.args[0] + ' ' + str(self),)
+                raise exc from None
         else:
             if len(self.tokens) != 1:
                 raise InvalidOpCodeArguments()

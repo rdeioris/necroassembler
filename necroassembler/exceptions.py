@@ -1,9 +1,9 @@
 class AssemblerException(Exception):
     message = None
 
-    def __init__(self, additional=None):
-        if additional is not None:
-            self.message += ' ' + str(additional)
+    def __init__(self, context=None):
+        if context is not None:
+            self.message += ' ' + str(context)
         super().__init__(self.message)
 
 
