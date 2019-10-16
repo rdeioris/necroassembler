@@ -1,7 +1,9 @@
 class AssemblerException(Exception):
     message = None
 
-    def __init__(self):
+    def __init__(self, additional=None):
+        if additional is not None:
+            self.message += ' ' + str(additional)
         super().__init__(self.message)
 
 
@@ -37,6 +39,10 @@ class NotInBitRange(AssemblerException):
             self.message = 'label {2} with value {0} is not in the {1} bit range'.format(
                 value, max_bits, label)
         super().__init__()
+
+
+class InvalidBitRange(AssemblerException):
+    message = 'invalid bit range'
 
 
 class OnlyForwardAddressesAllowed(AssemblerException):
@@ -76,3 +82,11 @@ class InvalidArgumentsForDirective(AssemblerException):
 
 class AddressOverlap(AssemblerException):
     message = 'address overlap'
+
+
+class LabelAlreadyDefined(AssemblerException):
+    message = 'label already defined'
+
+
+class InvalidLabel(AssemblerException):
+    message = 'invalid label'

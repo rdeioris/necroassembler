@@ -1,4 +1,5 @@
-from necroassembler.exceptions import InvalidOpCodeArguments, UnknownInstruction, InvalidInstruction, UnknownDirective
+from necroassembler.exceptions import (InvalidOpCodeArguments, UnknownInstruction,
+                                       InvalidInstruction, UnknownDirective, LabelAlreadyDefined, InvalidLabel, AssemblerException)
 from necroassembler.utils import substitute_with_dict
 
 
@@ -38,12 +39,16 @@ class Instruction(Statement):
             raise UnknownInstruction(self)
         instruction = assembler.instructions[key]
         if callable(instruction):
-            blob = instruction(self)
-            if blob is None:
-                raise InvalidInstruction(self)
+            try:
+                blob = instruction(self)
+                if blob is None:
+                    raise InvalidInstruction(self)
+            except AssemblerException as exc:
+                # trick for re-rising the exception with more infos
+                raise exc.__class__(self) from None
         else:
             if len(self.tokens) != 1:
-                raise InvalidOpCodeArguments(self)
+                raise InvalidOpCodeArguments()
             blob = instruction
         assembler.assembled_bytes += blob
         assembler.org_counter += len(blob)
@@ -78,9 +83,9 @@ class Label(Statement):
     def assemble(self, assembler):
         key = self.tokens[0]
         if key in assembler.labels:
-            raise Exception('label already defined')
+            raise LabelAlreadyDefined(self)
         if assembler.parse_integer(key) is not None:
-            raise Exception('invalid label')
+            raise InvalidLabel(self)
         assembler.labels[key] = {
             'base': assembler.org_counter, 'org': assembler.current_org}
 

@@ -1,5 +1,5 @@
 import struct
-from necroassembler.exceptions import NotInBitRange
+from necroassembler.exceptions import NotInBitRange, InvalidBitRange
 
 
 def pack_byte(*args):
@@ -48,15 +48,15 @@ def pack_bits(base, *args, check_bits=True):
     for arg in args:
         (end, start), value, *signed = arg
         if end < start:
-            raise Exception('invalid range')
+            raise InvalidBitRange()
         if check_bits:
             total_bits = end - start + 1
             if signed:
                 if not in_bit_range_signed(value, total_bits):
-                    raise Exception('not in bit range')
+                    raise InvalidBitRange()
             else:
                 if not in_bit_range(value, total_bits):
-                    raise Exception('not in bit range')
+                    raise InvalidBitRange()
 
         base |= (value << start) & (pow(2, end + 1) - 1)
     return base
