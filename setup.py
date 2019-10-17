@@ -1,13 +1,14 @@
 from setuptools import setup
 
 setup(name='necroassembler',
-      version='20191017',
+      version='0.2',
       description='framework for building assemblers',
       url='https://github.com/rdeioris/necroassembler/',
       author='Roberto De Ioris',
       author_email='roberto.deioris@gmail.com',
       license='MIT',
-      packages=['necroassembler'],
+      packages=['necroassembler', 'necroassembler.cpu',
+                'necroassembler.platforms'],
       entry_points={
           'console_scripts': [
               'necro_6502=necroassembler.cpu.mos6502:main',
