@@ -65,6 +65,7 @@ class Assembler:
         self.register_directive('dw', self.directive_dw)
         self.register_directive('word', self.directive_dw)
         self.register_directive('dd', self.directive_dd)
+        self.register_directive('dl', self.directive_dd)
         self.register_directive('dword', self.directive_dd)
         self.register_directive('db_to_ascii', self.directive_db_to_ascii)
         self.register_directive('dw_to_ascii', self.directive_dw_to_ascii)
@@ -89,7 +90,7 @@ class Assembler:
 
     def macro_start(self, instr):
         if self.macro_recording is not None:
-            raise UnsupportedNestedMacro()
+            raise UnsupportedNestedMacro(instr)
         self.macro_recording = Macro(instr.tokens[1:])
         key = instr.tokens[1]
         if not self.case_sensitive:
@@ -98,7 +99,7 @@ class Assembler:
 
     def macro_end(self, instr):
         if self.macro_recording is None:
-            raise NotInMacroRecordingMode()
+            raise NotInMacroRecordingMode(instr)
         self.macro_recording = None
 
     def assemble(self, code, context=None):
@@ -189,7 +190,8 @@ class Assembler:
                     self.assembled_bytes[address + i] |= value
 
             if self.log:
-                print('label {0} translated to {1} at address {2}'.format(label, self.assembled_bytes[address:address+size], hex(address)))
+                print('label "{0}" translated to {1} at address {2}'.format(
+                    label, self.assembled_bytes[address:address+size], hex(address)))
 
     def link(self):
 
@@ -308,20 +310,20 @@ class Assembler:
         previous_org_end = self.current_org_end
         previous_org_counter = self.org_counter
         if len(instr.tokens) not in (2, 3):
-            raise InvalidArgumentsForDirective()
+            raise InvalidArgumentsForDirective(instr)
         self.current_org = self.parse_integer(instr.tokens[1])
         if self.current_org is None:
-            raise InvalidArgumentsForDirective()
+            raise InvalidArgumentsForDirective(instr)
         if len(instr.tokens) == 3:
             self.current_org_end = self.parse_integer(instr.tokens[2])
             if self.current_org_end is None or self.current_org_end < self.current_org:
-                raise InvalidArgumentsForDirective()
+                raise InvalidArgumentsForDirective(instr)
         self.org_counter = 0
         # check if need to fill
         if previous_org_end > 0:
             # overlap check:
             if previous_org + previous_org_counter > self.current_org:
-                raise AddressOverlap()
+                raise AddressOverlap(instr)
             # NOTE: we have to NOT set org_counter here! (leave it as 0, as this is a new one .org)
             # new org is is higher than the previous end
             if self.current_org > previous_org_end:
@@ -334,11 +336,11 @@ class Assembler:
                                                    (previous_org + previous_org_counter)))
                 self.assembled_bytes += blob
             else:
-                raise AddressOverlap()
+                raise AddressOverlap(instr)
 
     def directive_define(self, instr):
         if len(instr.tokens) != 3:
-            raise InvalidArgumentsForDirective()
+            raise InvalidArgumentsForDirective(instr)
         self.defines[instr.tokens[1]] = instr.tokens[2]
 
     def directive_dw(self, instr):
@@ -407,25 +409,25 @@ class Assembler:
 
     def directive_fill(self, instr):
         if len(instr.tokens) not in (2, 3):
-            raise InvalidArgumentsForDirective()
+            raise InvalidArgumentsForDirective(instr)
         size = self.parse_integer(instr.tokens[1])
         if size is None:
-            raise InvalidArgumentsForDirective()
+            raise InvalidArgumentsForDirective(instr)
         value = self.fill_value
         if len(instr.tokens) == 3:
             value = self.parse_integer(instr.tokens[2])
             if value is None:
-                raise InvalidArgumentsForDirective()
+                raise InvalidArgumentsForDirective(instr)
         blob = bytes([value] * size)
         self.assembled_bytes += blob
         self.org_counter += len(blob)
 
     def directive_align(self, instr):
         if len(instr.tokens) != 2:
-            raise InvalidArgumentsForDirective()
+            raise InvalidArgumentsForDirective(instr)
         size = self.parse_integer(instr.tokens[1])
         if size is None:
-            raise InvalidArgumentsForDirective()
+            raise InvalidArgumentsForDirective(instr)
 
         mod = (self.current_org + self.org_counter) % size
         if mod != 0:
@@ -476,14 +478,14 @@ class Assembler:
 
     def directive_include(self, instr):
         if len(instr.tokens) != 2:
-            raise InvalidArgumentsForDirective()
+            raise InvalidArgumentsForDirective(instr)
         filename = instr.tokens[1]
         with open(filename) as f:
             self.assemble(f.read(), context=filename)
 
     def directive_incbin(self, instr):
         if len(instr.tokens) != 2:
-            raise InvalidArgumentsForDirective()
+            raise InvalidArgumentsForDirective(instr)
         filename = instr.tokens[1]
         with open(filename, 'rb') as f:
             blob = f.read()
