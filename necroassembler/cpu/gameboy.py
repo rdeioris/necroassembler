@@ -1,5 +1,27 @@
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_byte, pack_le16u, pack_8s
+from necroassembler.exceptions import InvalidOpCodeArguments
+
+REGS8 = ('A', 'F', 'B', 'C', 'D', 'E', 'H', 'L')
+REGS16 = ('AF', 'BC', 'DE', 'HL', 'HL+', 'HL-', 'SP')
+CONDITIONS = ('Z', 'C', 'NZ', 'NC')
+
+
+def _is_value(token):
+    return token.upper() not in REGS8 + REGS16 + CONDITIONS + ('(', ')')
+
+
+def _is_number(token):
+    return token.isdigit()
+
+
+def _is_ldh(token):
+    return token.startswith('$FF00+') and token != '$FF00+C'
+
+
+VALUE = _is_value
+NUMBER = _is_number
+LDH = _is_ldh
 
 
 class AssemblerGameboy(Assembler):
@@ -10,32 +32,31 @@ class AssemblerGameboy(Assembler):
 
     oct_prefixes = ('@',)
 
-    regs8 = ('A', 'F', 'B', 'C', 'D', 'E', 'H', 'L')
-    regs16 = ('AF', 'BC', 'DE', 'HL', 'HL+', 'HL-', 'SP')
-    conditions = ('Z', 'C', 'NZ', 'NC')
-
     fill_value = 0xFF
 
     def register_instructions(self):
         self.register_instruction('NOP', b'\x00')
         self.register_instruction('RRCA', b'\x0F')
         self.register_instruction('BRA', b'\x1F')
-        self.register_instruction('STOP', b'\x10')
         self.register_instruction('HALT', b'\x76')
         self.register_instruction('DI', b'\xF3')
         self.register_instruction('EI', b'\xF8')
         self.register_instruction('RLA', b'\x17')
 
-    def _data8(self, arg, relative=False):
+    def _data8(self, arg):
         value = self.parse_integer(arg)
         # label ?
         if value is None:
-            if relative:
-                self.add_label_translation(
-                    label=arg, size=1, relative=True, start=self.current_org + self.org_counter + 2)
-                return pack_8s(value)
             self.add_label_translation(label=arg, size=1)
         return pack_byte(value)
+
+    def _rel8(self, arg):
+        value = self.parse_integer(arg)
+        # label ?
+        if value is None:
+            self.add_label_translation(
+                label=arg, size=1, relative=True, start=self.current_org + self.org_counter + 2)
+        return pack_8s(value)
 
     def _data16(self, arg):
         value = self.parse_integer(arg)
@@ -44,233 +65,187 @@ class AssemblerGameboy(Assembler):
             self.add_label_translation(label=arg, size=2)
         return pack_le16u(value)
 
-    def reg_name(self, reg, prefix=''):
+    def _reg_name(self, reg, prefix=''):
         return prefix + reg.lower().replace('+', '_plus').replace('-', '_minus')
 
-    def build_opcode_one_arg(self, instr, **kwargs):
-        arg = instr.tokens[1]
-        key = None
-        data = b''
-        if arg.upper() in self.regs8 + self.regs16 + self.conditions:
-            key = self.reg_name(arg)
-        else:
-            if 'relative' in kwargs:
-                key = 'r8'
-                data = self._data8(arg, True)
-            elif 'data8' in kwargs:
-                key = 'data8'
-                data = self._data8(arg)
-            elif 'data16' in kwargs:
-                key = 'data16'
-                data = self._data16(arg)
-
-        if key is None:
-            return None
-
-        return pack_byte(kwargs[key]) + data
-
-    def build_opcode_two_args(self, instr, **kwargs):
-        relative = kwargs.get('relative', False)
-        dst, src = instr.tokens[1:]
-        key = None
-        data = b''
-        if dst.upper() in self.regs8:
-            if src.upper() in self.regs8:
-                key = self.reg_name(dst) + '_' + self.reg_name(src)
-            # avoid 16bit register in 8bit register
-            elif src.upper() not in self.regs16:
-                key = self.reg_name(dst) + '_d8'
-                data = self._data8(src)
-
-        elif dst.upper() in self.regs16:
-            if src.upper() in self.regs16:
-                key = self.reg_name(dst) + '_' + self.reg_name(src)
-            # avoid 8bit register in 16bit register
-            elif src.upper() not in self.regs8:
-                key = self.reg_name(dst) + '_d16'
-                data = self._data16(src)
-
-        elif dst.upper() in self.conditions:
-            if relative:
-                key = self.reg_name(dst) + '_r8'
-                data = self._data8(src, True)
-            else:
-                key = self.reg_name(dst) + '_a16'
-                data = self._data16(src)
-
-        elif src.upper() in self.regs8:
-            if dst.upper() in self.regs8:
-                key = self.reg_name(dst) + '_' + self.reg_name(src)
-            # avoid 8bit value in 16bit register
-            elif dst.upper() not in self.regs16:
-                key = 'd8_' + self.reg_name(src)
-                data = self._data8(dst)
-
-        if key is None:
-            return None
-
-        return pack_byte(kwargs[key]) + data
-
     def _build_cb_opcode(self, instr, **kwargs):
-        if len(instr.tokens) == 2:
-            reg = instr.tokens[1]
-            if reg.upper() not in self.regs8:
-                return None
-            key = self.reg_name(reg)
-            return pack_byte(0xCB, kwargs[key])
-        if len(instr.tokens) == 3:
-            bit_number = instr.tokens[1]
-            reg = instr.tokens[2]
-            if reg not in self.regs8:
-                return None
-            key = 'b' + str(bit_number) + '_' + self.reg_name(reg)
-            return pack_byte(0xCB, kwargs[key])
-        return None
+        try:
 
-    def build_opcode_four_args(self, instr, **kwargs):
-        args = instr.tokens[1:]
-        key = None
-        data = b''
-        if args[0] in ('(', '[') and args[2] in (')', ']'):
-            dst = args[1]
-            src = args[3]
-            # invalid combo
-            if src.upper() not in self.regs8 and src.upper() != 'SP':
-                return None
-            if dst.upper() in self.regs16:
-                key = 'ind_' + self.reg_name(dst) + '_' + self.reg_name(src)
-            elif dst.upper() == '$FF00+C':
-                key = 'ind_c_' + self.reg_name(src)
-            elif dst.upper().startswith('$FF00+'):
-                key = 'ind_a8_' + self.reg_name(src)
-                data = self._data8(dst[6:])
-            else:
-                key = 'ind_a16_' + self.reg_name(src)
-                data = self._data16(dst)
+            if instr.match(REGS8):
+                reg8, = instr.apply(self._reg_name)
+                return pack_byte(0xCB, kwargs[reg8])
+            if instr.match('(', 'HL', ')'):
+                return pack_byte(0xCB, kwargs['ind_hl'])
+            if instr.match(NUMBER, REGS8):
+                value, reg8 = instr.apply(str, self._reg_name)
+                return pack_byte(0xCB, kwargs['b' + value + '_' + reg8])
+            if instr.match(NUMBER, '(', 'HL', ')'):
+                return pack_byte(0xCB, kwargs['b' + value + 'ind_hl'])
 
-        elif args[1] in ('(', '[') and args[3] in (')', ']'):
-            dst = args[0]
-            src = args[2]
-            # invalid combo
-            if dst.upper() not in self.regs8:
-                return None
-            if src.upper() in self.regs16:
-                key = self.reg_name(dst) + '_ind_' + self.reg_name(src)
-            elif src.upper() == '$FF00+C':
-                key = self.reg_name(dst) + '_ind_c'
-            elif src.upper().startswith('$FF00+'):
-                key = self.reg_name(dst) + '_ind_a8'
-                data = self._data8(src[6:])
-            else:
-                key = self.reg_name(dst) + '_ind_a16'
-                data = self._data16(src)
+        except KeyError:
+            raise InvalidOpCodeArguments()
 
-        if key is None:
-            return None
+    def _build_opcode(self, instr, **kwargs):
+        try:
+            if instr.match('(', '$FF00+C', ')', 'A'):
+                return pack_byte(kwargs['ind_c_a'])
 
-        return pack_byte(kwargs[key]) + data
+            if instr.match('(', LDH, ')', 'A'):
+                value = self._data8(instr.tokens[2][6:])
+                return pack_byte(kwargs['ind_a8_a']) + value
 
-    def build_opcode_three_args(self, instr, **kwargs):
-        args = instr.tokens[1:]
-        key = None
-        data = b''
-        if args[0] in ('(', '[') and args[2] in (')', ']'):
-            arg = args[1]
-            if arg.upper() in self.regs16:
-                key = 'ind_' + self.reg_name(arg)
-            else:
-                key = 'ind_a16'
-                data = self._data16(arg)
+            if instr.match('A', '(', LDH, ')'):
+                value = self._data8(instr.tokens[3][6:])
+                return pack_byte(kwargs['a_ind_a8']) + value
 
-        if key is None:
-            return None
+            if instr.match(REGS8, REGS8):
+                reg8_d, reg8_s = instr.apply(self._reg_name, self._reg_name)
+                return pack_byte(kwargs[reg8_d + '_' + reg8_s])
 
-        return pack_byte(kwargs[key]) + data
+            if instr.match(REGS16, VALUE):
+                reg16, value = instr.apply(self._reg_name, self._data16)
+                return pack_byte(kwargs[reg16 + '_d16']) + value
 
-    def build_opcode(self, instr, **kwargs):
-        args = instr.tokens[1:]
-        if len(args) == 1:
-            return self.build_opcode_one_arg(instr, **kwargs)
-        if len(args) == 2:
-            return self.build_opcode_two_args(instr, **kwargs)
-        if len(args) == 3:
-            return self.build_opcode_three_args(instr, **kwargs)
-        if len(args) == 4:
-            return self.build_opcode_four_args(instr, **kwargs)
-        return None
+            if instr.match('(', REGS16, ')', REGS8):
+                reg16, reg8 = instr.apply(
+                    None, self._reg_name, None, self._reg_name)
+                return pack_byte(kwargs['ind_' + reg16 + '_' + reg8])
+
+            if instr.match(REGS8):
+                reg8, = instr.apply(self._reg_name)
+                return pack_byte(kwargs[reg8])
+
+            if instr.match(REGS8, VALUE):
+                reg8, value = instr.apply(self._reg_name, self._data8)
+                return pack_byte(kwargs[reg8 + '_d8']) + value
+
+            if instr.match(REGS16):
+                reg16, = instr.apply(self._reg_name)
+                return pack_byte(kwargs[reg16])
+
+            if instr.match(REGS8, '(', REGS16, ')'):
+                reg8, reg16 = instr.apply(
+                    self._reg_name, None, self._reg_name, None)
+                return pack_byte(kwargs[reg8 + '_ind_' + reg16])
+
+            if instr.match('(', REGS16, ')'):
+                reg16, = instr.apply(
+                    None, self._reg_name, None)
+                return pack_byte(kwargs['ind_' + reg16])
+
+            if instr.match('(', VALUE, ')', REGS16):
+                value, reg16 = instr.apply(
+                    None, self._data16, None, self._reg_name)
+                return pack_byte(kwargs['ind_a16_' + reg16]) + value
+
+            if instr.match('(', VALUE, ')', REGS8):
+                value, reg8 = instr.apply(
+                    None, self._data16, None, self._reg_name)
+                return pack_byte(kwargs['ind_a16_' + reg8]) + value
+
+            if instr.match(VALUE):
+                if 'r8' in kwargs:
+                    value, = instr.apply(self._rel8)
+                    return pack_byte(kwargs['r8']) + value
+                if 'd8' in kwargs:
+                    value, = instr.apply(self._data8)
+                    return pack_byte(kwargs['d8']) + value
+                if 'd16' in kwargs:
+                    value, = instr.apply(self._data16)
+                    return pack_byte(kwargs['d16']) + value
+                if 'a16' in kwargs:
+                    value, = instr.apply(self._data16)
+                    return pack_byte(kwargs['a16']) + value
+
+            if instr.match(CONDITIONS, VALUE):
+                relative = kwargs.get('relative')
+                if relative:
+                    condition, value = instr.apply(self._reg_name, self._rel8)
+                    return pack_byte(kwargs[condition + '_r8']) + value
+                condition, value = instr.apply(self._reg_name, self._data16)
+                return pack_byte(kwargs[condition + '_a16']) + value
+
+        except KeyError:
+            raise InvalidOpCodeArguments()
 
     @opcode('LD')
     def _ld(self, instr):
-        return self.build_opcode(instr,
-                                 bc_d16=0x01,
-                                 ind_bc_a=0x02,
-                                 b_d8=0x06,
-                                 ind_a16_sp=0x08,
-                                 a_ind_bc=0x0A,
-                                 c_d8=0x0E,
-                                 a_ind_hl_plus=0x2A,
-                                 hl_d16=0x21,
-                                 de_d16=0x11,
-                                 ind_a16_a=0xEA,
-                                 a_d8=0x3E,
-                                 a_ind_a16=0xFA,
-                                 ind_hl_minus_a=0x32,
-                                 ind_hl_plus_a=0x22,
-                                 d_d8=0x16,
-                                 d_a=0x57,
-                                 a_d=0x7A,
-                                 ind_c_a=0xE2,
-                                 ind_hl_a=0x77,
-                                 ind_a8_a=0xE0,
-                                 a_ind_de=0x1A,
-                                 a_e=0x78,
-                                 l_d8=0x2E,
-                                 h_a=0x67,
-                                 e_d8=0x1E,
-                                 a_ind_a8=0xF0,
-                                 a_h=0x7C,
-                                 c_a=0x4F,
-                                 a_l=0x7D,
-                                 a_b=0x78,
-                                 sp_d16=0x31)
+        return self._build_opcode(instr,
+                                  bc_d16=0x01,
+                                  ind_bc_a=0x02,
+                                  b_d8=0x06,
+                                  ind_a16_sp=0x08,
+                                  a_ind_bc=0x0A,
+                                  c_d8=0x0E,
+                                  a_ind_hl_plus=0x2A,
+                                  hl_d16=0x21,
+                                  de_d16=0x11,
+                                  ind_a16_a=0xEA,
+                                  a_d8=0x3E,
+                                  a_ind_a16=0xFA,
+                                  ind_hl_minus_a=0x32,
+                                  ind_hl_plus_a=0x22,
+                                  d_d8=0x16,
+                                  d_a=0x57,
+                                  a_d=0x7A,
+                                  ind_c_a=0xE2,
+                                  ind_hl_a=0x77,
+                                  ind_a8_a=0xE0,
+                                  a_ind_de=0x1A,
+                                  a_e=0x78,
+                                  l_d8=0x2E,
+                                  h_a=0x67,
+                                  e_d8=0x1E,
+                                  a_ind_a8=0xF0,
+                                  a_h=0x7C,
+                                  c_a=0x4F,
+                                  a_l=0x7D,
+                                  a_b=0x78,
+                                  sp_d16=0x31)
 
     @opcode('INC')
     def _inc(self, instr):
-        return self.build_opcode(instr,
-                                 ind_hl=0x34, a=0x3C, d=0x14,
-                                 bc=0x03, b=0x04, c=0x0C,
-                                 hl=0x23,
-                                 h=0x24,
-                                 de=0x13)
+        return self._build_opcode(instr,
+                                  ind_hl=0x34,
+                                  a=0x3C,
+                                  d=0x14,
+                                  bc=0x03,
+                                  b=0x04,
+                                  c=0x0C,
+                                  hl=0x23,
+                                  h=0x24,
+                                  de=0x13)
 
     @opcode('JP')
     def _jp(self, instr):
-        return self.build_opcode(instr,
-                                 z_a16=0xCA,
-                                 nc_a16=0xD2,
-                                 nz_a16=0xC2,
-                                 data16=0xC3)
+        return self._build_opcode(instr,
+                                  z_a16=0xCA,
+                                  nc_a16=0xD2,
+                                  nz_a16=0xC2,
+                                  a16=0xC3)
 
     @opcode('CALL')
     def _call(self, instr):
-        return self.build_opcode(instr,
-                                 z_a16=0xCC,
-                                 nz_a16=0xC4,
-                                 data16=0xCD)
+        return self._build_opcode(instr,
+                                  z_a16=0xCC,
+                                  nz_a16=0xC4,
+                                  a16=0xCD)
 
     @opcode('XOR')
     def _xor(self, instr):
-        return self.build_opcode(instr, a=0xAF)
+        return self._build_opcode(instr, a=0xAF)
 
     @opcode('CP')
     def _cp(self, instr):
-        return self.build_opcode(instr, data8=0xFE,
-                                 ind_hl=0xBE,
-                                 a_l=0xBD, l=0xBD)
+        return self._build_opcode(instr,
+                                  d8=0xFE,
+                                  ind_hl=0xBE,
+                                  a_l=0xBD, l=0xBD)
 
     @opcode('BIT')
     def _bit(self, instr):
-        return self._build_cb_opcode(instr, b0_a=0x47,
+        return self._build_cb_opcode(instr,
+                                     b0_a=0x47,
                                      b1_a=0x4F,
                                      b2_a=0x57,
                                      b3_a=0x5F,
@@ -282,50 +257,56 @@ class AssemblerGameboy(Assembler):
 
     @opcode('DEC')
     def _dec(self, instr):
-        return self.build_opcode(instr, ind_hl=0x35,
-                                 b=0x05,
-                                 a=0x3D,
-                                 c=0x0D,
-                                 d=0x15,
-                                 e=0x1D,
-                                 de=0x1B)
+        return self._build_opcode(instr,
+                                  ind_hl=0x35,
+                                  b=0x05,
+                                  a=0x3D,
+                                  c=0x0D,
+                                  d=0x15,
+                                  e=0x1D,
+                                  de=0x1B)
 
     @opcode('RET')
     def _ret(self, instr):
         if len(instr.tokens) == 1:
             return b'\xC9'
-        return self.build_opcode(instr, nz=0xC0)
+        return self._build_opcode(instr, nz=0xC0)
 
     @opcode('AND')
     def _and(self, instr):
-        return self.build_opcode(instr, data8=0xE6)
+        return self._build_opcode(instr, d8=0xE6)
 
     @opcode('OR')
     def _or(self, instr):
-        return self.build_opcode(instr, e=0xB3)
+        return self._build_opcode(instr, e=0xB3)
 
     @opcode('JR')
     def _jr(self, instr):
-        return self.build_opcode(instr, relative=True,
-                                 z_r8=0x20,
-                                 r8=0x18,
-                                 nz_r8=0x20)
+        return self._build_opcode(instr, relative=True,
+                                  z_r8=0x20,
+                                  r8=0x18,
+                                  nz_r8=0x20)
 
     @opcode('SUB')
     def _sub(self, instr):
-        return self.build_opcode(instr, b=0x90)
+        return self._build_opcode(instr, b=0x90)
 
     @opcode('PUSH')
     def _push(self, instr):
-        return self.build_opcode(instr, bc=0xC5)
+        return self._build_opcode(instr, bc=0xC5)
 
     @opcode('POP')
     def _pop(self, instr):
-        return self.build_opcode(instr, bc=0xC1)
+        return self._build_opcode(instr, bc=0xC1)
 
     @opcode('ADD')
     def _add(self, instr):
-        return self.build_opcode(instr, ind_hl=0x86, a_ind_hl=0x86)
+        return self._build_opcode(instr, ind_hl=0x86, a_ind_hl=0x86)
+
+    @opcode('STOP')
+    def _stop(self, instr):
+        if len(instr.tokens) == 1 or (len(instr.tokens) == 2 and instr.tokens[1] == '0'):
+            return pack_byte(0x10, 0x00)
 
 
 def main():

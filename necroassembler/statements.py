@@ -42,7 +42,8 @@ class Instruction(Statement):
             try:
                 blob = instruction(self)
                 if blob is None:
-                    raise InvalidInstruction(self)
+                    # do not add 'self' here, will be added in the exception
+                    raise InvalidInstruction()
             except AssemblerException as exc:
                 # trick for adding more infos to the exception
                 exc.args = (exc.args[0] + ' ' + str(self),)

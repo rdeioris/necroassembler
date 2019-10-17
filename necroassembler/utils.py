@@ -2,17 +2,24 @@ import struct
 from necroassembler.exceptions import NotInBitRange, InvalidBitRange
 
 
+def sign_fix(value, bits):
+    negative = 1 << (bits - 1)
+    if value & negative:
+        return -(1 << (bits)) + value
+    return value
+
+
 def pack_byte(*args):
     return struct.pack('B' * len(args), *[n & 0xff if n is not None else 0 for n in args])
 
 
 def pack_8s(*args):
-    return struct.pack('b' * len(args), *[n & 0xff if n is not None else 0 for n in args])
+    return struct.pack('b' * len(args), *[sign_fix(n & 0xff, 8) if n is not None else 0 for n in args])
 
 
 def pack_le32s(*args):
     return struct.pack('<' + ('i' * len(args)),
-                       *[n & 0xffffffff if n is not None else 0 for n in args])
+                       *[sign_fix(n & 0xffffffff, 16) if n is not None else 0 for n in args])
 
 
 def pack_le32u(*args):
@@ -27,12 +34,12 @@ def pack_be32u(*args):
 
 def pack_be32s(*args):
     return struct.pack('>' + ('i' * len(args)),
-                       *[n & 0xffffffff if n is not None else 0 for n in args])
+                       *[sign_fix(n & 0xffffffff, 32) if n is not None else 0 for n in args])
 
 
 def pack_le16s(*args):
     return struct.pack('<' + ('h' * len(args)),
-                       *[n & 0xffff if n is not None else 0 for n in args])
+                       *[sign_fix(n & 0xffff, 32) if n is not None else 0 for n in args])
 
 
 def pack_le16u(*args):
@@ -87,6 +94,10 @@ def in_bit_range_signed(value, number_of_bits):
     else:
         max_value = int('1' * (number_of_bits-1), 2)
     return value & max_value == value
+
+
+def known_args(args, known):
+    return all([key in known for key in args.keys()])
 
 
 def substitute_with_dict(tokens, _dict, start, prefixes=(), suffixes=()):

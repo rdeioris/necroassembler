@@ -1,7 +1,6 @@
 
-from collections import namedtuple
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack, pack_byte
+from necroassembler.utils import pack, pack_byte, known_args
 from necroassembler.exceptions import AssemblerException
 
 
@@ -36,13 +35,10 @@ def is_zero_page(address):
     return 0 <= address <= 0xff
 
 
-_AVAILABLE_MODES = ('immediate', 'accumulator',
-                    'absolute', 'absolute_x', 'absolute_y',
-                    'zero_page', 'zero_page_x', 'zero_page_y',
-                    'indirect', 'indirect_x', 'indirect_y')
-
-Mode = namedtuple('Mode', _AVAILABLE_MODES,
-                  defaults=(None, ) * len(_AVAILABLE_MODES))
+_AVAILABLE_MODES = frozenset(('immediate', 'accumulator',
+                              'absolute', 'absolute_x', 'absolute_y',
+                              'zero_page', 'zero_page_x', 'zero_page_y',
+                              'indirect', 'indirect_x', 'indirect_y'))
 
 
 class AssemblerMOS6502(Assembler):
@@ -127,89 +123,74 @@ class AssemblerMOS6502(Assembler):
         self.add_label_translation(label=arg, size=2)
         return pack('<BH', absolute, 0)
 
-    def _manage_mode(self, instr, mode):
+    def _manage_mode(self, instr, **kwargs):
 
-        if instr.match(REG_A):
-            if mode.accumulator is None:
-                raise UnsupportedModeForOpcode()
-            return pack_byte(mode.accumulator)
+        if not known_args(kwargs, _AVAILABLE_MODES):
+            raise InvalidMode()
 
-        if instr.match(IMMEDIATE):
-            if mode.immediate is None:
-                raise UnsupportedModeForOpcode()
-            return pack_byte(mode.immediate,
-                             self.parse_integer_or_label(instr.tokens[1][1:], size=1))
+        try:
+            if instr.match(REG_A):
+                return pack_byte(kwargs['accumulator'])
 
-        if instr.match(ADDRESS):
-            if mode.absolute is None and mode.zero_page is None:
-                raise UnsupportedModeForOpcode()
-            return self._manage_address(mode.absolute, mode.zero_page, instr.tokens[1])
+            if instr.match(IMMEDIATE):
+                return pack_byte(kwargs['immediate'],
+                                 self.parse_integer_or_label(instr.tokens[1][1:], size=1))
 
-        if instr.match(ADDRESS, REG_X):
-            if mode.absolute_x is None and mode.zero_page_x is None:
-                raise UnsupportedModeForOpcode()
-            return self._manage_address(mode.absolute_x, mode.zero_page_x, instr.tokens[1])
+            if instr.match(ADDRESS):
+                return self._manage_address(kwargs.get('absolute'), kwargs.get('zero_page'), instr.tokens[1])
 
-        if instr.match(ADDRESS, REG_Y):
-            if mode.absolute_y is None and mode.zero_page_y is None:
-                raise UnsupportedModeForOpcode()
-            return self._manage_address(mode.absolute_y, mode.zero_page_y, instr.tokens[1])
+            if instr.match(ADDRESS, REG_X):
+                return self._manage_address(kwargs.get('absolute_x'), kwargs.get('zero_page_x'), instr.tokens[1])
 
-        if instr.match('(', ADDRESS, ')'):
-            if mode.indirect is None:
-                raise UnsupportedModeForOpcode()
-            return self._manage_address(mode.indirect, None, instr.tokens[2])
+            if instr.match(ADDRESS, REG_Y):
+                return self._manage_address(kwargs.get('absolute_y'), kwargs.get('zero_page_y'), instr.tokens[1])
 
-        if instr.match('(', ADDRESS, REG_X, ')'):
-            if mode.indirect_x is None:
-                raise UnsupportedModeForOpcode()
-            return self._manage_address(None, mode.indirect_x, instr.tokens[2])
+            if instr.match('(', ADDRESS, ')'):
+                return self._manage_address(kwargs['indirect'], None, instr.tokens[2])
 
-        if instr.match('(', ADDRESS, ')', REG_Y):
-            if mode.indirect_y is None:
-                raise UnsupportedModeForOpcode()
-            return self._manage_address(None, mode.indirect_y, instr.tokens[2])
+            if instr.match('(', ADDRESS, REG_X, ')'):
+                return self._manage_address(None, kwargs['indirect_x'], instr.tokens[2])
+
+            if instr.match('(', ADDRESS, ')', REG_Y):
+                return self._manage_address(None, kwargs['indirect_y'], instr.tokens[2])
+
+        except KeyError:
+            raise UnsupportedModeForOpcode()
 
         raise InvalidMode()
 
     @opcode('ADC')
     def _adc(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0x69,
-                                     zero_page=0x65,
-                                     zero_page_x=0x75,
-                                     absolute=0x6D,
-                                     absolute_x=0x7D,
-                                     absolute_y=0x79,
-                                     indirect_x=0x61,
-                                     indirect_y=0x71)
-                                 )
+                                 immediate=0x69,
+                                 zero_page=0x65,
+                                 zero_page_x=0x75,
+                                 absolute=0x6D,
+                                 absolute_x=0x7D,
+                                 absolute_y=0x79,
+                                 indirect_x=0x61,
+                                 indirect_y=0x71)
 
     @opcode('AND')
     def _and(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0x29,
-                                     zero_page=0x25,
-                                     zero_page_x=0x35,
-                                     absolute=0x2D,
-                                     absolute_x=0x3D,
-                                     absolute_y=0x39,
-                                     indirect_x=0x21,
-                                     indirect_y=0x31)
-                                 )
+                                 immediate=0x29,
+                                 zero_page=0x25,
+                                 zero_page_x=0x35,
+                                 absolute=0x2D,
+                                 absolute_x=0x3D,
+                                 absolute_y=0x39,
+                                 indirect_x=0x21,
+                                 indirect_y=0x31)
 
     @opcode('ASL')
     def _asl(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     accumulator=0x0A,
-                                     zero_page=0x06,
-                                     zero_page_x=0x16,
-                                     absolute=0x0E,
-                                     absolute_x=0x1E)
-                                 )
+                                 accumulator=0x0A,
+                                 zero_page=0x06,
+                                 zero_page_x=0x16,
+                                 absolute=0x0E,
+                                 absolute_x=0x1E)
 
     @opcode('BPL')
     def _bpl(self, instr):
@@ -246,218 +227,179 @@ class AssemblerMOS6502(Assembler):
     @opcode('BIT')
     def _bit(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     zero_page=0x24,
-                                     absolute=0x2C)
-                                 )
+                                 zero_page=0x24,
+                                 absolute=0x2C)
 
     @opcode('CMP')
     def _cmp(self, instr):
         return self._manage_mode(instr,
-                                 Mode(immediate=0xC9,
-                                      zero_page=0xC5,
-                                      zero_page_x=0xD5,
-                                      absolute=0xCD,
-                                      absolute_x=0xDD,
-                                      absolute_y=0xD9,
-                                      indirect_x=0xC1,
-                                      indirect_y=0xD1)
-                                 )
+                                 immediate=0xC9,
+                                 zero_page=0xC5,
+                                 zero_page_x=0xD5,
+                                 absolute=0xCD,
+                                 absolute_x=0xDD,
+                                 absolute_y=0xD9,
+                                 indirect_x=0xC1,
+                                 indirect_y=0xD1)
 
     @opcode('CPX')
     def _cpx(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0xE0,
-                                     zero_page=0xE4,
-                                     absolute=0xEC)
-                                 )
+                                 immediate=0xE0,
+                                 zero_page=0xE4,
+                                 absolute=0xEC)
 
     @opcode('CPY')
     def _cpy(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0xC0,
-                                     zero_page=0xC4,
-                                     absolute=0xCC)
-                                 )
+                                 immediate=0xC0,
+                                 zero_page=0xC4,
+                                 absolute=0xCC)
 
     @opcode('DEC')
     def _dec(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     zero_page=0xC6,
-                                     zero_page_x=0xD6,
-                                     absolute=0xCE,
-                                     absolute_x=0xDE)
-                                 )
+                                 zero_page=0xC6,
+                                 zero_page_x=0xD6,
+                                 absolute=0xCE,
+                                 absolute_x=0xDE)
 
     @opcode('EOR')
     def _eor(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0x49,
-                                     zero_page=0x45,
-                                     zero_page_x=0x55,
-                                     absolute=0x4D,
-                                     absolute_x=0x5D,
-                                     absolute_y=0x59,
-                                     indirect_x=0x41,
-                                     indirect_y=0x51)
-                                 )
+                                 immediate=0x49,
+                                 zero_page=0x45,
+                                 zero_page_x=0x55,
+                                 absolute=0x4D,
+                                 absolute_x=0x5D,
+                                 absolute_y=0x59,
+                                 indirect_x=0x41,
+                                 indirect_y=0x51)
 
     @opcode('INC')
     def _inc(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     zero_page=0xE6,
-                                     zero_page_x=0xF6,
-                                     absolute=0xEE,
-                                     absolute_x=0xFE)
-                                 )
+                                 zero_page=0xE6,
+                                 zero_page_x=0xF6,
+                                 absolute=0xEE,
+                                 absolute_x=0xFE)
 
     @opcode('JMP')
     def _jmp(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     absolute=0x4C,
-                                     indirect=0x6C)
-                                 )
+                                 absolute=0x4C,
+                                 indirect=0x6C)
 
     @opcode('JSR')
     def _jsr(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     absolute=0x20)
-                                 )
+                                 absolute=0x20)
 
     @opcode('LDA')
     def _lda(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0xA9,
-                                     zero_page=0xA5,
-                                     zero_page_x=0xB5,
-                                     absolute=0xAD,
-                                     absolute_x=0xBD,
-                                     absolute_y=0xB9,
-                                     indirect_x=0xA1,
-                                     indirect_y=0xB1)
-                                 )
+                                 immediate=0xA9,
+                                 zero_page=0xA5,
+                                 zero_page_x=0xB5,
+                                 absolute=0xAD,
+                                 absolute_x=0xBD,
+                                 absolute_y=0xB9,
+                                 indirect_x=0xA1,
+                                 indirect_y=0xB1)
 
     @opcode('LDX')
     def _ldx(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0xA2,
-                                     zero_page=0xA6,
-                                     zero_page_y=0xB6,
-                                     absolute=0xAE,
-                                     absolute_y=0xBE)
-                                 )
+                                 immediate=0xA2,
+                                 zero_page=0xA6,
+                                 zero_page_y=0xB6,
+                                 absolute=0xAE,
+                                 absolute_y=0xBE)
 
     @opcode('LDY')
     def _ldy(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0xA0,
-                                     zero_page=0xA4,
-                                     zero_page_x=0xB4,
-                                     absolute=0xAC,
-                                     absolute_x=0xBC)
-                                 )
+                                 immediate=0xA0,
+                                 zero_page=0xA4,
+                                 zero_page_x=0xB4,
+                                 absolute=0xAC,
+                                 absolute_x=0xBC)
 
     @opcode('LSR')
     def _lsr(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     accumulator=0x4A,
-                                     zero_page=0x46,
-                                     zero_page_x=0x56,
-                                     absolute=0x4E,
-                                     absolute_x=0x5E)
-                                 )
+                                 accumulator=0x4A,
+                                 zero_page=0x46,
+                                 zero_page_x=0x56,
+                                 absolute=0x4E,
+                                 absolute_x=0x5E)
 
     @opcode('ORA')
     def _ora(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0x09,
-                                     zero_page=0x05,
-                                     zero_page_x=0x15,
-                                     absolute=0x0D,
-                                     absolute_x=0x1D,
-                                     absolute_y=0x19,
-                                     indirect_x=0x01,
-                                     indirect_y=0x11)
-                                 )
+                                 immediate=0x09,
+                                 zero_page=0x05,
+                                 zero_page_x=0x15,
+                                 absolute=0x0D,
+                                 absolute_x=0x1D,
+                                 absolute_y=0x19,
+                                 indirect_x=0x01,
+                                 indirect_y=0x11)
 
     @opcode('ROL')
     def _rol(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     accumulator=0x2A,
-                                     zero_page=0x26,
-                                     zero_page_x=0x36,
-                                     absolute=0x2E,
-                                     absolute_x=0x3E)
-                                 )
+                                 accumulator=0x2A,
+                                 zero_page=0x26,
+                                 zero_page_x=0x36,
+                                 absolute=0x2E,
+                                 absolute_x=0x3E)
 
     @opcode('ROR')
     def _ror(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     accumulator=0x6A,
-                                     zero_page=0x66,
-                                     zero_page_x=0x76,
-                                     absolute=0x6E,
-                                     absolute_x=0x7E)
-                                 )
+                                 accumulator=0x6A,
+                                 zero_page=0x66,
+                                 zero_page_x=0x76,
+                                 absolute=0x6E,
+                                 absolute_x=0x7E)
 
     @opcode('SBC')
     def _sbc(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     immediate=0xE9,
-                                     zero_page=0xE5,
-                                     zero_page_x=0xF5,
-                                     absolute=0xED,
-                                     absolute_x=0xFD,
-                                     absolute_y=0xF9,
-                                     indirect_x=0xE1,
-                                     indirect_y=0xF1)
-                                 )
+                                 immediate=0xE9,
+                                 zero_page=0xE5,
+                                 zero_page_x=0xF5,
+                                 absolute=0xED,
+                                 absolute_x=0xFD,
+                                 absolute_y=0xF9,
+                                 indirect_x=0xE1,
+                                 indirect_y=0xF1)
 
     @opcode('STA')
     def _sta(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     zero_page=0x85,
-                                     zero_page_x=0x95,
-                                     absolute=0x8D,
-                                     absolute_x=0x9D,
-                                     absolute_y=0x99,
-                                     indirect_x=0x81,
-                                     indirect_y=0x91)
-                                 )
+                                 zero_page=0x85,
+                                 zero_page_x=0x95,
+                                 absolute=0x8D,
+                                 absolute_x=0x9D,
+                                 absolute_y=0x99,
+                                 indirect_x=0x81,
+                                 indirect_y=0x91)
 
     @opcode('STX')
     def _stx(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     zero_page=0x86,
-                                     zero_page_y=0x96,
-                                     absolute=0x8E)
-                                 )
+                                 zero_page=0x86,
+                                 zero_page_y=0x96,
+                                 absolute=0x8E)
 
     @opcode('STY')
     def _sty(self, instr):
         return self._manage_mode(instr,
-                                 Mode(
-                                     zero_page=0x84,
-                                     zero_page_x=0x94,
-                                     absolute=0x8C)
-                                 )
+                                 zero_page=0x84,
+                                 zero_page_x=0x94,
+                                 absolute=0x8C)
 
 
 def main():
