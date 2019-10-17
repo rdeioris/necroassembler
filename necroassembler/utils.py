@@ -2,11 +2,21 @@ import struct
 from necroassembler.exceptions import NotInBitRange, InvalidBitRange
 
 
-def sign_fix(value, bits):
+def neg_fix(value, bits):
     negative = 1 << (bits - 1)
     if value & negative:
         return -(1 << (bits)) + value
     return value
+
+
+def pos_fix(value, bits):
+    """
+    if value < 0:
+    negative = 1 << (bits - 1)
+    if value & negative:
+        return -(1 << (bits)) + value
+    return value
+    """
 
 
 def pack_byte(*args):
@@ -14,12 +24,12 @@ def pack_byte(*args):
 
 
 def pack_8s(*args):
-    return struct.pack('b' * len(args), *[sign_fix(n & 0xff, 8) if n is not None else 0 for n in args])
+    return struct.pack('b' * len(args), *[neg_fix(n & 0xff, 8) if n is not None else 0 for n in args])
 
 
 def pack_le32s(*args):
     return struct.pack('<' + ('i' * len(args)),
-                       *[sign_fix(n & 0xffffffff, 16) if n is not None else 0 for n in args])
+                       *[neg_fix(n & 0xffffffff, 16) if n is not None else 0 for n in args])
 
 
 def pack_le32u(*args):
@@ -34,16 +44,21 @@ def pack_be32u(*args):
 
 def pack_be32s(*args):
     return struct.pack('>' + ('i' * len(args)),
-                       *[sign_fix(n & 0xffffffff, 32) if n is not None else 0 for n in args])
+                       *[neg_fix(n & 0xffffffff, 32) if n is not None else 0 for n in args])
 
 
 def pack_le16s(*args):
     return struct.pack('<' + ('h' * len(args)),
-                       *[sign_fix(n & 0xffff, 32) if n is not None else 0 for n in args])
+                       *[neg_fix(n & 0xffff, 32) if n is not None else 0 for n in args])
 
 
 def pack_le16u(*args):
     return struct.pack('<' + ('H' * len(args)),
+                       *[n & 0xffff if n is not None else 0 for n in args])
+
+
+def pack_be16u(*args):
+    return struct.pack('>' + ('H' * len(args)),
                        *[n & 0xffff if n is not None else 0 for n in args])
 
 
@@ -62,6 +77,9 @@ def pack_bits(base, *args, check_bits=True):
                 if not in_bit_range_signed(value, total_bits):
                     raise InvalidBitRange()
             else:
+                # fix negative numbers
+                if value < 0:
+                    value &= (pow(2, total_bits) - 1)
                 if not in_bit_range(value, total_bits):
                     raise InvalidBitRange()
 
@@ -80,6 +98,10 @@ def pack_bits_le32u(base, *args):
 
 def pack_bits_le16u(base, *args):
     return pack_le16u(pack_bits(base, *args))
+
+
+def pack_bits_be16u(base, *args):
+    return pack_be16u(pack_bits(base, *args))
 
 
 def in_bit_range(value, number_of_bits):

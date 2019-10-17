@@ -5,7 +5,7 @@ from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, Not
 from necroassembler.macros import Macro
 
 
-def opcode(name):
+def opcode(*name):
     def wrapper(f):
         f.opcode = name
         return f
@@ -29,6 +29,8 @@ class Assembler:
     case_sensitive = False
 
     fill_value = 0
+
+    big_endian = False
 
     def __init__(self):
         self.instructions = {}
@@ -79,7 +81,8 @@ class Assembler:
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
             if callable(attr) and hasattr(attr, 'opcode'):
-                self.register_instruction(attr.opcode, attr)
+                for symbol in attr.opcode:
+                    self.register_instruction(symbol, attr)
 
     def register_instructions(self):
         pass
@@ -180,7 +183,13 @@ class Assembler:
 
             for i in range(0, size):
                 value = (true_address >> (8 * i)) & 0xFF
-                self.assembled_bytes[address + i] |= value
+                if self.big_endian:
+                    self.assembled_bytes[address + ((size-1) - i)] |= value
+                else:
+                    self.assembled_bytes[address + i] |= value
+
+            if self.log:
+                print('label {0} translated to {1} at address {2}'.format(label, self.assembled_bytes[address:address+size], hex(address)))
 
     def link(self):
 

@@ -44,25 +44,18 @@ class AssemblerGameboy(Assembler):
         self.register_instruction('RLA', b'\x17')
 
     def _data8(self, arg):
-        value = self.parse_integer(arg)
-        # label ?
-        if value is None:
-            self.add_label_translation(label=arg, size=1)
+        value = self.parse_integer_or_label(arg, size=1)
         return pack_byte(value)
 
     def _rel8(self, arg):
-        value = self.parse_integer(arg)
-        # label ?
-        if value is None:
-            self.add_label_translation(
-                label=arg, size=1, relative=True, start=self.current_org + self.org_counter + 2)
+        value = self.parse_integer_or_label(arg,
+                                            size=1,
+                                            relative=True,
+                                            start=self.current_org + self.org_counter + 2)
         return pack_8s(value)
 
     def _data16(self, arg):
-        value = self.parse_integer(arg)
-        # label ?
-        if value is None:
-            self.add_label_translation(label=arg, size=2)
+        value = self.parse_integer_or_label(arg, size=2)
         return pack_le16u(value)
 
     def _reg_name(self, reg, prefix=''):
