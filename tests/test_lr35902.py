@@ -61,3 +61,34 @@ class TestGameboy(unittest.TestCase):
                          b'\x09\x0A\x0B\x0C\x0D' +
                          b'\x0E\x17' +
                          b'\x0F')
+
+    def test_line1_0_7(self):
+        self.asm.assemble('STOP')
+        self.asm.assemble('LD DE,$17')
+        self.asm.assemble('LD (DE), A')
+        self.asm.assemble('INC DE')
+        self.asm.assemble('INC D')
+        self.asm.assemble('DEC D')
+        self.asm.assemble('LD D, $22')
+        self.asm.assemble('RLA')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x10\x00' +
+                         b'\x11\x17\x00' +
+                         b'\x12\x13\x14\x15' +
+                         b'\x16\x22' +
+                         b'\x17')
+
+    def test_line1_8_f(self):
+        self.asm.assemble('JR $30')
+        self.asm.assemble('ADD HL,DE')
+        self.asm.assemble('LD A,(DE)')
+        self.asm.assemble('DEC DE')
+        self.asm.assemble('INC E')
+        self.asm.assemble('DEC E')
+        self.asm.assemble('LD E, $17')
+        self.asm.assemble('RRA')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x18\x30' +
+                         b'\x19\x1A\x1B\x1C\x1D' +
+                         b'\x1E\x17' +
+                         b'\x1F')

@@ -45,6 +45,7 @@ class AssemblerLR35902(Assembler):
         self.register_instruction('EI', b'\xF8')
         self.register_instruction('RLA', b'\x17')
         self.register_instruction('RLCA', b'\x07')
+        self.register_instruction('RRA', b'\x1F')
 
     def _data8(self, arg):
         value = self.parse_integer_or_label(arg, size=1)
@@ -188,6 +189,7 @@ class AssemblerLR35902(Assembler):
                                   ind_a16_a=0xEA,
                                   a_d8=0x3E,
                                   a_ind_a16=0xFA,
+                                  ind_de_a=0x12,
                                   ind_hl_minus_a=0x32,
                                   ind_hl_plus_a=0x22,
                                   d_d8=0x16,
@@ -217,6 +219,7 @@ class AssemblerLR35902(Assembler):
                                   bc=0x03,
                                   b=0x04,
                                   c=0x0C,
+                                  e=0x1c,
                                   hl=0x23,
                                   h=0x24,
                                   de=0x13)
@@ -310,11 +313,12 @@ class AssemblerLR35902(Assembler):
         return self._build_opcode(instr,
                                   ind_hl=0x86,
                                   hl_bc=0x09,
+                                  hl_de=0x19,
                                   a_ind_hl=0x86)
 
     @opcode('STOP')
     def _stop(self, instr):
-        if len(instr.tokens) == 1 or (len(instr.tokens) == 2 and instr.tokens[1] == '0'):
+        if len(instr.tokens) == 1 or instr.match('0'):
             return pack_byte(0x10, 0x00)
 
 
