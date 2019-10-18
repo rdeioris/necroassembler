@@ -82,7 +82,8 @@ class TestMOS6502(unittest.TestCase):
         self.assertEqual(self.asm.assembled_bytes, b'\x4C\x00\x00')
 
     def test_invalid_bit(self):
-        self.assertRaises(UnsupportedModeForOpcode, self.asm.assemble, 'BIT #$17')
+        self.assertRaises(UnsupportedModeForOpcode,
+                          self.asm.assemble, 'BIT #$17')
 
     def test_beq(self):
         self.asm.assemble('loop:\nNOP\nBEQ loop')
@@ -100,3 +101,15 @@ class TestMOS6502(unittest.TestCase):
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes,
                          b'\x10\xFE\x30\xFC\x50\xFA\x70\xF8\x90\xF6\xB0\xF4\xD0\xF2\xF0\xF0')
+
+    def test_adc(self):
+        self.asm.assemble('ADC #$44')
+        self.asm.assemble('ADC $44')
+        self.asm.assemble('ADC $44, X')
+        self.asm.assemble('ADC $4400')
+        self.asm.assemble('ADC $4400,X')
+        self.asm.assemble('ADC $4400,Y')
+        self.asm.assemble('ADC ($44, X)')
+        self.asm.assemble('ADC ($44), Y')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x69\x44\x65\x44\x75\x44\x6D\x00\x44\x7D\x00\x44\x79\x00\x44\x61\x44\x71\x44')
