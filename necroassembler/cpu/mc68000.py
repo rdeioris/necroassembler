@@ -43,6 +43,10 @@ class AssemblerMC68000(Assembler):
 
     big_endian = True
 
+    def register_instructions(self):
+        self.register_instruction('RTS', b'\x4E\x75')
+        self.register_instruction('NOP', b'\x4E\x71')
+
     def _value8(self, token):
         value = self.parse_integer_or_label(token[1:], size=2, offset=2)
         return pack_be16u(value & 0xff)
@@ -70,6 +74,17 @@ class AssemblerMC68000(Assembler):
         if size == 4:
             return self._value32
 
+    def _mode(self, instr, start):
+        args = instr.tokens
+        if args[start].lower() in D_REGS:
+            return 0, int(args[start][1:]), 1
+        if args[start].lower() in A_REGS:
+            return 1, int(args[start][1:]), 1
+        if len(args) > 3 and args[start] == '(' and args[start+1].lower() in A_REGS and args[start+2] == ')':
+            if len(args) > 4 and args[start+3] == '+':
+                return 3, int(args[start+1][1:]), 4
+            return 2,  int(args[start+1][1:]), 3
+
     def _build_opcode(self, base, *args):
         return pack_bits_be16u(base, *args)
 
@@ -77,6 +92,9 @@ class AssemblerMC68000(Assembler):
     def _move(self, instr):
         size, _, _, op_size = _suffix(instr.tokens[0])
         if instr.match(IMMEDIATE, D_REGS):
+            value, reg = instr.apply(self._value(size), _reg)
+            return self._build_opcode(0b0000000000111100, ((13, 12), op_size), ((11, 9), reg)) + value
+        if instr.match(D_REGS, D_REGS):
             value, reg = instr.apply(self._value(size), _reg)
             return self._build_opcode(0b0000000000111100, ((13, 12), op_size), ((11, 9), reg)) + value
 
