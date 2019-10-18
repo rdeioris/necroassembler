@@ -84,6 +84,14 @@ class AssemblerLR35902(Assembler):
 
     def _build_opcode(self, instr, **kwargs):
         try:
+            if kwargs.get('conditional') and instr.match(CONDITIONS, VALUE):
+                relative = kwargs.get('relative')
+                if relative:
+                    condition, value = instr.apply(self._reg_name, self._rel8)
+                    return pack_byte(kwargs[condition + '_r8']) + value
+                condition, value = instr.apply(self._reg_name, self._data16)
+                return pack_byte(kwargs[condition + '_a16']) + value
+
             if instr.match(OPEN, '$FF00+C', CLOSE, 'A'):
                 return pack_byte(kwargs['ind_c_a'])
 
@@ -148,14 +156,6 @@ class AssemblerLR35902(Assembler):
                 value, reg8 = instr.apply(
                     None, self._data16, None, self._reg_name)
                 return pack_byte(kwargs['ind_a16_' + reg8]) + value
-
-            if instr.match(CONDITIONS, VALUE):
-                relative = kwargs.get('relative')
-                if relative:
-                    condition, value = instr.apply(self._reg_name, self._rel8)
-                    return pack_byte(kwargs[condition + '_r8']) + value
-                condition, value = instr.apply(self._reg_name, self._data16)
-                return pack_byte(kwargs[condition + '_a16']) + value
 
             if instr.match(VALUE):
                 if 'r8' in kwargs:
@@ -227,14 +227,18 @@ class AssemblerLR35902(Assembler):
     @opcode('JP')
     def _jp(self, instr):
         return self._build_opcode(instr,
+                                  conditional=True,
+                                  c_a16=0xDA,
                                   z_a16=0xCA,
                                   nc_a16=0xD2,
                                   nz_a16=0xC2,
+                                  ind_hl=0xE9,
                                   a16=0xC3)
 
     @opcode('CALL')
     def _call(self, instr):
         return self._build_opcode(instr,
+                                  conditional=True,
                                   z_a16=0xCC,
                                   nz_a16=0xC4,
                                   a16=0xCD)
@@ -291,7 +295,9 @@ class AssemblerLR35902(Assembler):
 
     @opcode('JR')
     def _jr(self, instr):
-        return self._build_opcode(instr, relative=True,
+        return self._build_opcode(instr,
+                                  conditional=True,
+                                  relative=True,
                                   z_r8=0x20,
                                   r8=0x18,
                                   nz_r8=0x20)

@@ -22,6 +22,10 @@ class TestGameboy(unittest.TestCase):
         self.asm.assemble('INC BC\nINC B\nINC C')
         self.assertEqual(self.asm.assembled_bytes, b'\x03\x04\x0C')
 
+    def test_ld_ff_ind_a(self):
+        self.asm.assemble('LD [$FF40], A')
+        self.assertEqual(self.asm.assembled_bytes, b'\xEA\x40\xFF')
+
     def test_jr(self):
         self.asm.assemble('JR NZ,-1')
         self.assertEqual(self.asm.assembled_bytes, b'\x20\xff')
@@ -92,3 +96,18 @@ class TestGameboy(unittest.TestCase):
                          b'\x19\x1A\x1B\x1C\x1D' +
                          b'\x1E\x17' +
                          b'\x1F')
+
+    def test_jp(self):
+        self.asm.assemble('JP NZ, $1234')
+        self.asm.assemble('JP $1234')
+        self.asm.assemble('JP Z, $1234')
+        self.asm.assemble('JP NC, $1234')
+        self.asm.assemble('JP C, $1234')
+        self.asm.assemble('JP (HL)')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xC2\x34\x12' +
+                         b'\xC3\x34\x12' +
+                         b'\xCA\x34\x12' +
+                         b'\xD2\x34\x12' +
+                         b'\xDA\x34\x12' +
+                         b'\xE9')
