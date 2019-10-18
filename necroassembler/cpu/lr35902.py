@@ -34,8 +34,6 @@ class AssemblerLR35902(Assembler):
 
     oct_prefixes = ('@',)
 
-    fill_value = 0xFF
-
     def register_instructions(self):
         self.register_instruction('NOP', b'\x00')
         self.register_instruction('RRCA', b'\x0F')
@@ -144,7 +142,7 @@ class AssemblerLR35902(Assembler):
             if instr.match(REGS8, OPEN, VALUE, CLOSE):
                 reg8, value = instr.apply(
                     self._reg_name, None, self._data16, None)
-                return pack_byte(kwargs[reg8 + '_ind_a16'])
+                return pack_byte(kwargs[reg8 + '_ind_a16']) + value
 
             if instr.match(OPEN, REGS16, CLOSE):
                 reg16, = instr.apply(
