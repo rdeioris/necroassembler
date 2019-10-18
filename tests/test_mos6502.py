@@ -77,6 +77,11 @@ class TestMOS6502(unittest.TestCase):
         self.asm.assemble('TXS\nTSX\nPHA\nPLA\nPHP\nPLP')
         self.assertEqual(self.asm.assembled_bytes, b'\x9A\xBA\x48\x68\x08\x28')
 
+    def test_jmsr(self):
+        self.asm.assemble('.org $100 \nloop: JSR loop')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x20\x00\x01')
+
     def test_jmp(self):
         self.asm.assemble('loop: JMP loop')
         self.asm.link()
@@ -85,7 +90,8 @@ class TestMOS6502(unittest.TestCase):
     def test_jmp_indirect(self):
         self.asm.assemble('loop: .dw foo\nJMP (loop)\nfoo: JMP foo')
         self.asm.link()
-        self.assertEqual(self.asm.assembled_bytes, b'\x05\x00\x6C\x00\x00\x4C\x05\x00')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x05\x00\x6C\x00\x00\x4C\x05\x00')
 
     def test_invalid_bit(self):
         self.assertRaises(UnsupportedModeForOpcode,
@@ -208,3 +214,117 @@ class TestMOS6502(unittest.TestCase):
         self.asm.assemble('INC $4400,X')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xE6\x44\xF6\x44\xEE\x00\x44\xFE\x00\x44')
+
+    def test_lda(self):
+        self.asm.assemble('LDA #$44')
+        self.asm.assemble('LDA $44')
+        self.asm.assemble('LDA $44, X')
+        self.asm.assemble('LDA $4400')
+        self.asm.assemble('LDA $4400,X')
+        self.asm.assemble('LDA $4400,Y')
+        self.asm.assemble('LDA ($44, X)')
+        self.asm.assemble('LDA ($44), Y')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xA9\x44\xA5\x44\xB5\x44\xAD\x00\x44\xBD\x00\x44\xB9\x00\x44\xA1\x44\xB1\x44')
+
+    def test_ldx(self):
+        self.asm.assemble('LDX #$44')
+        self.asm.assemble('LDX $44')
+        self.asm.assemble('LDX $44, Y')
+        self.asm.assemble('LDX $4400')
+        self.asm.assemble('LDX $4400,Y')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xA2\x44\xA6\x44\xB6\x44\xAE\x00\x44\xBE\x00\x44')
+
+    def test_ldy(self):
+        self.asm.assemble('LDY #$44')
+        self.asm.assemble('LDY $44')
+        self.asm.assemble('LDY $44, X')
+        self.asm.assemble('LDY $4400')
+        self.asm.assemble('LDY $4400,X')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xA0\x44\xA4\x44\xB4\x44\xAC\x00\x44\xBC\x00\x44')
+
+    def test_lsr(self):
+        self.asm.assemble('LSR A')
+        self.asm.assemble('LSR $44')
+        self.asm.assemble('LSR $44, X')
+        self.asm.assemble('LSR $4400')
+        self.asm.assemble('LSR $4400,X')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x4A\x46\x44\x56\x44\x4E\x00\x44\x5E\x00\x44')
+
+    def test_ora(self):
+        self.asm.assemble('ORA #$44')
+        self.asm.assemble('ORA $44')
+        self.asm.assemble('ORA $44, X')
+        self.asm.assemble('ORA $4400')
+        self.asm.assemble('ORA $4400,X')
+        self.asm.assemble('ORA $4400,Y')
+        self.asm.assemble('ORA ($44, X)')
+        self.asm.assemble('ORA ($44), Y')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x09\x44\x05\x44\x15\x44\x0D\x00\x44\x1D\x00\x44\x19\x00\x44\x01\x44\x11\x44')
+
+    def test_rol(self):
+        self.asm.assemble('ROL A')
+        self.asm.assemble('ROL $44')
+        self.asm.assemble('ROL $44, X')
+        self.asm.assemble('ROL $4400')
+        self.asm.assemble('ROL $4400,X')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x2A\x26\x44\x36\x44\x2E\x00\x44\x3E\x00\x44')
+
+    def test_ror(self):
+        self.asm.assemble('ROR A')
+        self.asm.assemble('ROR $44')
+        self.asm.assemble('ROR $44, X')
+        self.asm.assemble('ROR $4400')
+        self.asm.assemble('ROR $4400,X')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x6A\x66\x44\x76\x44\x6E\x00\x44\x7E\x00\x44')
+
+    def test_rti(self):
+        self.asm.assemble('rti')
+        self.assertEqual(self.asm.assembled_bytes, b'\x40')
+
+    def test_rts(self):
+        self.asm.assemble('RTS')
+        self.assertEqual(self.asm.assembled_bytes, b'\x60')
+
+    def test_sbc(self):
+        self.asm.assemble('SBC #$44')
+        self.asm.assemble('SBC $44')
+        self.asm.assemble('SBC $44, X')
+        self.asm.assemble('SBC $4400')
+        self.asm.assemble('SBC $4400,X')
+        self.asm.assemble('SBC $4400,Y')
+        self.asm.assemble('SBC ($44, X)')
+        self.asm.assemble('SBC ($44), Y')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xE9\x44\xE5\x44\xF5\x44\xED\x00\x44\xFD\x00\x44\xF9\x00\x44\xE1\x44\xF1\x44')
+
+    def test_sta(self):
+        self.asm.assemble('STA $44')
+        self.asm.assemble('STA $44, X')
+        self.asm.assemble('STA $4400')
+        self.asm.assemble('STA $4400,X')
+        self.asm.assemble('STA $4400,Y')
+        self.asm.assemble('STA ($44, X)')
+        self.asm.assemble('STA ($44), Y')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x85\x44\x95\x44\x8D\x00\x44\x9D\x00\x44\x99\x00\x44\x81\x44\x91\x44')
+
+    def test_stx(self):
+        self.asm.assemble('STX $44')
+        self.asm.assemble('STX $44, Y')
+        self.asm.assemble('STX $4400')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x86\x44\x96\x44\x8E\x00\x44')
+
+    def test_sty(self):
+        self.asm.assemble('STY $44')
+        self.asm.assemble('STY $44, X')
+        self.asm.assemble('STY $4400')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x84\x44\x94\x44\x8C\x00\x44')
