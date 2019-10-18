@@ -142,3 +142,58 @@ class TestGameboy(unittest.TestCase):
                          b'\x29\x2A\x2B\x2C\x2D' +
                          b'\x2E\x17' +
                          b'\x2F')
+
+    def test_line3_0_7(self):
+        self.asm.assemble('JR NC,-1')
+        self.asm.assemble('LD SP,$17')
+        self.asm.assemble('LD (HL-), A')
+        self.asm.assemble('INC SP')
+        self.asm.assemble('INC (HL)')
+        self.asm.assemble('DEC (HL)')
+        self.asm.assemble('LD (HL), $22')
+        self.asm.assemble('SCF')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x30\xFF' +
+                         b'\x31\x17\x00' +
+                         b'\x32\x33\x34\x35' +
+                         b'\x36\x22' +
+                         b'\x37')
+
+    def test_line3_8_f(self):
+        self.asm.assemble('JR C,-2')
+        self.asm.assemble('ADD HL,SP')
+        self.asm.assemble('LD A,(HL-)')
+        self.asm.assemble('DEC SP')
+        self.asm.assemble('INC A')
+        self.asm.assemble('DEC A')
+        self.asm.assemble('LD A, $17')
+        self.asm.assemble('CCF')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x38\xFE' +
+                         b'\x39\x3A\x3B\x3C\x3D' +
+                         b'\x3E\x17' +
+                         b'\x3F')
+
+    def test_line4_0_7(self):
+        self.asm.assemble('LD B,B')
+        self.asm.assemble('LD B,C')
+        self.asm.assemble('LD B,D')
+        self.asm.assemble('LD B,E')
+        self.asm.assemble('LD B,H')
+        self.asm.assemble('LD B,L')
+        self.asm.assemble('LD B, (HL)')
+        self.asm.assemble('LD B,A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x40\x41\x42\x43\x44\x45\x46\x47')
+
+    def test_line4_8_f(self):
+        self.asm.assemble('LD C,B')
+        self.asm.assemble('LD C,C')
+        self.asm.assemble('LD C,D')
+        self.asm.assemble('LD C,E')
+        self.asm.assemble('LD C,H')
+        self.asm.assemble('LD C,L')
+        self.asm.assemble('LD C,(HL)')
+        self.asm.assemble('LD C,A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x48\x49\x4A\x4B\x4C\x4D\x4E\x4F')
