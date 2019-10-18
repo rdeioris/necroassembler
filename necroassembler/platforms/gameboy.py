@@ -1,14 +1,25 @@
+from necroassembler import directive, post_link
 from necroassembler.cpu.lr35902 import AssemblerLR35902
+from necroassembler.exceptions import AssemblerException, InvalidArgumentsForDirective, LabelNotAllowed
+
+
+class InvalidCartidgeHeaderOffset(AssemblerException):
+    message = 'cartridge header can only be set at rom offset $100'
+
+
+class CartidgeHeaderNotSet(AssemblerException):
+    message = 'cartridge header not set'
 
 
 class AssemblerGameboy(AssemblerLR35902):
 
     cartridge_set = False
 
-    def register_directives(self):
-        self.register_directive('cartridge', self.generate_cartridge_header)
+    @directive('cartridge')
+    def _generate_cartridge_header(self, instr):
+        if len(self.assembled_bytes) != 256:
+            raise InvalidCartidgeHeaderOffset(instr)
 
-    def generate_cartridge_header(self, instr):
         self.change_org(0x100, 0x14f)
         nop_jp_150 = b'\x00\xC3\x50\x01'
         nintendo_logo = bytes((
@@ -29,7 +40,7 @@ class AssemblerGameboy(AssemblerLR35902):
                                     # ROM size + RAM size
                                     bytes(2) +
                                     # destination code
-                                    bytes(1) +
+                                    b'\x01' +
                                     # old license
                                     b'\x33' +
                                     # version
@@ -38,7 +49,46 @@ class AssemblerGameboy(AssemblerLR35902):
                                     bytes(3))
         self.cartridge_set = True
 
-    def fix(self):
+    def _cartridge_fill(self, instr, address, size):
+        if not self.cartridge_set:
+            raise CartidgeHeaderNotSet(instr)
+        if len(instr.tokens) < 2:
+            raise InvalidArgumentsForDirective(instr)
+        try:
+            blob = self.parse_bytes_or_ascii(instr.tokens[1:])
+        except LabelNotAllowed:
+            raise InvalidArgumentsForDirective(instr) from None
+        if len(blob) > size:
+            raise InvalidArgumentsForDirective(instr)
+        for index, byte in enumerate(blob):
+            self.assembled_bytes[address + index] = byte
+
+    @directive('cartridge_title')
+    def _set_cartridge_title(self, instr):
+        self._cartridge_fill(instr, 0x134, 16)
+
+    @directive('cartridge_license')
+    def _set_cartridge_license(self, instr):
+        self._cartridge_fill(instr, 0x144, 2)
+
+    @directive('cartridge_cgb')
+    def _set_cartridge_cgb(self, instr):
+        self._cartridge_fill(instr, 0x143, 1)
+
+    @directive('cartridge_sgb')
+    def _set_cartridge_sgb(self, instr):
+        self._cartridge_fill(instr, 0x146, 1)
+
+    @directive('cartridge_type')
+    def _set_cartridge_type(self, instr):
+        self._cartridge_fill(instr, 0x147, 1)
+
+    @directive('cartridge_destination')
+    def _set_cartridge_destination(self, instr):
+        self._cartridge_fill(instr, 0x14A, 1)
+
+    @post_link
+    def _fix(self):
         # header checksum
         header_checksum = 0
         for i in range(0x134, 0x14d):
@@ -60,9 +110,6 @@ def main():
     asm = AssemblerGameboy()
     asm.assemble_file(sys.argv[1])
     asm.link()
-
-    asm.fix()
-
     asm.save(sys.argv[2])
 
 

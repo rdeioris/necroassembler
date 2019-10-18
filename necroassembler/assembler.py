@@ -2,7 +2,7 @@ from necroassembler.tokenizer import Tokenizer
 from necroassembler.utils import (pack, pack_byte, pack_le32u, pack_le16u,
                                   pack_be32u, pack_be16u, in_bit_range_signed, in_bit_range, pack_bits)
 from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode, AddressOverlap,
-                                       AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed, InvalidArgumentsForDirective)
+                                       AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed, InvalidArgumentsForDirective, LabelNotAllowed)
 from necroassembler.macros import Macro
 
 
@@ -11,6 +11,21 @@ def opcode(*name):
         f.opcode = name
         return f
     return wrapper
+
+
+def directive(*name):
+    def wrapper(f):
+        f.directive = name
+        return f
+    return wrapper
+
+def pre_link(f):
+    f.pre_link = True
+    return f
+
+def post_link(f):
+    f.post_link = True
+    return f
 
 
 class Assembler:
@@ -50,9 +65,10 @@ class Assembler:
         self.log = False
 
         self._register_internal_directives()
-        self.register_directives()
+        self._discover()
+
         self.register_defines()
-        self._discover_instructions()
+        self.register_directives()
         self.register_instructions()
 
     def _register_internal_directives(self):
@@ -84,12 +100,22 @@ class Assembler:
     def register_defines(self):
         pass
 
-    def _discover_instructions(self):
+    def _discover(self):
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
-            if callable(attr) and hasattr(attr, 'opcode'):
-                for symbol in attr.opcode:
-                    self.register_instruction(symbol, attr)
+            if callable(attr):
+                if hasattr(attr, 'opcode'):
+                    for symbol in attr.opcode:
+                        self.register_instruction(symbol, attr)
+                if hasattr(attr, 'directive'):
+                    for symbol in attr.directive:
+                        self.register_directive(symbol, attr)
+                if hasattr(attr, 'pre_link'):
+                    if attr.pre_link:
+                        self.pre_link_passes.append(attr)
+                if hasattr(attr, 'post_link'):
+                    if attr.post_link:
+                        self.post_link_passes.append(attr)
 
     def register_instructions(self):
         pass
@@ -402,7 +428,6 @@ class Assembler:
                 address += 1
 
         for token in instr.tokens[1:]:
-            blob = b''
             if token[0] in ('"', '\''):
                 blob = str(int(token[1:-1].encode('utf16'))).encode('ascii')
             else:
@@ -472,7 +497,6 @@ class Assembler:
                 address += 1
 
         for token in instr.tokens[1:]:
-            blob = b''
             if token[0] in ('"', '\''):
                 blob = str(int(token[1:-1].encode('ascii'))).encode('ascii')
             else:
@@ -489,9 +513,20 @@ class Assembler:
         self.directive_db_to_ascii(instr)
         self.append_assembled_bytes(b'\x00')
 
+    def parse_bytes_or_ascii(self, tokens):
+        blob = b''
+        for token in tokens:
+            if token[0] in ('"', '\''):
+                blob += token[1:-1].encode('ascii')
+            else:
+                value = self.parse_integer(token)
+                if value is None:
+                    raise LabelNotAllowed()
+                blob += pack_byte(value)
+        return blob
+
     def directive_db(self, instr):
         for token in instr.tokens[1:]:
-            blob = b''
             if token[0] in ('"', '\''):
                 blob = token[1:-1].encode('ascii')
             else:

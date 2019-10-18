@@ -12,7 +12,7 @@ setup(name='necroassembler',
       entry_points={
           'console_scripts': [
               'necro_6502=necroassembler.cpu.mos6502:main',
-              'necro_gb=necroassembler.cpu.gameboy:main',
+              'necro_gb=necroassembler.platforms.gameboy:main',
               'necro_gba=necroassembler.platforms.gba:main'
           ],
       },

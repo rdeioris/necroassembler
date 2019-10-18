@@ -90,3 +90,7 @@ class LabelAlreadyDefined(AssemblerException):
 
 class InvalidLabel(AssemblerException):
     message = 'invalid label'
+
+
+class LabelNotAllowed(AssemblerException):
+    message = 'label not allowed here'
