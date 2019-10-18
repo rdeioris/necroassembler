@@ -1,5 +1,6 @@
 from necroassembler.tokenizer import Tokenizer
-from necroassembler.utils import pack, pack_byte, pack_le32u, pack_le16u, in_bit_range_signed, in_bit_range, pack_bits
+from necroassembler.utils import (pack, pack_byte, pack_le32u, pack_le16u,
+                                  pack_be32u, pack_be16u, in_bit_range_signed, in_bit_range, pack_bits)
 from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode, AddressOverlap,
                                        AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed, InvalidArgumentsForDirective)
 from necroassembler.macros import Macro
@@ -72,6 +73,7 @@ class Assembler:
         self.register_directive('db_to_asciiz', self.directive_db_to_asciiz)
         self.register_directive('dw_to_asciiz', self.directive_dw_to_asciiz)
         self.register_directive('fill', self.directive_fill)
+        self.register_directive('ram', self.directive_ram)
         self.register_directive('log', self.directive_log)
         self.register_directive('align', self.directive_align)
 
@@ -122,8 +124,7 @@ class Assembler:
             if self.current_org + self.org_counter < self.current_org_end:
                 blob = bytes([self.fill_value] * ((self.current_org_end + 1) -
                                                   (self.current_org + self.org_counter)))
-                self.assembled_bytes += blob
-                self.org_counter += len(blob)
+                self.append_assembled_bytes(blob)
 
     def assemble_file(self, filename):
         with open(filename) as f:
@@ -343,6 +344,10 @@ class Assembler:
             raise InvalidArgumentsForDirective(instr)
         self.defines[instr.tokens[1]] = instr.tokens[2]
 
+    def append_assembled_bytes(self, blob):
+        self.assembled_bytes += blob
+        self.org_counter += len(blob)
+
     def directive_dw(self, instr):
         for token in instr.tokens[1:]:
             blob = b''
@@ -352,9 +357,11 @@ class Assembler:
                 value = self.parse_integer(token)
                 if value is None:
                     self.add_label_translation(label=token, size=2, offset=0)
-                blob = pack_le16u(value)
-            self.assembled_bytes += blob
-            self.org_counter += len(blob)
+                if self.big_endian:
+                    blob = pack_be16u(value)
+                else:
+                    blob = pack_le16u(value)
+            self.append_assembled_bytes(blob)
 
     def directive_dd(self, instr):
         for token in instr.tokens[1:]:
@@ -365,9 +372,11 @@ class Assembler:
                 value = self.parse_integer(token)
                 if value is None:
                     self.add_label_translation(label=token, size=4, offset=0)
-                blob = pack_le32u(value)
-            self.assembled_bytes += blob
-            self.org_counter += len(blob)
+                if self.big_endian:
+                    blob = pack_be32u(value)
+                else:
+                    blob = pack_le32u(value)
+            self.append_assembled_bytes(blob)
 
     def directive_dw_to_ascii(self, instr):
         def dw_to_str(address, true_address):
@@ -388,13 +397,11 @@ class Assembler:
                     blob = bytes(5)
                 else:
                     blob = str(value).encode('ascii')
-            self.assembled_bytes += blob
-            self.org_counter += len(blob)
+            self.append_assembled_bytes(blob)
 
     def directive_dw_to_asciiz(self, instr):
         self.directive_dw_to_ascii(instr)
-        self.assembled_bytes += b'\x00'
-        self.org_counter += 1
+        self.append_assembled_bytes(b'\x00')
 
     def directive_log(self, instr):
         if len(instr.tokens) > 1:
@@ -419,8 +426,15 @@ class Assembler:
             if value is None:
                 raise InvalidArgumentsForDirective(instr)
         blob = bytes([value] * size)
-        self.assembled_bytes += blob
-        self.org_counter += len(blob)
+        self.append_assembled_bytes(blob)
+
+    def directive_ram(self, instr):
+        if len(instr.tokens) != 2:
+            raise InvalidArgumentsForDirective(instr)
+        size = self.parse_integer(instr.tokens[1])
+        if size is None:
+            raise InvalidArgumentsForDirective(instr)
+        self.org_counter += size
 
     def directive_align(self, instr):
         if len(instr.tokens) != 2:
@@ -432,15 +446,13 @@ class Assembler:
         mod = (self.current_org + self.org_counter) % size
         if mod != 0:
             blob = bytes([self.fill_value]) * (size - mod)
-            self.assembled_bytes += blob
-            self.org_counter += len(blob)
+            self.append_assembled_bytes(blob)
 
     def directive_db_to_ascii(self, instr):
         def db_to_str(address, true_address):
             blob = format(true_address, '03d').encode('ascii')
             for b in blob:
                 self.assembled_bytes[address] = b
-                self.org_counter += 1
                 address += 1
 
         for token in instr.tokens[1:]:
@@ -455,13 +467,11 @@ class Assembler:
                     blob = bytes(3)
                 else:
                     blob = str(value).encode('ascii')
-            self.assembled_bytes += blob
-            self.org_counter += len(blob)
+            self.append_assembled_bytes(blob)
 
     def directive_db_to_asciiz(self, instr):
         self.directive_db_to_ascii(instr)
-        self.assembled_bytes += b'\x00'
-        self.org_counter += 1
+        self.append_assembled_bytes(b'\x00')
 
     def directive_db(self, instr):
         for token in instr.tokens[1:]:
@@ -473,8 +483,7 @@ class Assembler:
                 if value is None:
                     self.add_label_translation(label=token, size=1, offset=0)
                 blob = pack_byte(value)
-            self.assembled_bytes += blob
-            self.org_counter += len(blob)
+            self.append_assembled_bytes(blob)
 
     def directive_include(self, instr):
         if len(instr.tokens) != 2:
@@ -489,8 +498,7 @@ class Assembler:
         filename = instr.tokens[1]
         with open(filename, 'rb') as f:
             blob = f.read()
-            self.assembled_bytes += blob
-            self.org_counter += len(blob)
+            self.append_assembled_bytes(blob)
 
     def _get_math_formula(self, token):
         pre_formula = ''

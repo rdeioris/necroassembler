@@ -1,5 +1,6 @@
 import unittest
 from necroassembler.cpu.mos6502 import AssemblerMOS6502, InvalidMode, UnsupportedModeForOpcode
+from necroassembler.exceptions import InvalidOpCodeArguments
 
 
 class TestMOS6502(unittest.TestCase):
@@ -81,6 +82,11 @@ class TestMOS6502(unittest.TestCase):
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, b'\x4C\x00\x00')
 
+    def test_jmp_indirect(self):
+        self.asm.assemble('loop: .dw foo\nJMP (loop)\nfoo: JMP foo')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x05\x00\x6C\x00\x00\x4C\x05\x00')
+
     def test_invalid_bit(self):
         self.assertRaises(UnsupportedModeForOpcode,
                           self.asm.assemble, 'BIT #$17')
@@ -113,3 +119,92 @@ class TestMOS6502(unittest.TestCase):
         self.asm.assemble('ADC ($44), Y')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\x69\x44\x65\x44\x75\x44\x6D\x00\x44\x7D\x00\x44\x79\x00\x44\x61\x44\x71\x44')
+
+    def test_and(self):
+        self.asm.assemble('AND #$44')
+        self.asm.assemble('AND $44')
+        self.asm.assemble('AND $44, X')
+        self.asm.assemble('AND $4400')
+        self.asm.assemble('AND $4400,X')
+        self.asm.assemble('AND $4400,Y')
+        self.asm.assemble('AND ($44, X)')
+        self.asm.assemble('AND ($44), Y')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x29\x44\x25\x44\x35\x44\x2D\x00\x44\x3D\x00\x44\x39\x00\x44\x21\x44\x31\x44')
+
+    def test_asl(self):
+        self.asm.assemble('ASL A')
+        self.asm.assemble('ASL $44')
+        self.asm.assemble('ASL $44, X')
+        self.asm.assemble('ASL $4400')
+        self.asm.assemble('ASL $4400,X')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x0A\x06\x44\x16\x44\x0E\x00\x44\x1E\x00\x44')
+
+    def test_bit(self):
+        self.asm.assemble('BIT $44')
+        self.asm.assemble('BIT $4400')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x24\x44\x2C\x00\x44')
+
+    def test_brk(self):
+        self.asm.assemble('BRK')
+        self.assertEqual(self.asm.assembled_bytes, b'\x00')
+
+    def test_brk_bad(self):
+        self.assertRaises(InvalidOpCodeArguments,
+                          self.asm.assemble, 'BRK oops')
+
+    def test_cmp(self):
+        self.asm.assemble('CMP #$44')
+        self.asm.assemble('CMP $44')
+        self.asm.assemble('CMP $44, X')
+        self.asm.assemble('CMP $4400')
+        self.asm.assemble('CMP $4400,X')
+        self.asm.assemble('CMP $4400,Y')
+        self.asm.assemble('CMP ($44, X)')
+        self.asm.assemble('CMP ($44), Y')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xC9\x44\xC5\x44\xD5\x44\xCD\x00\x44\xDD\x00\x44\xD9\x00\x44\xC1\x44\xD1\x44')
+
+    def test_cpx(self):
+        self.asm.assemble('CPX #$44')
+        self.asm.assemble('CPX $44')
+        self.asm.assemble('CPX $4400')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xE0\x44\xE4\x44\xEC\x00\x44')
+
+    def test_cpy(self):
+        self.asm.assemble('CPY #$44')
+        self.asm.assemble('CPY $44')
+        self.asm.assemble('CPY $4400')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xC0\x44\xC4\x44\xCC\x00\x44')
+
+    def test_dec(self):
+        self.asm.assemble('DEC $44')
+        self.asm.assemble('DEC $44, X')
+        self.asm.assemble('DEC $4400')
+        self.asm.assemble('DEC $4400,X')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xC6\x44\xD6\x44\xCE\x00\x44\xDE\x00\x44')
+
+    def test_eor(self):
+        self.asm.assemble('EOR #$44')
+        self.asm.assemble('EOR $44')
+        self.asm.assemble('EOR $44, X')
+        self.asm.assemble('EOR $4400')
+        self.asm.assemble('EOR $4400,X')
+        self.asm.assemble('EOR $4400,Y')
+        self.asm.assemble('EOR ($44, X)')
+        self.asm.assemble('EOR ($44), Y')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x49\x44\x45\x44\x55\x44\x4D\x00\x44\x5D\x00\x44\x59\x00\x44\x41\x44\x51\x44')
+
+    def test_inc(self):
+        self.asm.assemble('INC $44')
+        self.asm.assemble('INC $44, X')
+        self.asm.assemble('INC $4400')
+        self.asm.assemble('INC $4400,X')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xE6\x44\xF6\x44\xEE\x00\x44\xFE\x00\x44')

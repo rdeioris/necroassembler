@@ -52,8 +52,7 @@ class Instruction(Statement):
             if len(self.tokens) != 1:
                 raise InvalidOpCodeArguments()
             blob = instruction
-        assembler.assembled_bytes += blob
-        assembler.org_counter += len(blob)
+        assembler.append_assembled_bytes(blob)
 
     def match(self, *args, start=1):
         if (len(self.tokens) - start) != len(args):

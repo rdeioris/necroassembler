@@ -9,6 +9,8 @@ class TestAssembler(unittest.TestCase):
     class DumbAssembler(Assembler):
         hex_prefixes = ('0x',)
 
+        big_endian = True
+
         @opcode('LOAD')
         def load(self, instr):
             arg = instr.tokens[1]
@@ -30,6 +32,10 @@ class TestAssembler(unittest.TestCase):
     def test_assemble_db(self):
         self.asm.assemble('  .db 0x17 ; hello world, i am a comment')
         self.assertEqual(self.asm.assembled_bytes, b'\x17')
+
+    def test_assemble_dd(self):
+        self.asm.assemble('  .dd 0x11223344 ; hello world, i am a comment')
+        self.assertEqual(self.asm.assembled_bytes, b'\x11\x22\x33\x44')
 
     def test_macro_simple(self):
         self.asm.assemble("""
@@ -93,3 +99,18 @@ class TestAssembler(unittest.TestCase):
                                    ((2, 0), -2, True),
                                    ((10, 7), 15)
                                    ), 0b11110000110)
+
+
+    def test_ram(self):
+        self.asm.assemble("""
+        .org 0x1000
+        one: .ram 2
+        two: .ram 4
+        three: .ram 8
+        end:
+        """)
+        self.assertEqual(self.asm.get_label_absolute_address_by_name('one'), 0x1000)
+        self.assertEqual(self.asm.get_label_absolute_address_by_name('two'), 0x1002)
+        self.assertEqual(self.asm.get_label_absolute_address_by_name('three'), 0x1006)
+        self.assertEqual(self.asm.get_label_absolute_address_by_name('end'), 0x100e)
+        self.assertEqual(len(self.asm.assembled_bytes), 0)
