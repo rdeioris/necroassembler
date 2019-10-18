@@ -1,11 +1,11 @@
 import unittest
-from necroassembler.cpu.gameboy import AssemblerGameboy
+from necroassembler.cpu.lr35902 import AssemblerLR35902
 
 
 class TestGameboy(unittest.TestCase):
 
     def setUp(self):
-        self.asm = AssemblerGameboy()
+        self.asm = AssemblerLR35902()
 
     def test_ld_a_hl_plus(self):
         self.asm.assemble('LD A,(HL+)')

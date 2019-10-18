@@ -1,5 +1,5 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack, pack_byte, pack_bytes
+from necroassembler.utils import pack, pack_byte
 
 
 class AssemblerIntel8086(Assembler):
@@ -25,7 +25,7 @@ class AssemblerIntel8086(Assembler):
 
     def _imm8(self, op, reg, arg):
         value = self.parse_integer_or_label(arg, size=1)
-        return pack_bytes(op + self.regs8.index(reg.upper()), value)
+        return pack_byte(op + self.regs8.index(reg.upper()), value)
 
     def _imm16(self, op, reg, arg):
         value = self.parse_integer_or_label(arg, size=2)
@@ -58,10 +58,10 @@ class AssemblerIntel8086(Assembler):
             return pack_byte(0xA3) + self._mem(src)
         # reg8, reg8
         if dst.upper() in self.regs8 and src.upper() in self.regs8:
-            return pack_bytes(0x88, self._modrm8(src, dst))
+            return pack_byte(0x88, self._modrm8(src, dst))
         # reg16, reg16
         if dst.upper() in self.regs8 and src.upper() in self.regs8:
-            return pack_bytes(0x88, self._modrm16(src, dst))
+            return pack_byte(0x88, self._modrm16(src, dst))
         # reg8, imm8
         if dst.upper() in self.regs8:
             return self._imm8(0xB0, dst, src)
@@ -84,7 +84,7 @@ class AssemblerIntel8086(Assembler):
         arg = instr.tokens[1]
         if arg == '3':
             return b'\xCC'
-        return pack_bytes(0xCD, self.parse_integer(arg))
+        return pack_byte(0xCD, self.parse_integer(arg))
 
     @opcode('CALL')
     def _call(self, instr):

@@ -24,7 +24,7 @@ NUMBER = _is_number
 LDH = _is_ldh
 
 
-class AssemblerGameboy(Assembler):
+class AssemblerLR35902(Assembler):
 
     hex_prefixes = ('$',)
 
@@ -304,9 +304,10 @@ class AssemblerGameboy(Assembler):
 
 def main():
     import sys
-    asm = AssemblerGameboy()
+    asm = AssemblerLR35902()
     asm.assemble_file(sys.argv[1])
     asm.link()
+    asm.save(sys.argv[2])
 
     # fix checksums
 

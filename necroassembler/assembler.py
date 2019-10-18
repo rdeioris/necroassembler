@@ -49,12 +49,13 @@ class Assembler:
         self.macro_recording = None
         self.log = False
 
+        self._register_internal_directives()
         self.register_directives()
         self.register_defines()
         self._discover_instructions()
         self.register_instructions()
 
-    def register_directives(self):
+    def _register_internal_directives(self):
         self.register_directive('macro', self.macro_start)
         self.register_directive('endmacro', self.macro_end)
         self.register_directive('org', self.directive_org)
@@ -76,6 +77,9 @@ class Assembler:
         self.register_directive('ram', self.directive_ram)
         self.register_directive('log', self.directive_log)
         self.register_directive('align', self.directive_align)
+
+    def register_directives(self):
+        pass
 
     def register_defines(self):
         pass
@@ -306,25 +310,23 @@ class Assembler:
             return None
         return self.apply_math_formula(pre_formula, post_formula, self.get_label_relative_address(self.labels[name], start))
 
-    def directive_org(self, instr):
+    def change_org(self, start, end=0):
+
+        if end > 0 and end < start:
+            raise AddressOverlap()
+
         previous_org = self.current_org
         previous_org_end = self.current_org_end
         previous_org_counter = self.org_counter
-        if len(instr.tokens) not in (2, 3):
-            raise InvalidArgumentsForDirective(instr)
-        self.current_org = self.parse_integer(instr.tokens[1])
-        if self.current_org is None:
-            raise InvalidArgumentsForDirective(instr)
-        if len(instr.tokens) == 3:
-            self.current_org_end = self.parse_integer(instr.tokens[2])
-            if self.current_org_end is None or self.current_org_end < self.current_org:
-                raise InvalidArgumentsForDirective(instr)
+
+        self.current_org = start
+        self.current_org_end = end
         self.org_counter = 0
         # check if need to fill
         if previous_org_end > 0:
             # overlap check:
             if previous_org + previous_org_counter > self.current_org:
-                raise AddressOverlap(instr)
+                raise AddressOverlap()
             # NOTE: we have to NOT set org_counter here! (leave it as 0, as this is a new one .org)
             # new org is is higher than the previous end
             if self.current_org > previous_org_end:
@@ -337,7 +339,21 @@ class Assembler:
                                                    (previous_org + previous_org_counter)))
                 self.assembled_bytes += blob
             else:
-                raise AddressOverlap(instr)
+                raise AddressOverlap()
+
+    def directive_org(self, instr):
+        if len(instr.tokens) not in (2, 3):
+            raise InvalidArgumentsForDirective(instr)
+        new_org_start = self.parse_integer(instr.tokens[1])
+        if new_org_start is None:
+            raise InvalidArgumentsForDirective(instr)
+        new_org_end = 0
+        if len(instr.tokens) == 3:
+            new_org_end = self.parse_integer(instr.tokens[2])
+            if new_org_end is None:
+                raise InvalidArgumentsForDirective(instr)
+
+        self.change_org(new_org_start, new_org_end)
 
     def directive_define(self, instr):
         if len(instr.tokens) != 3:
@@ -432,7 +448,7 @@ class Assembler:
         if len(instr.tokens) != 2:
             raise InvalidArgumentsForDirective(instr)
         size = self.parse_integer(instr.tokens[1])
-        if size is None:
+        if size is None or size < 1:
             raise InvalidArgumentsForDirective(instr)
         self.org_counter += size
 
