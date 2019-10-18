@@ -46,6 +46,8 @@ class AssemblerLR35902(Assembler):
         self.register_instruction('RLA', b'\x17')
         self.register_instruction('RLCA', b'\x07')
         self.register_instruction('RRA', b'\x1F')
+        self.register_instruction('DAA', b'\x27')
+        self.register_instruction('CPL', b'\x2F')
 
     def _data8(self, arg):
         value = self.parse_integer_or_label(arg, size=1)
@@ -180,6 +182,7 @@ class AssemblerLR35902(Assembler):
                                   bc_d16=0x01,
                                   ind_bc_a=0x02,
                                   b_d8=0x06,
+                                  h_d8=0x26,
                                   ind_a16_sp=0x08,
                                   a_ind_bc=0x0A,
                                   c_d8=0x0E,
@@ -222,6 +225,7 @@ class AssemblerLR35902(Assembler):
                                   e=0x1c,
                                   hl=0x23,
                                   h=0x24,
+                                  l=0x2C,
                                   de=0x13)
 
     @opcode('JP')
@@ -276,8 +280,11 @@ class AssemblerLR35902(Assembler):
                                   c=0x0D,
                                   d=0x15,
                                   e=0x1D,
+                                  h=0x25,
+                                  l=0x2D,
                                   bc=0x0B,
-                                  de=0x1B)
+                                  de=0x1B,
+                                  hl=0x2B)
 
     @opcode('RET')
     def _ret(self, instr):
@@ -298,7 +305,7 @@ class AssemblerLR35902(Assembler):
         return self._build_opcode(instr,
                                   conditional=True,
                                   relative=True,
-                                  z_r8=0x20,
+                                  z_r8=0x28,
                                   r8=0x18,
                                   nz_r8=0x20)
 
@@ -320,6 +327,7 @@ class AssemblerLR35902(Assembler):
                                   ind_hl=0x86,
                                   hl_bc=0x09,
                                   hl_de=0x19,
+                                  hl_hl=0x29,
                                   a_ind_hl=0x86)
 
     @opcode('STOP')
