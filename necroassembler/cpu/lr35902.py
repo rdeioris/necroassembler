@@ -44,6 +44,7 @@ class AssemblerLR35902(Assembler):
         self.register_instruction('DI', b'\xF3')
         self.register_instruction('EI', b'\xF8')
         self.register_instruction('RLA', b'\x17')
+        self.register_instruction('RLCA', b'\x07')
 
     def _data8(self, arg):
         value = self.parse_integer_or_label(arg, size=1)
@@ -96,6 +97,10 @@ class AssemblerLR35902(Assembler):
             if instr.match(REGS8, REGS8):
                 reg8_d, reg8_s = instr.apply(self._reg_name, self._reg_name)
                 return pack_byte(kwargs[reg8_d + '_' + reg8_s])
+
+            if instr.match(REGS16, REGS16):
+                reg16_d, reg16_s = instr.apply(self._reg_name, self._reg_name)
+                return pack_byte(kwargs[reg16_d + '_' + reg16_s])
 
             if instr.match(REGS16, VALUE):
                 reg16, value = instr.apply(self._reg_name, self._data16)
@@ -264,6 +269,7 @@ class AssemblerLR35902(Assembler):
                                   c=0x0D,
                                   d=0x15,
                                   e=0x1D,
+                                  bc=0x0B,
                                   de=0x1B)
 
     @opcode('RET')
@@ -301,7 +307,10 @@ class AssemblerLR35902(Assembler):
 
     @opcode('ADD')
     def _add(self, instr):
-        return self._build_opcode(instr, ind_hl=0x86, a_ind_hl=0x86)
+        return self._build_opcode(instr,
+                                  ind_hl=0x86,
+                                  hl_bc=0x09,
+                                  a_ind_hl=0x86)
 
     @opcode('STOP')
     def _stop(self, instr):
