@@ -15,6 +15,17 @@ class AssemblerGameboy(AssemblerLR35902):
 
     cartridge_set = False
 
+    defines = {
+        'LCDC': '$FF40',
+        'STAT': '$FF41',
+        'SCY': '$FF42',
+        'SCX': '$FF43',
+        'LY': '$FF44',
+        'LYC': '$FF45',
+        'WY': '$FF4A',
+        'WX': '$FF4B'
+    }
+
     @directive('cartridge')
     def _generate_cartridge_header(self, instr):
         if len(self.assembled_bytes) != 256:

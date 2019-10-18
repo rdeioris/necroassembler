@@ -19,9 +19,11 @@ def directive(*name):
         return f
     return wrapper
 
+
 def pre_link(f):
     f.pre_link = True
     return f
+
 
 def post_link(f):
     f.post_link = True
@@ -48,10 +50,11 @@ class Assembler:
 
     big_endian = False
 
+    defines = {}
+
     def __init__(self):
         self.instructions = {}
         self.directives = {}
-        self.defines = {}
         self.assembled_bytes = bytearray()
         self.labels = {}
         self.pre_link_passes = []
@@ -101,6 +104,7 @@ class Assembler:
         pass
 
     def _discover(self):
+
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
             if callable(attr):
