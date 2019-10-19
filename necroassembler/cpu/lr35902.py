@@ -5,12 +5,10 @@ from necroassembler.exceptions import InvalidOpCodeArguments
 REGS8 = ('A', 'F', 'B', 'C', 'D', 'E', 'H', 'L')
 REGS16 = ('AF', 'BC', 'DE', 'HL', 'HL+', 'HL-', 'SP')
 CONDITIONS = ('Z', 'C', 'NZ', 'NC')
-OPEN = ('(', '[')
-CLOSE = (')', ']')
 
 
 def _is_value(token):
-    return token.upper() not in REGS8 + REGS16 + CONDITIONS + OPEN + CLOSE
+    return token.upper() not in REGS8 + REGS16 + CONDITIONS + ('(', ')', '[', ']')
 
 
 def _is_number(token):
@@ -73,12 +71,12 @@ class AssemblerLR35902(Assembler):
             if instr.match(REGS8):
                 reg8, = instr.apply(self._reg_name)
                 return pack_byte(0xCB, kwargs[reg8])
-            if instr.match(OPEN, 'HL', CLOSE):
+            if instr.match('(', 'HL', ')') or instr.match('[', 'HL', ']'):
                 return pack_byte(0xCB, kwargs['ind_hl'])
             if instr.match(NUMBER, REGS8):
                 value, reg8 = instr.apply(str, self._reg_name)
                 return pack_byte(0xCB, kwargs['b' + value + '_' + reg8])
-            if instr.match(NUMBER, OPEN, 'HL', CLOSE):
+            if instr.match(NUMBER, '(', 'HL', ')') or instr.match(NUMBER, '[', 'HL', ']'):
                 return pack_byte(0xCB, kwargs['b' + value + 'ind_hl'])
 
         except KeyError:
@@ -94,14 +92,14 @@ class AssemblerLR35902(Assembler):
                 condition, value = instr.apply(self._reg_name, self._data16)
                 return pack_byte(kwargs[condition + '_a16']) + value
 
-            if instr.match(OPEN, '$FF00+C', CLOSE, 'A'):
+            if instr.match('(', '$FF00+C', ')', 'A') or instr.match('[', '$FF00+C', ']', 'A'):
                 return pack_byte(kwargs['ind_c_a'])
 
-            if instr.match(OPEN, LDH, CLOSE, 'A'):
+            if instr.match('(', LDH, ')', 'A') or instr.match('[', LDH, ']', 'A'):
                 value = self._data8(instr.tokens[2][6:])
                 return pack_byte(kwargs['ind_a8_a']) + value
 
-            if instr.match('A', OPEN, LDH, CLOSE):
+            if instr.match('A', '(', LDH, ')') or instr.match('A', '[', LDH, ']'):
                 value = self._data8(instr.tokens[3][6:])
                 return pack_byte(kwargs['a_ind_a8']) + value
 
@@ -117,7 +115,7 @@ class AssemblerLR35902(Assembler):
                 reg16, value = instr.apply(self._reg_name, self._data16)
                 return pack_byte(kwargs[reg16 + '_d16']) + value
 
-            if instr.match(OPEN, REGS16, CLOSE, REGS8):
+            if instr.match('(', REGS16, ')', REGS8) or instr.match('[', REGS16, ']', REGS8):
                 reg16, reg8 = instr.apply(
                     None, self._reg_name, None, self._reg_name)
                 return pack_byte(kwargs['ind_' + reg16 + '_' + reg8])
@@ -134,32 +132,32 @@ class AssemblerLR35902(Assembler):
                 reg16, = instr.apply(self._reg_name)
                 return pack_byte(kwargs[reg16])
 
-            if instr.match(REGS8, OPEN, REGS16, CLOSE):
+            if instr.match(REGS8, '(', REGS16, ')') or instr.match(REGS8, '[', REGS16, ']'):
                 reg8, reg16 = instr.apply(
                     self._reg_name, None, self._reg_name, None)
                 return pack_byte(kwargs[reg8 + '_ind_' + reg16])
 
-            if instr.match(REGS8, OPEN, VALUE, CLOSE):
+            if instr.match(REGS8, '(', VALUE, ')') or instr.match(REGS8, '[', VALUE, ']'):
                 reg8, value = instr.apply(
                     self._reg_name, None, self._data16, None)
                 return pack_byte(kwargs[reg8 + '_ind_a16']) + value
 
-            if instr.match(OPEN, REGS16, CLOSE):
+            if instr.match('(', REGS16, ')') or instr.match('[', REGS16, ']'):
                 reg16, = instr.apply(
                     None, self._reg_name, None)
                 return pack_byte(kwargs['ind_' + reg16])
 
-            if instr.match(OPEN, VALUE, CLOSE, REGS16):
+            if instr.match('(', VALUE, ')', REGS16) or instr.match('[', VALUE, ']', REGS16):
                 value, reg16 = instr.apply(
                     None, self._data16, None, self._reg_name)
                 return pack_byte(kwargs['ind_a16_' + reg16]) + value
 
-            if instr.match(OPEN, VALUE, CLOSE, REGS8):
+            if instr.match('(', VALUE, ')', REGS8) or instr.match('[', VALUE, ']', REGS8):
                 value, reg8 = instr.apply(
                     None, self._data16, None, self._reg_name)
                 return pack_byte(kwargs['ind_a16_' + reg8]) + value
 
-            if instr.match(OPEN, REGS16, CLOSE, VALUE):
+            if instr.match('(', REGS16, ')', VALUE) or instr.match('[', REGS16, ']', VALUE):
                 reg16, value = instr.apply(
                     None, self._reg_name, None, self._data8)
                 return pack_byte(kwargs['ind_' + reg16 + '_d8']) + value
