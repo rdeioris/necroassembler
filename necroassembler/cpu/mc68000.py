@@ -1,6 +1,11 @@
 
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_bits_be16u, pack_byte, pack_be16u, pack_be32u
+from necroassembler.exceptions import AssemblerException
+
+
+class InvalidMode(AssemblerException):
+    message = 'invalid 68000 mode'
 
 
 D_REGS = ('d0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7')
@@ -76,6 +81,8 @@ class AssemblerMC68000(Assembler):
 
     def _mode(self, instr, start):
         args = instr.tokens
+        if len(args) == 1:
+            raise InvalidMode(instr)
         if args[start].lower() in D_REGS:
             return 0, int(args[start][1:]), 1
         if args[start].lower() in A_REGS:
@@ -84,6 +91,8 @@ class AssemblerMC68000(Assembler):
             if len(args) > 4 and args[start+3] == '+':
                 return 3, int(args[start+1][1:]), 4
             return 2,  int(args[start+1][1:]), 3
+        if len(args) > 4 and args[start] == '-' and args[start+1] == '(' and args[start+2].lower() in A_REGS and args[start+3] == ')':
+            return 4,  int(args[start+2][1:]), 4
 
     def _build_opcode(self, base, *args):
         return pack_bits_be16u(base, *args)
