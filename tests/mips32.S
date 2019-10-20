@@ -1,11 +1,12 @@
+.org 0x80010000
+.log
+
+.macro load register value
+lui register, >>value
+ori register, register, <<value
+.endmacro
 
 main:
 
-ori $11, $0, 0x17
-addu $10, $0, $11
-j foobar
-ori $11, $0, 0x1703
-
-foobar:
-ori $13, $0, 0x22
-ori $14, $0, 0x30
+load $t0, 0x1f801814
+j main

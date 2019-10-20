@@ -36,7 +36,7 @@ class NotInBitRange(AssemblerException):
         self.message = 'value {0} is not in the {1} bit range'.format(
             value, max_bits)
         if label is not None:
-            self.message = 'label {2} with value {0} is not in the {1} bit range'.format(
+            self.message = 'label "{2}" with value {0} (0x{0:x}) is not in the {1} bit range'.format(
                 value, max_bits, label)
         super().__init__()
 

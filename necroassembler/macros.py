@@ -27,8 +27,11 @@ class Macro:
             original_tokens = instr.tokens.copy()
             # check for known macro args
             for macro_arg_index, macro_arg in enumerate(macro_args):
-                if macro_arg in instr.tokens:
-                    index = instr.tokens.index(macro_arg)
-                    instr.tokens[index] = args[macro_arg_index]
+                for index in [index for index, value in enumerate(instr.tokens) if value.lstrip('<>').rstrip('+-') == macro_arg]:
+                    # should be safe to use .replace here, as we already checked via lstrip/rstrip
+                    instr.tokens[index] = instr.tokens[index].replace(
+                        macro_arg, args[macro_arg_index])
+
+            print(instr.tokens)
             instr.assemble(assembler)
             instr.tokens = original_tokens

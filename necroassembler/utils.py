@@ -68,11 +68,14 @@ def pack(fmt, *args):
 
 def pack_bits(base, *args, check_bits=True):
     for arg in args:
-        (end, start), value, *signed = arg
+        (end, start), value, *options = arg
         if end < start:
             raise InvalidBitRange()
         if check_bits:
             total_bits = end - start + 1
+            signed = False
+            if options:
+                signed = options[0]
             if signed:
                 if not in_bit_range_signed(value, total_bits):
                     raise InvalidBitRange()
