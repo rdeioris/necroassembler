@@ -48,18 +48,20 @@ class AssemblerLR35902(Assembler):
         self.register_instruction('CCF', b'\x3f')
 
     def _data8(self, arg):
-        value = self.parse_integer_or_label(arg, 8, signed=False, size=1)
+        value = self.parse_integer_or_label(
+            label=arg, bits_size=8, offset=1, size=1)
         return pack_byte(value)
 
     def _rel8(self, arg):
-        value = self.parse_integer_or_label(arg, 8, signed=True,
+        value = self.parse_integer_or_label(label=arg, bits_size=8,
+                                            offset=1,
                                             size=1,
-                                            relative=True,
-                                            start=self.current_org + self.org_counter + 2)
+                                            relative=self.pc + 2)
         return pack_8s(value)
 
     def _data16(self, arg):
-        value = self.parse_integer_or_label(arg, 16, signed=False, size=2)
+        value = self.parse_integer_or_label(
+            label=arg, bits_size=16, offset=1, size=2)
         return pack_le16u(value)
 
     def _reg_name(self, reg, prefix=''):

@@ -62,12 +62,11 @@ class AssemblerThumb(Assembler):
         return self.parse_integer_or_label(label=arg,
                                            size=2,
                                            bits_size=(bits[0] - bits[1]) + 1,
-                                           relative=True,
                                            bits=bits,
                                            filter=lambda x: x >> (
                                                alignment//2),
                                            alignment=alignment,
-                                           relative_start=self.pc + 4)
+                                           relative=self.pc + 4)
 
     def _imm(self, arg):
         value = self.parse_integer(arg[1:], 8, False)
@@ -79,12 +78,11 @@ class AssemblerThumb(Assembler):
         return self.parse_integer_or_label(label=arg[1:],
                                            size=2,
                                            bits_size=8,
-                                           relative=True,
                                            bits=(7, 0),
                                            alignment=4,
                                            filter=lambda x: x >> 2,
                                            # bit 1 of pc must be turned off
-                                           relative_start=(self.pc + 4) & ~(0b10))
+                                           relative=(self.pc + 4) & ~(0b10))
 
     def _conditional_branch(self, instr, cond):
         if instr.match(LABEL):
@@ -381,19 +379,17 @@ class AssemblerThumb(Assembler):
         self.add_label_translation(label=offset,
                                    size=2,
                                    bits_size=23,
-                                   relative=True,
                                    bits=(10, 0),
                                    alignment=2,
-                                   relative_start=self.pc + 4,
+                                   relative=self.pc + 4,
                                    # get high 11 bits (after >> 1)
                                    filter=lambda x: x >> 12)
         self.add_label_translation(label=offset,
                                    size=2,
                                    bits_size=23,
-                                   relative=True,
                                    bits=(10, 0),
                                    alignment=2,
-                                   relative_start=self.pc + 4,
+                                   relative=self.pc + 4,
                                    # get low 11 bits (after >> 1)
                                    filter=lambda x: (x >> 1) & 0x7FF)
 
