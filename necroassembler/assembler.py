@@ -304,14 +304,12 @@ class Assembler:
         shifted_value = 0
         has_shifted_value = False
 
-        print(hex(value))
-
         for op in pre_formula:
             if op == '>':
                 value >>= 8
-                print('SHIFT: ' + hex(value))
             elif op == '<':
-                shifted_value |= (value & 0xFF) << (8 * low_counter)
+                shifted_value |= ((value >> (8 * low_counter))
+                                  & 0xFF) << (8 * low_counter)
                 low_counter += 1
                 has_shifted_value = True
 
@@ -323,7 +321,7 @@ class Assembler:
                 value += 1
             elif op == '-':
                 value -= 1
-        print('FINAL:' + hex(value))
+
         return value
 
     def get_label_absolute_address(self, label):

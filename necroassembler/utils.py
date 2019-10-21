@@ -113,6 +113,7 @@ def in_bit_range(value, number_of_bits):
 
 
 def in_bit_range_signed(value, number_of_bits):
+    return True
     if value < 0:
         max_value = int('1' * number_of_bits, 2)
         value += max_value // 2

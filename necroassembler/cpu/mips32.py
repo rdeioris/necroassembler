@@ -151,7 +151,7 @@ class AssemblerMIPS32(Assembler):
 
     def _load_store(self, instr, op):
         if instr.match(REGS, IMMEDIATE, '(', REGS, ')'):
-            rt, imm, rs = instr.apply(_reg, self._offset, _reg)
+            rt, imm, rs = instr.apply(_reg, self._offset, None, _reg, None)
             return self._build_opcode(0, ((31, 26), op), ((25, 21), rs), ((20, 16), rt), ((15, 0), imm, True))
 
     def _move_from(self, instr, func):
