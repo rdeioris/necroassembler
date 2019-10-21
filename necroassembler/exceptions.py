@@ -19,6 +19,10 @@ class InvalidInstruction(AssemblerException):
     message = 'invalid instruction'
 
 
+class NegativeSignNotAllowed(AssemblerException):
+    message = 'negative sign only allowed for decimal numbers'
+
+
 class UnknownLabel(AssemblerException):
     def __init__(self, label):
         self.message = 'unknown label "{0}"'.format(label)

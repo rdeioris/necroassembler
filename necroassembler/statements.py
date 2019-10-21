@@ -85,7 +85,7 @@ class Label(Statement):
         key = self.tokens[0]
         if key in assembler.labels:
             raise LabelAlreadyDefined(self)
-        if assembler.parse_integer(key) is not None:
+        if assembler.parse_integer(key, 64, False) is not None:
             raise InvalidLabel(self)
         assembler.labels[key] = {
             'base': assembler.org_counter, 'org': assembler.current_org}

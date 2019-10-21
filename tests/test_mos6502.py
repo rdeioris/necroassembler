@@ -328,3 +328,7 @@ class TestMOS6502(unittest.TestCase):
         self.asm.assemble('STY $4400')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\x84\x44\x94\x44\x8C\x00\x44')
+
+    def test_lda_negative(self):
+        self.asm.assemble('LDA #-1')
+        self.assertEqual(self.asm.assembled_bytes, b'\xA9\xFF')

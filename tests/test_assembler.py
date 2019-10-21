@@ -14,7 +14,7 @@ class TestAssembler(unittest.TestCase):
         @opcode('LOAD')
         def load(self, instr):
             arg = instr.tokens[1]
-            value = self.parse_integer(instr.tokens[1])
+            value = self.parse_integer(instr.tokens[1], 32, signed=False)
             # label ?
             if value is None:
                 self.add_label_translation(label=arg, size=4)
@@ -100,7 +100,6 @@ class TestAssembler(unittest.TestCase):
                                    ((10, 7), 15)
                                    ), 0b11110000110)
 
-
     def test_ram(self):
         self.asm.assemble("""
         .org 0x1000
@@ -109,8 +108,12 @@ class TestAssembler(unittest.TestCase):
         three: .ram 8
         end:
         """)
-        self.assertEqual(self.asm.get_label_absolute_address_by_name('one'), 0x1000)
-        self.assertEqual(self.asm.get_label_absolute_address_by_name('two'), 0x1002)
-        self.assertEqual(self.asm.get_label_absolute_address_by_name('three'), 0x1006)
-        self.assertEqual(self.asm.get_label_absolute_address_by_name('end'), 0x100e)
+        self.assertEqual(
+            self.asm.get_label_absolute_address_by_name('one'), 0x1000)
+        self.assertEqual(
+            self.asm.get_label_absolute_address_by_name('two'), 0x1002)
+        self.assertEqual(
+            self.asm.get_label_absolute_address_by_name('three'), 0x1006)
+        self.assertEqual(
+            self.asm.get_label_absolute_address_by_name('end'), 0x100e)
         self.assertEqual(len(self.asm.assembled_bytes), 0)

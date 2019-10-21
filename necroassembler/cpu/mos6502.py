@@ -88,12 +88,13 @@ class AssemblerMOS6502(Assembler):
     def _manage_branching(self, instr, code):
         arg = instr.tokens[1]
         address = self.parse_integer_or_label(
-            arg, size=1, relative=True, start=self.current_org + self.org_counter + 2)
+            arg, 8, signed=True,
+            size=1, relative=True, start=self.current_org + self.org_counter + 2)
         return pack('<Bb', code, address)
 
     def _manage_address(self, absolute, zero_page, arg):
 
-        address = self.parse_integer(arg)
+        address = self.parse_integer(arg, 16, signed=False)
 
         # numeric address ?
         if address is not None:
@@ -134,7 +135,7 @@ class AssemblerMOS6502(Assembler):
 
             if instr.match(IMMEDIATE):
                 return pack_byte(kwargs['immediate'],
-                                 self.parse_integer_or_label(instr.tokens[1][1:], size=1))
+                                 self.parse_integer_or_label(instr.tokens[1][1:], 8, signed=False, size=1))
 
             if instr.match(ADDRESS):
                 return self._manage_address(kwargs.get('absolute'), kwargs.get('zero_page'), instr.tokens[1])

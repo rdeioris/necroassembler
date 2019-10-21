@@ -1,5 +1,5 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_bits_le16u, pack_le16u, in_bit_range_signed, pack_bit
+from necroassembler.utils import pack_bits_le16u, pack_le16u, pack_bit
 from necroassembler.exceptions import (
     AssemblerException, InvalidRegister, UnknownRegister, InvalideImmediateValue, NotInBitRange)
 
@@ -59,7 +59,7 @@ class AssemblerThumb(Assembler):
     special_prefixes = ('#',)
 
     def _offset(self, arg, bits, alignment):
-        return self.parse_integer_or_label(arg,
+        return self.parse_integer_or_label(arg, (bits[0] - bits[1]) + 1, signed=True,
                                            bits=bits,
                                            relative=True,
                                            size=2,
@@ -70,13 +70,13 @@ class AssemblerThumb(Assembler):
                                            start=self.current_org + self.org_counter + 4)
 
     def _imm(self, arg):
-        value = self.parse_integer(arg[1:])
+        value = self.parse_integer(arg[1:], 8, False)
         if value is None:
             raise InvalideImmediateValue()
         return value
 
     def _word8(self, arg):
-        value = self.parse_integer(arg[1:])
+        value = self.parse_integer(arg[1:], 8, signed=True)
         if value is None:
             pc = self.current_org + self.org_counter + 4
             self.add_label_translation(label=arg[1:],
@@ -376,10 +376,8 @@ class AssemblerThumb(Assembler):
 
         offset = instr.tokens[1]
 
-        address = self.parse_integer(offset)
+        address = self.parse_integer(offset, 23, signed=True)
         if address:
-            if not in_bit_range_signed(address, 23):
-                raise NotInBitRange(address, 23)
             address >>= 1
             address0 = address >> 11
             address1 = address & 0x7ff

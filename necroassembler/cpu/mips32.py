@@ -1,5 +1,5 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_bits, pack_le32u, pack_be32u, in_bit_range_signed
+from necroassembler.utils import pack_bits, pack_le32u, pack_be32u
 from necroassembler.exceptions import LabelNotAllowed, NotInBitRange
 
 REGS_BASE = ('$0', '$1', '$2', '$3', '$4', '$5',
@@ -41,18 +41,16 @@ class AssemblerMIPS32(Assembler):
     big_endian = True
 
     def _immediate(self, token):
-        return self.parse_integer_or_label(token, offset=0, bits=(15, 0), size=4)
+        return self.parse_integer_or_label(token, 16, signed=True, offset=0, bits=(15, 0), size=4)
 
     def _offset(self, token):
-        value = self.parse_integer(token)
+        value = self.parse_integer(token, 16, signed=True)
         if value is None:
             raise LabelNotAllowed()
-        if not in_bit_range_signed(value, 16):
-            raise NotInBitRange(value, 16)
         return value
 
     def _abs_label(self, token):
-        return self.parse_integer_or_label(token,
+        return self.parse_integer_or_label(token, 32, signed=False,
                                            offset=0,
                                            bits=(25, 0),
                                            bits_check=32,
@@ -61,7 +59,7 @@ class AssemblerMIPS32(Assembler):
                                            size=4) >> 2
 
     def _rel_label(self, token):
-        return self.parse_integer_or_label(token,
+        return self.parse_integer_or_label(token, 16, signed=True,
                                            relative=True,
                                            offset=0,
                                            bits=(15, 0),
@@ -72,7 +70,7 @@ class AssemblerMIPS32(Assembler):
 
     def _immediate32(self, high):
         def _high(token):
-            return self.parse_integer_or_label(token,
+            return self.parse_integer_or_label(token, 32, signed=False,
                                                offset=0,
                                                bits=(15, 0),
                                                size=4,
@@ -80,7 +78,7 @@ class AssemblerMIPS32(Assembler):
                                                post_filter=lambda x: x >> 16) >> 16
 
         def _low(token):
-            return self.parse_integer_or_label(token,
+            return self.parse_integer_or_label(token, 32, signed=False,
                                                offset=0,
                                                bits=(15, 0),
                                                size=4,
@@ -91,7 +89,7 @@ class AssemblerMIPS32(Assembler):
         return _low
 
     def _aaaaa(self, token):
-        return self.parse_integer_or_label(token, offset=0, bits=(10, 6), size=4)
+        return self.parse_integer_or_label(token, 5, signed=False, offset=0, bits=(10, 6), size=4)
 
     def _build_opcode(self, base, *args):
         value = pack_bits(base, *args)

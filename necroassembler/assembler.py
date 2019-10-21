@@ -1,8 +1,10 @@
 from necroassembler.tokenizer import Tokenizer
-from necroassembler.utils import (pack, pack_byte, pack_le32u, pack_le16u,
-                                  pack_be32u, pack_be16u, in_bit_range_signed, in_bit_range, pack_bits)
-from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode, AddressOverlap,
-                                       AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed, InvalidArgumentsForDirective, LabelNotAllowed)
+from necroassembler.utils import (pack_byte, pack_le32u, pack_le16u,
+                                  pack_be32u, pack_be16u, in_bit_range, pack_bits)
+from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode,
+                                       AddressOverlap, NegativeSignNotAllowed,
+                                       AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed,
+                                       InvalidArgumentsForDirective, LabelNotAllowed)
 from necroassembler.macros import Macro
 
 
@@ -203,12 +205,11 @@ class Assembler:
 
             bits_to_check = data.get('bits_check', total_bits)
 
-            if relative:
-                if not in_bit_range_signed(true_address, bits_to_check):
-                    raise NotInBitRange(true_address, bits_to_check, label)
-            else:
-                if true_address < 0 or not in_bit_range(true_address, bits_to_check):
-                    raise NotInBitRange(true_address, bits_to_check, label)
+            if not relative and true_address < 0:
+                raise OnlyForwardAddressesAllowed(label, true_address)
+
+            if not in_bit_range(true_address, bits_to_check, signed=relative):
+                raise NotInBitRange(true_address, bits_to_check, label)
 
             if 'post_filter' in data:
                 true_address = data['post_filter'](true_address)
@@ -245,57 +246,72 @@ class Assembler:
     def _internal_parse_integer(self, token):
         for prefix in self.hex_prefixes:
             if token.startswith(prefix):
-                return int(token[len(prefix):], 16)
+                return int(token[len(prefix):], 16), False
 
         for prefix in self.bin_prefixes:
             if token.startswith(prefix):
-                return int(token[len(prefix):], 2)
+                return int(token[len(prefix):], 2), False
 
         for prefix in self.oct_prefixes:
             if token.startswith(prefix):
-                return int(token[len(prefix):], 8)
+                return int(token[len(prefix):], 8), False
 
         for prefix in self.dec_prefixes:
             if token.startswith(prefix):
-                return int(token[len(prefix):], 10)
+                return int(token[len(prefix):], 10), True
 
         for suffix in self.hex_suffixes:
             if token.endswith(suffix):
                 if token[:-len(suffix)].isdigit():
-                    return int(token[0:-len(suffix)], 16)
+                    return int(token[0:-len(suffix)], 16), False
 
         for suffix in self.bin_suffixes:
             if token.endswith(suffix):
                 if token[:-len(suffix)].isdigit():
-                    return int(token[0:-len(suffix)], 2)
+                    return int(token[0:-len(suffix)], 2), False
 
         for suffix in self.oct_suffixes:
             if token.endswith(suffix):
                 if token[:-len(suffix)].isdigit():
-                    return int(token[0:-len(suffix)], 8)
+                    return int(token[0:-len(suffix)], 8), False
 
         for suffix in self.dec_suffixes:
             if token.endswith(suffix):
                 if token[:-len(suffix)].isdigit():
-                    return int(token[0:-len(suffix)], 10)
+                    return int(token[0:-len(suffix)], 10), True
 
         try:
-            return int(token)
+            return int(token), True
         except ValueError:
-            return None
+            return None, False
 
-    def parse_integer(self, token):
+    def parse_integer(self, token, number_of_bits, signed):
         token, pre_formula, post_formula = self._get_math_formula(token)
-        value = self._internal_parse_integer(token)
+        value, decimal = self._internal_parse_integer(token)
         if value is None:
             return None
+        # check for invalid combos
+        if not decimal and value < 0:
+            raise NegativeSignNotAllowed()
+        # fix negative values
+        if decimal:
+            if not signed:
+                if value < 0:
+                    value += pow(2, number_of_bits)
+            else:
+                if not in_bit_range(value, number_of_bits, signed=True):
+                    raise NotInBitRange(value, number_of_bits)
+                return self.apply_math_formula(pre_formula, post_formula, value)
+
+        if not in_bit_range(value, number_of_bits):
+            raise NotInBitRange(value, number_of_bits)
         return self.apply_math_formula(pre_formula, post_formula, value)
 
-    def parse_integer_or_label(self, arg, **kwargs):
-        value = self.parse_integer(arg)
+    def parse_integer_or_label(self, token, number_of_bits, signed, **kwargs):
+        value = self.parse_integer(token, number_of_bits, signed)
         # label ?
         if value is None:
-            self.add_label_translation(label=arg, **kwargs)
+            self.add_label_translation(label=token, **kwargs)
             return 0
         return value
 
@@ -376,12 +392,12 @@ class Assembler:
     def directive_org(self, instr):
         if len(instr.tokens) not in (2, 3):
             raise InvalidArgumentsForDirective(instr)
-        new_org_start = self.parse_integer(instr.tokens[1])
+        new_org_start = self.parse_integer(instr.tokens[1], 64, False)
         if new_org_start is None:
             raise InvalidArgumentsForDirective(instr)
         new_org_end = 0
         if len(instr.tokens) == 3:
-            new_org_end = self.parse_integer(instr.tokens[2])
+            new_org_end = self.parse_integer(instr.tokens[2], 64, False)
             if new_org_end is None:
                 raise InvalidArgumentsForDirective(instr)
 
@@ -402,9 +418,8 @@ class Assembler:
             if token[0] in ('"', '\''):
                 blob = token[1:-1].encode('utf16')
             else:
-                value = self.parse_integer(token)
-                if value is None:
-                    self.add_label_translation(label=token, size=2, offset=0)
+                value = self.parse_integer_or_label(
+                    token, 16, False, size=2, offset=0)
                 if self.big_endian:
                     blob = pack_be16u(value)
                 else:
@@ -417,9 +432,8 @@ class Assembler:
             if token[0] in ('"', '\''):
                 blob = token[1:-1].encode('utf32')
             else:
-                value = self.parse_integer(token)
-                if value is None:
-                    self.add_label_translation(label=token, size=4, offset=0)
+                value = self.parse_integer_or_label(
+                    token, 32, False, size=4, offset=0)
                 if self.big_endian:
                     blob = pack_be32u(value)
                 else:
@@ -437,7 +451,7 @@ class Assembler:
             if token[0] in ('"', '\''):
                 blob = str(int(token[1:-1].encode('utf16'))).encode('ascii')
             else:
-                value = self.parse_integer(token)
+                value = self.parse_integer(token, 16, False)
                 if value is None:
                     self.add_label_translation(
                         label=token, offset=0, hook=dw_to_str)
@@ -464,12 +478,12 @@ class Assembler:
     def directive_fill(self, instr):
         if len(instr.tokens) not in (2, 3):
             raise InvalidArgumentsForDirective(instr)
-        size = self.parse_integer(instr.tokens[1])
+        size = self.parse_integer(instr.tokens[1], 64, False)
         if size is None:
             raise InvalidArgumentsForDirective(instr)
         value = self.fill_value
         if len(instr.tokens) == 3:
-            value = self.parse_integer(instr.tokens[2])
+            value = self.parse_integer(instr.tokens[2], 8, False)
             if value is None:
                 raise InvalidArgumentsForDirective(instr)
         blob = bytes([value] * size)
@@ -478,7 +492,7 @@ class Assembler:
     def directive_ram(self, instr):
         if len(instr.tokens) != 2:
             raise InvalidArgumentsForDirective(instr)
-        size = self.parse_integer(instr.tokens[1])
+        size = self.parse_integer(instr.tokens[1], 64, False)
         if size is None or size < 1:
             raise InvalidArgumentsForDirective(instr)
         self.org_counter += size
@@ -486,7 +500,7 @@ class Assembler:
     def directive_align(self, instr):
         if len(instr.tokens) != 2:
             raise InvalidArgumentsForDirective(instr)
-        size = self.parse_integer(instr.tokens[1])
+        size = self.parse_integer(instr.tokens[1], 64, False)
         if size is None:
             raise InvalidArgumentsForDirective(instr)
 
@@ -506,7 +520,7 @@ class Assembler:
             if token[0] in ('"', '\''):
                 blob = str(int(token[1:-1].encode('ascii'))).encode('ascii')
             else:
-                value = self.parse_integer(token)
+                value = self.parse_integer(token, 8, False)
                 if value is None:
                     self.add_label_translation(
                         label=token, offset=0, hook=db_to_str)
@@ -525,7 +539,7 @@ class Assembler:
             if token[0] in ('"', '\''):
                 blob += token[1:-1].encode('ascii')
             else:
-                value = self.parse_integer(token)
+                value = self.parse_integer(token, 8, False)
                 if value is None:
                     raise LabelNotAllowed()
                 blob += pack_byte(value)
@@ -536,9 +550,8 @@ class Assembler:
             if token[0] in ('"', '\''):
                 blob = token[1:-1].encode('ascii')
             else:
-                value = self.parse_integer(token)
-                if value is None:
-                    self.add_label_translation(label=token, size=1, offset=0)
+                value = self.parse_integer_or_label(
+                    token, 8, signed=False, size=1, offset=0)
                 blob = pack_byte(value)
             self.append_assembled_bytes(blob)
 
@@ -577,8 +590,8 @@ class Assembler:
 
         return token[len(pre_formula):], pre_formula, post_formula
 
-    def register_instruction(self, opcode, logic):
-        key = opcode
+    def register_instruction(self, code, logic):
+        key = code
         if not self.case_sensitive:
             key = key.upper()
         self.instructions[key] = logic
