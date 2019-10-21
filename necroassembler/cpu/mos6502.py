@@ -88,8 +88,8 @@ class AssemblerMOS6502(Assembler):
     def _manage_branching(self, instr, code):
         arg = instr.tokens[1]
         address = self.parse_integer_or_label(
-            arg, 8, signed=True,
-            size=1, relative=True, start=self.current_org + self.org_counter + 2)
+            label=arg, bits_size=8,
+            size=1, offset=1, relative=self.pc + 2)
         return pack('<Bb', code, address)
 
     def _manage_address(self, absolute, zero_page, arg):
@@ -112,7 +112,8 @@ class AssemblerMOS6502(Assembler):
         if address is None:
             if absolute is None:
                 raise AbsoluteAddressNotAllowed()
-            self.add_label_translation(label=arg, size=2)
+            self.add_label_translation(
+                label=arg, size=2, bits_size=16, offset=1)
             return pack('<BH', absolute, 0)
 
         if zero_page is not None and is_zero_page(address):
@@ -121,7 +122,7 @@ class AssemblerMOS6502(Assembler):
         # normal labeling (postpone to linking phase)
         if absolute is None:
             raise AbsoluteAddressNotAllowed()
-        self.add_label_translation(label=arg, size=2)
+        self.add_label_translation(label=arg, size=2, offset=1, bits_size=16)
         return pack('<BH', absolute, 0)
 
     def _manage_mode(self, instr, **kwargs):
@@ -135,7 +136,10 @@ class AssemblerMOS6502(Assembler):
 
             if instr.match(IMMEDIATE):
                 return pack_byte(kwargs['immediate'],
-                                 self.parse_integer_or_label(instr.tokens[1][1:], 8, signed=False, size=1))
+                                 self.parse_integer_or_label(label=instr.tokens[1][1:],
+                                                             bits_size=8,
+                                                             offset=1,
+                                                             size=1))
 
             if instr.match(ADDRESS):
                 return self._manage_address(kwargs.get('absolute'), kwargs.get('zero_page'), instr.tokens[1])

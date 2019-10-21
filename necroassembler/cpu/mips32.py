@@ -40,8 +40,11 @@ class AssemblerMIPS32(Assembler):
 
     big_endian = True
 
-    def _immediate(self, token):
-        return self.parse_integer_or_label(token, 16, signed=True, offset=0, bits=(15, 0), size=4)
+    def _immediate_signed(self, token):
+        return self.parse_integer_or_label(label=token, size=4, bits_size=16, signed=True, bits=(15, 0))
+
+    def _immediate_unsigned(self, token):
+        return self.parse_integer_or_label(label=token, size=4, bits_size=16, signed=False, bits=(15, 0))
 
     def _offset(self, token):
         value = self.parse_integer(token, 16, signed=True)
@@ -50,46 +53,43 @@ class AssemblerMIPS32(Assembler):
         return value
 
     def _abs_label(self, token):
-        return self.parse_integer_or_label(token, 32, signed=False,
-                                           offset=0,
+        return self.parse_integer_or_label(label=token,
                                            bits=(25, 0),
-                                           bits_check=32,
-                                           post_filter=lambda x: (
+                                           bits_size=32,
+                                           filter=lambda x: (
                                                x & 0x0fffffff) >> 2,
                                            size=4) >> 2
 
     def _rel_label(self, token):
-        return self.parse_integer_or_label(token, 16, signed=True,
-                                           relative=True,
-                                           offset=0,
+        return self.parse_integer_or_label(label=token,
+                                           bits_size=18,
                                            bits=(15, 0),
-                                           bits_check=18,
-                                           post_filter=lambda x: x >> 2,
-                                           start=self.current_org + self.org_counter + 4,
+                                           filter=lambda x: x >> 2,
+                                           relative=self.pc + 4,
                                            size=4) >> 2
 
     def _immediate32(self, high):
         def _high(token):
-            return self.parse_integer_or_label(token, 32, signed=False,
-                                               offset=0,
+            print('OKOK')
+            return self.parse_integer_or_label(label=token,
+                                               bits_size=32,
                                                bits=(15, 0),
                                                size=4,
-                                               bits_check=32,
-                                               post_filter=lambda x: x >> 16) >> 16
+                                               filter=lambda x: x >> 16) >> 16
 
         def _low(token):
-            return self.parse_integer_or_label(token, 32, signed=False,
-                                               offset=0,
+            print('OKOK2')
+            return self.parse_integer_or_label(label=token,
+                                               bits_size=32,
                                                bits=(15, 0),
                                                size=4,
-                                               bits_check=32,
-                                               post_filter=lambda x: x & 0xFFFF) & 0xFFFF
+                                               filter=lambda x: x & 0xFFFF) & 0xFFFF
         if high:
             return _high
         return _low
 
     def _aaaaa(self, token):
-        return self.parse_integer_or_label(token, 5, signed=False, offset=0, bits=(10, 6), size=4)
+        return self.parse_integer_or_label(label=token, bits_size=5, bits=(10, 6), size=4)
 
     def _build_opcode(self, base, *args):
         value = pack_bits(base, *args)
@@ -109,7 +109,8 @@ class AssemblerMIPS32(Assembler):
 
     def _arith_log_i(self, instr, op, signed):
         if instr.match(REGS, REGS, IMMEDIATE):
-            rt, rs, imm = instr.apply(_reg, _reg, self._immediate)
+            rt, rs, imm = instr.apply(
+                _reg, _reg, self._immediate_signed if signed else self._immediate_unsigned)
             return self._build_opcode(0, ((31, 26), op), ((25, 21), rs), ((20, 16), rt), ((15, 0), imm, signed))
 
     def _shift(self, instr, func):

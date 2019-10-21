@@ -17,7 +17,7 @@ class TestMIPS32(unittest.TestCase):
         self.assertEqual(self.asm.assembled_bytes, b'\x01\x8d\x58\x20')
 
     def test_addi_wrong(self):
-        self.assertRaises(InvalidBitRange, self.asm.assemble,
+        self.assertRaises(NotInBitRange, self.asm.assemble,
                           'addi $t5, $t6, 65000')
 
     def test_addi(self):

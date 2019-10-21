@@ -59,15 +59,15 @@ class AssemblerThumb(Assembler):
     special_prefixes = ('#',)
 
     def _offset(self, arg, bits, alignment):
-        return self.parse_integer_or_label(arg, (bits[0] - bits[1]) + 1, signed=True,
-                                           bits=bits,
-                                           relative=True,
+        return self.parse_integer_or_label(label=arg,
                                            size=2,
-                                           offset=0,
+                                           bits_size=(bits[0] - bits[1]) + 1,
+                                           relative=True,
+                                           bits=bits,
                                            filter=lambda x: x >> (
                                                alignment//2),
                                            alignment=alignment,
-                                           start=self.current_org + self.org_counter + 4)
+                                           relative_start=self.pc + 4)
 
     def _imm(self, arg):
         value = self.parse_integer(arg[1:], 8, False)
@@ -76,20 +76,15 @@ class AssemblerThumb(Assembler):
         return value
 
     def _word8(self, arg):
-        value = self.parse_integer(arg[1:], 8, signed=True)
-        if value is None:
-            pc = self.current_org + self.org_counter + 4
-            self.add_label_translation(label=arg[1:],
-                                       relative=True,
-                                       bits=(7, 0),
-                                       size=2,
-                                       offset=0,
-                                       alignment=4,
-                                       filter=lambda x: x >> 2,
-                                       # bit 1 of pc must be turned off
-                                       start=pc & ~(0b10))
-            value = 0
-        return value
+        return self.parse_integer_or_label(label=arg[1:],
+                                           size=2,
+                                           bits_size=8,
+                                           relative=True,
+                                           bits=(7, 0),
+                                           alignment=4,
+                                           filter=lambda x: x >> 2,
+                                           # bit 1 of pc must be turned off
+                                           relative_start=(self.pc + 4) & ~(0b10))
 
     def _conditional_branch(self, instr, cond):
         if instr.match(LABEL):
@@ -384,26 +379,23 @@ class AssemblerThumb(Assembler):
             return self._build_opcode(0b1111000000000000, ((10, 0), address0)) + self._build_opcode(0b1111100000000000, ((10, 0), address1))
 
         self.add_label_translation(label=offset,
-                                   bits=(10, 0),
-                                   relative=True,
                                    size=2,
-                                   offset=0,
+                                   bits_size=23,
+                                   relative=True,
+                                   bits=(10, 0),
                                    alignment=2,
-                                   filter=lambda x: x >> 1,
-                                   post_filter=lambda x: x >> 11,
-                                   bits_check=23,
-                                   start=self.current_org + self.org_counter + 4)
+                                   relative_start=self.pc + 4,
+                                   # get high 11 bits (after >> 1)
+                                   filter=lambda x: x >> 12)
         self.add_label_translation(label=offset,
-                                   bits=(10, 0),
-                                   relative=True,
                                    size=2,
-                                   offset=2,
+                                   bits_size=23,
+                                   relative=True,
+                                   bits=(10, 0),
                                    alignment=2,
-                                   filter=lambda x: x >> 1,
-                                   # get first 11 bits
-                                   post_filter=lambda x: x & 0x7FF,
-                                   bits_check=23,
-                                   start=self.current_org + self.org_counter + 4)
+                                   relative_start=self.pc + 4,
+                                   # get low 11 bits (after >> 1)
+                                   filter=lambda x: (x >> 1) & 0x7FF)
 
         return pack_le16u(0b1111000000000000, 0b1111100000000000)
 

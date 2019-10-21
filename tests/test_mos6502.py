@@ -77,7 +77,7 @@ class TestMOS6502(unittest.TestCase):
         self.asm.assemble('TXS\nTSX\nPHA\nPLA\nPHP\nPLP')
         self.assertEqual(self.asm.assembled_bytes, b'\x9A\xBA\x48\x68\x08\x28')
 
-    def test_jmsr(self):
+    def test_jsr(self):
         self.asm.assemble('.org $100 \nloop: JSR loop')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, b'\x20\x00\x01')
@@ -331,4 +331,8 @@ class TestMOS6502(unittest.TestCase):
 
     def test_lda_negative(self):
         self.asm.assemble('LDA #-1')
+        self.assertEqual(self.asm.assembled_bytes, b'\xA9\xFF')
+
+    def test_lda_negative_raw(self):
+        self.asm.assemble('LDA #$ff')
         self.assertEqual(self.asm.assembled_bytes, b'\xA9\xFF')

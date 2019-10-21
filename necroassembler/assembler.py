@@ -1,6 +1,7 @@
 from necroassembler.tokenizer import Tokenizer
 from necroassembler.utils import (pack_byte, pack_le32u, pack_le16u,
-                                  pack_be32u, pack_be16u, in_bit_range, pack_bits)
+                                  pack_be32u, pack_be16u, in_bit_range,
+                                  in_bit_range_decimal, pack_bits)
 from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode,
                                        AddressOverlap, NegativeSignNotAllowed,
                                        AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed,
@@ -30,6 +31,21 @@ def pre_link(f):
 def post_link(f):
     f.post_link = True
     return f
+
+
+class LabelData:
+
+    alignment = 1
+    offset = 0
+    bits = None
+    hook = None
+    filter = None
+
+    def __init__(self, label, size, bits_size, relative):
+        self.label = label
+        self.size = size
+        self.bits_size = bits_size
+        self.relative = relative
 
 
 class Assembler:
@@ -173,50 +189,46 @@ class Assembler:
     def _resolve_labels(self):
         for address in self.labels_addresses:
             data = self.labels_addresses[address]
-            label = data['label']
-            relative = data.get('relative', False)
+            label = data.label
+            is_relative = data.relative != 0
 
             absolute_address = self.get_label_absolute_address_by_name(label)
-            if not relative:
+            if not is_relative:
                 true_address = absolute_address
             else:
                 true_address = self.get_label_relative_address_by_name(
-                    label, data['start'])
+                    label, data.relative)
 
             if true_address is None:
                 raise UnknownLabel(label)
 
-            if 'hook' in data:
-                data['hook'](address, true_address)
+            if data.hook:
+                data.hook(address, true_address)
                 continue
 
-            if 'filter' in data:
-                true_address = data['filter'](true_address)
+            if absolute_address % data.alignment != 0:
+                raise AlignmentError(label)
 
-            if 'alignment' in data:
-                if absolute_address % data['alignment'] != 0:
-                    raise AlignmentError(label)
+            size = data.size
+            total_bits = data.bits_size
 
-            size = data['size']
-            total_bits = size * 8
+            if data.bits:
+                total_bits = data.bits[0] - data.bits[1] + 1
 
-            if 'bits' in data:
-                total_bits = data['bits'][0] - data['bits'][1] + 1
-
-            bits_to_check = data.get('bits_check', total_bits)
-
-            if not relative and true_address < 0:
+            if not is_relative and true_address < 0:
                 raise OnlyForwardAddressesAllowed(label, true_address)
 
-            if not in_bit_range(true_address, bits_to_check, signed=relative):
-                raise NotInBitRange(true_address, bits_to_check, label)
+            if not in_bit_range_decimal(true_address, total_bits, signed=is_relative):
+                raise NotInBitRange(true_address, total_bits, label)
 
-            if 'post_filter' in data:
-                true_address = data['post_filter'](true_address)
+            if data.filter:
+                print('FILTERING....')
+                true_address = data.filter(true_address)
 
-            if 'bits' in data:
+            if data.bits:
+                # no need to check again bits here
                 true_address = pack_bits(
-                    0, (data['bits'], true_address, relative), check_bits='bits_check' not in data)
+                    0, (data.bits, true_address, is_relative), check_bits=False)
 
             for i in range(0, size):
                 value = (true_address >> (8 * i)) & 0xFF
@@ -239,9 +251,22 @@ class Assembler:
         for _pass in self.post_link_passes:
             _pass()
 
-    def add_label_translation(self, **kwargs):
-        index = len(self.assembled_bytes) + kwargs.get('offset', 1)
-        self.labels_addresses[index] = kwargs
+    @property
+    def pc(self):
+        return self.current_org + self.org_counter
+
+    def add_label_translation(self, label,
+                              size, bits_size,
+                              offset=0, alignment=1, bits=None, filter=None,
+                              relative=0, hook=None):
+        index = len(self.assembled_bytes) + offset
+        label_data = LabelData(label, size, bits_size, relative)
+        label_data.offset = offset
+        label_data.alignment = alignment
+        label_data.bits = bits
+        label_data.hook = hook
+        label_data.filter = filter
+        self.labels_addresses[index] = label_data
 
     def _internal_parse_integer(self, token):
         for prefix in self.hex_prefixes:
@@ -299,7 +324,7 @@ class Assembler:
                 if value < 0:
                     value += pow(2, number_of_bits)
             else:
-                if not in_bit_range(value, number_of_bits, signed=True):
+                if not in_bit_range_decimal(value, number_of_bits, signed=True):
                     raise NotInBitRange(value, number_of_bits)
                 return self.apply_math_formula(pre_formula, post_formula, value)
 
@@ -307,11 +332,24 @@ class Assembler:
             raise NotInBitRange(value, number_of_bits)
         return self.apply_math_formula(pre_formula, post_formula, value)
 
-    def parse_integer_or_label(self, token, number_of_bits, signed, **kwargs):
-        value = self.parse_integer(token, number_of_bits, signed)
+    def parse_integer_or_label(self, label,
+                               size, bits_size, relative=0,
+                               offset=0, alignment=1, bits=None, filter=None,
+                               hook=None, signed=False):
+        if relative != 0:
+            signed = True
+        value = self.parse_integer(label, bits_size, signed)
         # label ?
         if value is None:
-            self.add_label_translation(label=token, **kwargs)
+            self.add_label_translation(label=label,
+                                       size=size,
+                                       bits_size=bits_size,
+                                       relative=relative,
+                                       offset=offset,
+                                       alignment=alignment,
+                                       bits=bits,
+                                       filter=filter,
+                                       hook=hook)
             return 0
         return value
 
@@ -419,7 +457,7 @@ class Assembler:
                 blob = token[1:-1].encode('utf16')
             else:
                 value = self.parse_integer_or_label(
-                    token, 16, False, size=2, offset=0)
+                    label=token, bits_size=16, size=2)
                 if self.big_endian:
                     blob = pack_be16u(value)
                 else:
@@ -433,7 +471,7 @@ class Assembler:
                 blob = token[1:-1].encode('utf32')
             else:
                 value = self.parse_integer_or_label(
-                    token, 32, False, size=4, offset=0)
+                    label=token, bits_size=32, size=4)
                 if self.big_endian:
                     blob = pack_be32u(value)
                 else:
@@ -454,7 +492,7 @@ class Assembler:
                 value = self.parse_integer(token, 16, False)
                 if value is None:
                     self.add_label_translation(
-                        label=token, offset=0, hook=dw_to_str)
+                        label=token, bits_size=16, size=2, hook=dw_to_str)
                     blob = bytes(5)
                 else:
                     blob = str(value).encode('ascii')
@@ -523,7 +561,7 @@ class Assembler:
                 value = self.parse_integer(token, 8, False)
                 if value is None:
                     self.add_label_translation(
-                        label=token, offset=0, hook=db_to_str)
+                        label=token, bits_size=8, size=1, hook=db_to_str)
                     blob = bytes(3)
                 else:
                     blob = str(value).encode('ascii')
@@ -551,7 +589,7 @@ class Assembler:
                 blob = token[1:-1].encode('ascii')
             else:
                 value = self.parse_integer_or_label(
-                    token, 8, signed=False, size=1, offset=0)
+                    label=token, bits_size=8, size=1)
                 blob = pack_byte(value)
             self.append_assembled_bytes(blob)
 
