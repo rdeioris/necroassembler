@@ -70,7 +70,6 @@ class AssemblerMIPS32(Assembler):
 
     def _immediate32(self, high):
         def _high(token):
-            print('OKOK')
             return self.parse_integer_or_label(label=token,
                                                bits_size=32,
                                                bits=(15, 0),
@@ -78,7 +77,6 @@ class AssemblerMIPS32(Assembler):
                                                filter=lambda x: x >> 16) >> 16
 
         def _low(token):
-            print('OKOK2')
             return self.parse_integer_or_label(label=token,
                                                bits_size=32,
                                                bits=(15, 0),

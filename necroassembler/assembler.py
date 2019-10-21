@@ -212,9 +212,6 @@ class Assembler:
             size = data.size
             total_bits = data.bits_size
 
-            if data.bits:
-                total_bits = data.bits[0] - data.bits[1] + 1
-
             if not is_relative and true_address < 0:
                 raise OnlyForwardAddressesAllowed(label, true_address)
 
@@ -222,13 +219,11 @@ class Assembler:
                 raise NotInBitRange(true_address, total_bits, label)
 
             if data.filter:
-                print('FILTERING....')
                 true_address = data.filter(true_address)
 
             if data.bits:
-                # no need to check again bits here
                 true_address = pack_bits(
-                    0, (data.bits, true_address, is_relative), check_bits=False)
+                    0, (data.bits, true_address, is_relative))
 
             for i in range(0, size):
                 value = (true_address >> (8 * i)) & 0xFF
