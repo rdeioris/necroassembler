@@ -222,8 +222,10 @@ class Assembler:
                 true_address = data.filter(true_address)
 
             if data.bits:
+                # no need to check for sign here as filters could make
+                # the check useless/wrong
                 true_address = pack_bits(
-                    0, (data.bits, true_address, is_relative))
+                    0, (data.bits, true_address))
 
             for i in range(0, size):
                 value = (true_address >> (8 * i)) & 0xFF

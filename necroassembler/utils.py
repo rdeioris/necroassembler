@@ -66,29 +66,30 @@ def pack(fmt, *args):
     return struct.pack(fmt, *[n if n is not None else 0 for n in args])
 
 
-def pack_bits(base, *args, check_bits=True):
+def pack_bits(base, *args):
     for arg in args:
         (end, start), value, *options = arg
         if end < start:
             raise InvalidBitRange()
-        if check_bits:
-            total_bits = end - start + 1
-            signed = False
-            if options:
-                signed = options[0]
-            # fix negative numbers
-            if not signed and value < 0:
-                value += pow(2, total_bits)
-            if not in_bit_range_decimal(value, total_bits, signed=signed):
-                raise InvalidBitRange()
+
+        total_bits = end - start + 1
+        signed = False
+        if options:
+            signed = options[0]
+        # fix negative numbers
+        if not signed and value < 0:
+            value += pow(2, total_bits)
+        if not in_bit_range_decimal(value, total_bits, signed=signed):
+            raise InvalidBitRange()
 
         base |= (value << start) & (pow(2, end + 1) - 1)
+        print(hex(base))
     return base
 
 
-def pack_bit(base, *args, check_bits=True):
+def pack_bit(base, *args):
     new_args = [((x, x), y) for x, y in args]
-    return pack_bits(base, *new_args, check_bits=check_bits)
+    return pack_bits(base, *new_args)
 
 
 def pack_bits_le32u(base, *args):
@@ -110,7 +111,6 @@ def in_bit_range(value, number_of_bits):
 
 def in_bit_range_decimal(value, number_of_bits, signed):
     max_value = pow(2, number_of_bits) - 1
-
     if value < 0:
         value += max_value + 1
         return in_bit_range(value, number_of_bits)

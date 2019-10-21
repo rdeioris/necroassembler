@@ -390,8 +390,8 @@ class AssemblerThumb(Assembler):
                                    bits=(10, 0),
                                    alignment=2,
                                    relative=self.pc + 4,
-                                   # get low 11 bits (after >> 1)
-                                   filter=lambda x: (x >> 1) & 0x7FF)
+                                   # get low 11 bits
+                                   filter=lambda x: (x & 0x7FF))
 
         return pack_le16u(0b1111000000000000, 0b1111100000000000)
 
