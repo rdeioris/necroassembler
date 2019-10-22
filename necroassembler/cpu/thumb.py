@@ -61,7 +61,8 @@ class AssemblerThumb(Assembler):
     def _offset(self, arg, bits, alignment):
         return self.parse_integer_or_label(label=arg,
                                            size=2,
-                                           bits_size=(bits[0] - bits[1]) + 1,
+                                           bits_size=(
+                                               bits[0] - bits[1]) + 1 + (alignment//2),
                                            bits=bits,
                                            filter=lambda x: x >> (
                                                alignment//2),

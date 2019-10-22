@@ -78,12 +78,15 @@ def pack_bits(base, *args):
             signed = options[0]
         # fix negative numbers
         if not signed and value < 0:
-            value += pow(2, total_bits)
+            max_value = pow(2, total_bits)
+            value += max_value
+            if value < max_value // 2:
+                raise InvalidBitRange()
         if not in_bit_range_decimal(value, total_bits, signed=signed):
             raise InvalidBitRange()
 
         base |= (value << start) & (pow(2, end + 1) - 1)
-        
+
     return base
 
 
@@ -110,9 +113,11 @@ def in_bit_range(value, number_of_bits):
 
 
 def in_bit_range_decimal(value, number_of_bits, signed):
-    max_value = pow(2, number_of_bits) - 1
+    max_value = pow(2, number_of_bits)
     if value < 0:
-        value += max_value + 1
+        value += max_value
+        if value < max_value // 2:
+            return False
         return in_bit_range(value, number_of_bits)
 
     if signed and value >= 0:

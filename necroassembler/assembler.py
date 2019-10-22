@@ -319,7 +319,10 @@ class Assembler:
         if decimal:
             if not signed:
                 if value < 0:
-                    value += pow(2, number_of_bits)
+                    max_value = pow(2, number_of_bits)
+                    value += max_value
+                    if value < max_value // 2:
+                        raise NotInBitRange(value, number_of_bits)
             else:
                 if not in_bit_range_decimal(value, number_of_bits, signed=True):
                     raise NotInBitRange(value, number_of_bits)
