@@ -222,10 +222,7 @@ class Assembler:
                 true_address = data.filter(true_address)
 
             if data.bits:
-                # no need to check for sign here as filters could make
-                # the check useless/wrong
-                true_address = pack_bits(
-                    0, (data.bits, true_address))
+                true_address = pack_bits(0, (data.bits, true_address))
 
             for i in range(0, size):
                 value = (true_address >> (8 * i)) & 0xFF
@@ -313,7 +310,7 @@ class Assembler:
         if value is None:
             return None
         value = self.apply_math_formula(pre_formula, post_formula, value)
-        
+
         # check for invalid combos
         if not decimal and value < 0:
             raise NegativeSignNotAllowed()
