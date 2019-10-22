@@ -83,7 +83,7 @@ def pack_bits(base, *args):
             raise InvalidBitRange()
 
         base |= (value << start) & (pow(2, end + 1) - 1)
-        print(hex(base))
+        
     return base
 
 
