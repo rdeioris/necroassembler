@@ -45,4 +45,5 @@ write 0x1f801810 0x00c800c8
 write 0x1f801810 0x012c012c
 
 loop:
+add $1, $2, $3
 j loop
