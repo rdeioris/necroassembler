@@ -14,11 +14,10 @@ class InvalidOpCodeArguments(AssemblerException):
 class UnknownInstruction(AssemblerException):
     message = 'unknown instruction'
 
+
 class LabelNotAllowedInMacro(AssemblerException):
     message = 'label not allowed in macro'
 
-class DirectiveNotAllowedInMacro(AssemblerException):
-    message = 'directive not allowed in macro'
 
 class InvalidInstruction(AssemblerException):
     message = 'invalid instruction'

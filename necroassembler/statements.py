@@ -1,4 +1,4 @@
-from necroassembler.exceptions import (InvalidOpCodeArguments, UnknownInstruction, LabelNotAllowedInMacro, DirectiveNotAllowedInMacro,
+from necroassembler.exceptions import (InvalidOpCodeArguments, UnknownInstruction, LabelNotAllowedInMacro,
                                        InvalidInstruction, UnknownDirective, LabelAlreadyDefined, InvalidLabel, AssemblerException)
 from necroassembler.utils import substitute_with_dict
 
@@ -95,8 +95,6 @@ class Label(Statement):
 
 class Directive(Statement):
     def assemble(self, assembler):
-        if assembler.macro_recording is not None:
-            raise DirectiveNotAllowedInMacro(self)
         # skip directive for defines substitution
         substitute_with_dict(self.tokens, assembler.defines, 1)
         key = self.tokens[0][1:]
