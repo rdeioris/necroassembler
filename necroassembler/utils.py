@@ -9,16 +9,6 @@ def neg_fix(value, bits):
     return value
 
 
-def pos_fix(value, bits):
-    """
-    if value < 0:
-    negative = 1 << (bits - 1)
-    if value & negative:
-        return -(1 << (bits)) + value
-    return value
-    """
-
-
 def pack_byte(*args):
     return struct.pack('B' * len(args), *[n & 0xff if n is not None else 0 for n in args])
 
@@ -68,21 +58,18 @@ def pack(fmt, *args):
 
 def pack_bits(base, *args):
     for arg in args:
-        (end, start), value, *options = arg
+        (end, start), value = arg
         if end < start:
             raise InvalidBitRange()
 
         total_bits = end - start + 1
-        signed = False
-        if options:
-            signed = options[0]
         # fix negative numbers
-        if not signed and value < 0:
+        if value < 0:
             max_value = pow(2, total_bits)
             value += max_value
             if value < max_value // 2:
                 raise InvalidBitRange()
-        if not in_bit_range_decimal(value, total_bits, signed=signed):
+        if not in_bit_range(value, total_bits):
             raise InvalidBitRange()
 
         base |= (value << start) & (pow(2, end + 1) - 1)

@@ -109,7 +109,7 @@ class AssemblerMIPS32(Assembler):
         if instr.match(REGS, REGS, IMMEDIATE):
             rt, rs, imm = instr.apply(
                 _reg, _reg, self._immediate_signed if signed else self._immediate_unsigned)
-            return self._build_opcode(0, ((31, 26), op), ((25, 21), rs), ((20, 16), rt), ((15, 0), imm, signed))
+            return self._build_opcode(0, ((31, 26), op), ((25, 21), rs), ((20, 16), rt), ((15, 0), imm))
 
     def _shift(self, instr, func):
         if instr.match(REGS, REGS, IMMEDIATE):
@@ -149,7 +149,7 @@ class AssemblerMIPS32(Assembler):
     def _load_store(self, instr, op):
         if instr.match(REGS, IMMEDIATE, '(', REGS, ')'):
             rt, imm, rs = instr.apply(_reg, self._offset, None, _reg, None)
-            return self._build_opcode(0, ((31, 26), op), ((25, 21), rs), ((20, 16), rt), ((15, 0), imm, True))
+            return self._build_opcode(0, ((31, 26), op), ((25, 21), rs), ((20, 16), rt), ((15, 0), imm))
 
     def _move_from(self, instr, func):
         if instr.match(REGS):

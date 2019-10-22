@@ -401,7 +401,7 @@ class AssemblerThumb(Assembler):
     def _b(self, instr):
         if instr.match(LABEL):
             offset = self._offset(instr.tokens[1], (10, 0), 2)
-            return self._build_opcode(0b1110000000000000, ((10, 0), offset >> 1, True))
+            return self._build_opcode(0b1110000000000000, ((10, 0), offset >> 1))
 
     @opcode('BEQ')
     def _beq(self, instr):

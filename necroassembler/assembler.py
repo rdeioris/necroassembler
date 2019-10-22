@@ -312,6 +312,8 @@ class Assembler:
         value, decimal = self._internal_parse_integer(token)
         if value is None:
             return None
+        value = self.apply_math_formula(pre_formula, post_formula, value)
+        
         # check for invalid combos
         if not decimal and value < 0:
             raise NegativeSignNotAllowed()
@@ -326,11 +328,11 @@ class Assembler:
             else:
                 if not in_bit_range_decimal(value, number_of_bits, signed=True):
                     raise NotInBitRange(value, number_of_bits)
-                return self.apply_math_formula(pre_formula, post_formula, value)
+                return value
 
         if not in_bit_range(value, number_of_bits):
             raise NotInBitRange(value, number_of_bits)
-        return self.apply_math_formula(pre_formula, post_formula, value)
+        return value
 
     def parse_integer_or_label(self, label,
                                size, bits_size, relative=0,

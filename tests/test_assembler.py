@@ -96,7 +96,7 @@ class TestAssembler(unittest.TestCase):
 
     def test_pack_bits_signed(self):
         self.assertEqual(pack_bits(0b00000000000,
-                                   ((2, 0), -2, True),
+                                   ((2, 0), -2),
                                    ((10, 7), 15)
                                    ), 0b11110000110)
 
