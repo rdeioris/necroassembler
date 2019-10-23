@@ -50,7 +50,7 @@ class Instruction(Statement):
                 raise exc from None
         else:
             if len(self.tokens) != 1:
-                raise InvalidOpCodeArguments()
+                raise InvalidOpCodeArguments(self)
             blob = instruction
         assembler.append_assembled_bytes(blob)
 

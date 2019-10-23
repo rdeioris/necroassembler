@@ -1,12 +1,12 @@
 import unittest
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_be32u, pack_bits
-from necroassembler.exceptions import UnsupportedNestedMacro
+from necroassembler.exceptions import UnsupportedNestedMacro, LabelNotAllowedInMacro, NotInBitRange
 
 
 class TestAssembler(unittest.TestCase):
 
-    class DumbAssembler(Assembler):
+    class AssemblerDumb(Assembler):
         hex_prefixes = ('0x',)
 
         big_endian = True
@@ -17,12 +17,12 @@ class TestAssembler(unittest.TestCase):
             value = self.parse_integer(instr.tokens[1], 32, signed=False)
             # label ?
             if value is None:
-                self.add_label_translation(label=arg, size=4)
+                self.add_label_translation(label=arg, bits_size=32, size=4)
                 return pack_be32u(0xaabbccdd, 0)
             return pack_be32u(0xaabbccdd, value)
 
     def setUp(self):
-        self.asm = self.DumbAssembler()
+        self.asm = self.AssemblerDumb()
 
     def test_assemble(self):
         self.asm.assemble('LOAD 0x12345678')
@@ -36,6 +36,13 @@ class TestAssembler(unittest.TestCase):
     def test_assemble_dd(self):
         self.asm.assemble('  .dd 0x11223344 ; hello world, i am a comment')
         self.assertEqual(self.asm.assembled_bytes, b'\x11\x22\x33\x44')
+
+    def test_override(self):
+        class AssemblerDumber(Assembler):
+            pass
+        dumber = AssemblerDumber()
+        dumber.defines = {'foo': 'bar'}
+        self.assertFalse('foo' in Assembler.defines)
 
     def test_macro_simple(self):
         self.asm.assemble("""
@@ -81,6 +88,14 @@ class TestAssembler(unittest.TestCase):
         """
         self.assertRaises(UnsupportedNestedMacro, self.asm.assemble, code)
 
+    def test_macro_with_labels(self):
+        code = """
+        .macro HELLO
+        foobar:
+        .endmacro
+        """
+        self.assertRaises(LabelNotAllowedInMacro, self.asm.assemble, code)
+
     def test_pack_bits(self):
         self.assertEqual(pack_bits(0b00000000000,
                                    ((2, 0), 3),
@@ -117,3 +132,44 @@ class TestAssembler(unittest.TestCase):
         self.assertEqual(
             self.asm.get_label_absolute_address_by_name('end'), 0x100e)
         self.assertEqual(len(self.asm.assembled_bytes), 0)
+
+    def test_parse_integer_unsigned_red(self):
+        self.assertRaises(
+            NotInBitRange, self.asm.parse_integer, '17', 1, False)
+
+    def test_parse_integer_signed_red(self):
+        self.assertRaises(
+            NotInBitRange, self.asm.parse_integer, '17', 5, True)
+
+    def test_parse_integer_unsigned(self):
+        self.assertEqual(self.asm.parse_integer('17', 5, False), 17)
+
+    def test_parse_integer_signed(self):
+        self.assertEqual(self.asm.parse_integer('-1000', 11, True), -1000)
+
+    def test_parse_integer_signed_edge(self):
+        self.assertEqual(self.asm.parse_integer('-1024', 11, True), -1024)
+
+    def test_parse_integer_signed_positive_edge(self):
+        self.assertEqual(self.asm.parse_integer('1023', 11, True), 1023)
+
+    def test_parse_integer_signed_too_low(self):
+        self.assertRaises(
+            NotInBitRange, self.asm.parse_integer, '-1025', 11, True)
+
+    def test_parse_integer_signed_too_high(self):
+        self.assertRaises(
+            NotInBitRange, self.asm.parse_integer, '1024', 11, True)
+
+    def test_parse_integer_signed_too_high_hex(self):
+        self.assertRaises(
+            NotInBitRange, self.asm.parse_integer, '0x800', 11, True)
+
+    def test_parse_integer_signed_edge_hex(self):
+        self.assertEqual(self.asm.parse_integer('0x7FF', 11, True), 2047)
+
+    def test_parse_integer_signed_edge_hex_plus(self):
+        self.assertEqual(self.asm.parse_integer('0x7FE+', 11, True), 2047)
+
+    def test_parse_integer_unsigned_edge_hex_plus(self):
+        self.assertEqual(self.asm.parse_integer('0x7FE+', 11, True), 2047)
