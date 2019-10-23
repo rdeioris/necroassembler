@@ -71,6 +71,22 @@ def main():
     asm.link()
     asm.save(sys.argv[2])
 
+    # rom debug symbols
+    with open(sys.argv[2] + '.0.nl', 'wb') as nl_file:
+        for label in asm.labels:
+            address = asm.get_label_absolute_address_by_name(label)
+            if 0x8000 <= address <= 0xFFFF:
+                nl_file.write('${0:04X}#{1}#\x0D\x0A'.format(
+                    address, label).encode('ascii'))
+
+    # ram debug symbols
+    with open(sys.argv[2] + '.ram.nl', 'wb') as nl_file:
+        for label in asm.labels:
+            address = asm.get_label_absolute_address_by_name(label)
+            if 0x0000 <= address <= 0x7FF:
+                nl_file.write('${0:04X}#{1}#\x0D\x0A'.format(
+                    address, label).encode('ascii'))
+
 
 if __name__ == '__main__':
     main()
