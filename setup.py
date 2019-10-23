@@ -20,4 +20,5 @@ setup(name='necroassembler',
               'necro_genesis=necroassembler.platforms.genesis:main'
           ],
       },
+      test_suite='tests',
       zip_safe=True)
