@@ -85,6 +85,20 @@ class Assembler:
         self.macro_recording = None
         self.log = False
 
+        # avoid subclasses to overwrite parent
+        # class variables by making a copy
+        self.defines = self.defines.copy()
+        self.hex_prefixes = tuple(self.hex_prefixes)
+        self.hex_suffixes = tuple(self.hex_suffixes)
+        self.bin_prefixes = tuple(self.bin_prefixes)
+        self.bin_suffixes = tuple(self.bin_suffixes)
+        self.oct_prefixes = tuple(self.oct_prefixes)
+        self.oct_suffixes = tuple(self.oct_suffixes)
+        self.dec_prefixes = tuple(self.dec_prefixes)
+        self.dec_suffixes = tuple(self.dec_suffixes)
+        self.special_prefixes = tuple(self.special_prefixes)
+        self.special_suffixes = tuple(self.special_suffixes)
+
         self._register_internal_directives()
         self._discover()
 
