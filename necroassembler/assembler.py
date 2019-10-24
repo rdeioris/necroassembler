@@ -434,7 +434,7 @@ class Assembler:
                 self.assembled_bytes += blob
             # new org is lower than previous end but higher than previous start
             elif self.current_org <= previous_org_end and self.current_org > previous_org:
-                blob += bytes([self.fill_value] * (self.current_org -
+                blob = bytes([self.fill_value] * (self.current_org -
                                                    (previous_org + previous_org_counter)))
                 self.assembled_bytes += blob
             else:
@@ -610,6 +610,8 @@ class Assembler:
         if len(instr.tokens) != 2:
             raise InvalidArgumentsForDirective(instr)
         filename = instr.tokens[1]
+        if filename[0] in ('"', '\''):
+            filename = filename[1:-1]
         with open(filename) as f:
             self.assemble(f.read(), context=filename)
 
@@ -617,6 +619,8 @@ class Assembler:
         if len(instr.tokens) != 2:
             raise InvalidArgumentsForDirective(instr)
         filename = instr.tokens[1]
+        if filename[0] in ('"', '\''):
+            filename = filename[1:-1]
         with open(filename, 'rb') as f:
             blob = f.read()
             self.append_assembled_bytes(blob)
