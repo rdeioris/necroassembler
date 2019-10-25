@@ -197,3 +197,27 @@ class TestGameboy(unittest.TestCase):
         self.asm.assemble('LD C,A')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\x48\x49\x4A\x4B\x4C\x4D\x4E\x4F')
+
+    def test_line5_0_7(self):
+        self.asm.assemble('LD D,B')
+        self.asm.assemble('LD D,C')
+        self.asm.assemble('LD D,D')
+        self.asm.assemble('LD D,E')
+        self.asm.assemble('LD D,H')
+        self.asm.assemble('LD D,L')
+        self.asm.assemble('LD D, (HL)')
+        self.asm.assemble('LD D,A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x50\x51\x52\x53\x54\x55\x56\x57')
+
+    def test_line5_8_f(self):
+        self.asm.assemble('LD E,B')
+        self.asm.assemble('LD E,C')
+        self.asm.assemble('LD E,D')
+        self.asm.assemble('LD E,E')
+        self.asm.assemble('LD E,H')
+        self.asm.assemble('LD E,L')
+        self.asm.assemble('LD E,(HL)')
+        self.asm.assemble('LD E,A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x58\x59\x5A\x5B\x5C\x5D\x5E\x5F')
