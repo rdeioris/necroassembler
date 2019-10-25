@@ -3,7 +3,8 @@ from necroassembler.utils import (pack_byte, pack_le32u, pack_le16u,
                                   pack_be32u, pack_be16u, in_bit_range,
                                   in_bit_range_decimal, pack_bits)
 from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode,
-                                       AddressOverlap, NegativeSignNotAllowed,
+                                       AddressOverlap, NegativeSignNotAllowed, NotInRepeatMode,
+                                       UnsupportedNestedRepeat,
                                        AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed,
                                        InvalidArgumentsForDirective, LabelNotAllowed)
 from necroassembler.macros import Macro
@@ -83,6 +84,7 @@ class Assembler:
         self.labels_addresses = {}
         self.macros = {}
         self.macro_recording = None
+        self.repeat = None
         self.log = False
 
         # avoid subclasses to overwrite parent
@@ -128,6 +130,8 @@ class Assembler:
         self.register_directive('ram', self.directive_ram)
         self.register_directive('log', self.directive_log)
         self.register_directive('align', self.directive_align)
+        self.register_directive('repeat', self.directive_repeat)
+        self.register_directive('endrepeat', self.directive_end_repeat)
 
     def register_directives(self):
         pass
@@ -435,7 +439,7 @@ class Assembler:
             # new org is lower than previous end but higher than previous start
             elif self.current_org <= previous_org_end and self.current_org > previous_org:
                 blob = bytes([self.fill_value] * (self.current_org -
-                                                   (previous_org + previous_org_counter)))
+                                                  (previous_org + previous_org_counter)))
                 self.assembled_bytes += blob
             else:
                 raise AddressOverlap()
@@ -558,6 +562,27 @@ class Assembler:
         mod = (self.current_org + self.org_counter) % size
         if mod != 0:
             blob = bytes([self.fill_value]) * (size - mod)
+            self.append_assembled_bytes(blob)
+
+    def directive_repeat(self, instr):
+        if self.repeat is not None:
+            raise UnsupportedNestedRepeat(instr)
+        if len(instr.tokens) != 2:
+            raise InvalidArgumentsForDirective(instr)
+        size = self.parse_integer(instr.tokens[1], 64, False)
+        if size is None or size <= 0:
+            raise InvalidArgumentsForDirective(instr)
+
+        self.repeat = (size, len(self.assembled_bytes))
+
+    def directive_end_repeat(self, instr):
+        if self.repeat is None:
+            raise NotInRepeatMode(instr)
+        
+        size, index = self.repeat
+        self.repeat = None
+        blob = self.assembled_bytes[index:]
+        for i in range(0, size-1):
             self.append_assembled_bytes(blob)
 
     def directive_db_to_ascii(self, instr):
