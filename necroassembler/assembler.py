@@ -114,6 +114,8 @@ class Assembler:
         self.register_directive('org', self.directive_org)
         self.register_directive('include', self.directive_include)
         self.register_directive('incbin', self.directive_incbin)
+        self.register_directive('inccsv', self.directive_inccsv)
+        self.register_directive('incjson', self.directive_incjson)
         self.register_directive('define', self.directive_define)
         self.register_directive('db', self.directive_db)
         self.register_directive('byte', self.directive_db)
@@ -650,6 +652,44 @@ class Assembler:
         with open(filename, 'rb') as f:
             blob = f.read()
             self.append_assembled_bytes(blob)
+
+    def directive_inccsv(self, instr):
+        if len(instr.tokens) != 2:
+            raise InvalidArgumentsForDirective(instr)
+        import csv
+        filename = self.stringify(instr.tokens[1])
+        blob = b''
+        with open(filename, 'r') as f:
+            csv_reader = csv.reader(f)
+            for row in csv_reader:
+                for column in row:
+                    value = self.parse_integer(column, 8, False)
+                    if value is None:
+                        raise LabelNotAllowed(instr)
+                    blob += bytes((value,))
+
+        self.append_assembled_bytes(blob)
+
+    def directive_incjson(self, instr):
+        if len(instr.tokens) != 3:
+            raise InvalidArgumentsForDirective(instr)
+        import json
+        filename = self.stringify(instr.tokens[1])
+        key = self.stringify(instr.tokens[2])
+        blob = b''
+        with open(filename, 'rb') as f:
+            parsed = json.load(f)
+            keys = key.split('.')
+            for key_part in keys:
+                parsed = parsed[key_part]
+            for item in parsed:
+                if not isinstance(item, int):
+                    item = self.parse_integer(item, 8, False)
+                    if item is None:
+                        raise LabelNotAllowed(instr)
+                blob += bytes((item,))
+
+        self.append_assembled_bytes(blob)
 
     def _get_math_formula(self, token):
         pre_formula = ''
