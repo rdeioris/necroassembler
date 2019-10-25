@@ -11,6 +11,18 @@ class CartidgeHeaderNotSet(AssemblerException):
     message = 'cartridge header not set'
 
 
+class OnlyIndexedImageAreSupported(AssemblerException):
+    message = 'only indexed (palette based) images are supported'
+
+
+class InvalidImageSize(AssemblerException):
+    message = 'only 128x128 indexed images are supported'
+
+
+class InvalidPaletteEntry(AssemblerException):
+    message = 'only values between 0 and 3 are allowed for pixel colors'
+
+
 class AssemblerNES(AssemblerMOS6502):
 
     cartridge_set = False
@@ -62,6 +74,46 @@ class AssemblerNES(AssemblerMOS6502):
     @directive('cartridge_chr_roms')
     def _set_cartridge_license(self, instr):
         self._cartridge_fill(instr, 0x06, 1)
+
+    @directive('chr_pattern_table')
+    def _build_chr_pattern_table(self, instr):
+        def _convert_cell(image, cell_x, cell_y):
+            plane0 = []
+            plane1 = []
+            for y in range(0, 8):
+                byte0 = 0
+                byte1 = 0
+                for x in range(0, 8):
+                    pixel_x = cell_x * 8 + x
+                    pixel_y = cell_y * 8 + y
+                    pixel_value = image.getpixel((pixel_x, pixel_y))
+                    if not 0 <= pixel_value <= 3:
+                        raise InvalidPaletteEntry(instr)
+                    byte0 |= (pixel_value & 0x1) << (7 - x)
+                    byte1 |= (pixel_value >> 1) << (7 - x)
+                plane0.append(byte0)
+                plane1.append(byte1)
+            blob = b''
+            for byte in plane0:
+                blob += bytes((byte,))
+            for byte in plane1:
+                blob += bytes((byte,))
+            return blob
+
+        if len(instr.tokens) != 2:
+            raise InvalidArgumentsForDirective(instr)
+        filename = self.stringify(instr.tokens[1])
+        from PIL import Image
+        image = Image.open(filename)
+        if image.mode != 'P':
+            raise OnlyIndexedImageAreSupported(instr)
+        width, height = image.size
+        if width != 128 or height != 128:
+            raise InvalidImageSize(instr)
+        for cell_y in range(0, 16):
+            for cell_x in range(0, 16):
+                blob = _convert_cell(image, cell_x, cell_y)
+                self.append_assembled_bytes(blob)
 
 
 def main():

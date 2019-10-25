@@ -578,7 +578,7 @@ class Assembler:
     def directive_end_repeat(self, instr):
         if self.repeat is None:
             raise NotInRepeatMode(instr)
-        
+
         size, index = self.repeat
         self.repeat = None
         blob = self.assembled_bytes[index:]
@@ -631,21 +631,22 @@ class Assembler:
                 blob = pack_byte(value)
             self.append_assembled_bytes(blob)
 
+    def stringify(self, value):
+        if value[0] in ('"', '\''):
+            value = value[1:-1]
+        return value
+
     def directive_include(self, instr):
         if len(instr.tokens) != 2:
             raise InvalidArgumentsForDirective(instr)
-        filename = instr.tokens[1]
-        if filename[0] in ('"', '\''):
-            filename = filename[1:-1]
+        filename = self.stringify(instr.tokens[1])
         with open(filename) as f:
             self.assemble(f.read(), context=filename)
 
     def directive_incbin(self, instr):
         if len(instr.tokens) != 2:
             raise InvalidArgumentsForDirective(instr)
-        filename = instr.tokens[1]
-        if filename[0] in ('"', '\''):
-            filename = filename[1:-1]
+        filename = self.stringify(instr.tokens[1])
         with open(filename, 'rb') as f:
             blob = f.read()
             self.append_assembled_bytes(blob)
