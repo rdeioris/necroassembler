@@ -173,3 +173,7 @@ class TestAssembler(unittest.TestCase):
 
     def test_parse_integer_unsigned_edge_hex_plus(self):
         self.assertEqual(self.asm.parse_integer('0x7FE+', 11, True), 2047)
+
+    def test_repeat(self):
+        self.asm.assemble('.repeat 10\n.db 0x17\n.endrepeat')
+        self.assertEqual(self.asm.assembled_bytes, b'\x17\x17\x17\x17\x17\x17\x17\x17\x17\x17')
