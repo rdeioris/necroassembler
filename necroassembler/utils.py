@@ -71,7 +71,6 @@ def pack_bits(base, *args):
                 raise InvalidBitRange()
         if not in_bit_range(value, total_bits):
             raise InvalidBitRange()
-
         base |= (value << start) & (pow(2, end + 1) - 1)
 
     return base

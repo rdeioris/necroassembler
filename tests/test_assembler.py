@@ -1,7 +1,7 @@
 import unittest
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_be32u, pack_bits
-from necroassembler.exceptions import UnsupportedNestedMacro, LabelNotAllowedInMacro, NotInBitRange
+from necroassembler.exceptions import UnsupportedNestedMacro, LabelNotAllowedInMacro, NotInBitRange, UnknownLabel
 
 
 class TestAssembler(unittest.TestCase):
@@ -176,4 +176,21 @@ class TestAssembler(unittest.TestCase):
 
     def test_repeat(self):
         self.asm.assemble('.repeat 10\n.db 0x17\n.endrepeat')
-        self.assertEqual(self.asm.assembled_bytes, b'\x17\x17\x17\x17\x17\x17\x17\x17\x17\x17')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x17\x17\x17\x17\x17\x17\x17\x17\x17\x17')
+
+    def test_complex_math(self):
+        self.asm.assemble('.org 1\nstart:\n.org 10\nend:\n.db end-start-2')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x07')
+
+    def test_complex_math_triple(self):
+        self.asm.assemble(
+            '.org 1\nstart:\n.org 10\nend:\n.db end-start-2+start+start+1')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x0A')
+
+    def test_complex_math_wrong(self):
+        self.asm.assemble(
+            '.org 1\nstart:\n.org 10\nend:\n.db end-start-2+start+unknown+1')
+        self.assertRaises(UnknownLabel, self.asm.link)

@@ -252,8 +252,8 @@ class Assembler:
                     self.assembled_bytes[address + i] |= value
 
             if self.log:
-                print('label "{0}" translated to {1} at address {2}'.format(
-                    label, self.assembled_bytes[address:address+size], hex(address)))
+                print('label "{0}" translated to ({1}) at address {2}'.format(
+                    label, ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[address:address+size]]), hex(address)))
 
     def link(self):
 
@@ -389,11 +389,33 @@ class Assembler:
         if has_shifted_value:
             value = shifted_value
 
-        for op in post_formula:
-            if op == '+':
-                value += 1
-            elif op == '-':
-                value -= 1
+        ops = []
+        current_command = None
+        current_arg = ''
+        for char in post_formula:
+            if char in ('+', '-'):
+                if current_command is not None:
+                    ops.append((current_command, current_arg))
+                current_command = char
+                current_arg = ''
+            else:
+                current_arg += char
+
+        if current_command is not None:
+            ops.append((current_command, current_arg))
+
+        for command, arg in ops:
+            arg_value = 1
+            if arg:
+                arg_value = self.parse_integer(arg, 64, False)
+                if arg_value is None:
+                    arg_value = self.get_label_absolute_address_by_name(arg)
+                    if arg_value is None:
+                        raise UnknownLabel(arg)
+            if command == '+':
+                value += arg_value
+            elif command == '-':
+                value -= arg_value
 
         return value
 
@@ -700,14 +722,22 @@ class Assembler:
             else:
                 break
 
-        for char in token[::-1]:
-            if char in ('+', '-'):
-                post_formula += char
+        in_math = False
+        valid_chars = 0
+        for char in token[len(pre_formula):]:
+            if not in_math:
+                if char in ('+', '-'):
+                    if valid_chars < 1:
+                        break
+                    in_math = True
+                    post_formula += char
+                else:
+                    valid_chars += 1
             else:
-                break
+                post_formula += char
 
         if len(post_formula) > 0:
-            return token[len(pre_formula):-len(post_formula)], pre_formula, post_formula
+            return token[len(pre_formula):len(token)-len(post_formula)], pre_formula, post_formula
 
         return token[len(pre_formula):], pre_formula, post_formula
 
