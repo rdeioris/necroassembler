@@ -194,3 +194,15 @@ class TestAssembler(unittest.TestCase):
         self.asm.assemble(
             '.org 1\nstart:\n.org 10\nend:\n.db end-start-2+start+unknown+1')
         self.assertRaises(UnknownLabel, self.asm.link)
+
+    def test_complex_math_multiply(self):
+        self.asm.assemble(
+            '.org 1\nstart:\n.org 10\nend:\n.db end-start-2+start+start+1*2')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x14')
+
+    def test_complex_math_divide(self):
+        self.asm.assemble(
+            '.org 1\nstart:\n.org 10\nend:\n.db end-start-2+start+start+1/2')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x05')

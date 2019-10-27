@@ -393,7 +393,7 @@ class Assembler:
         current_command = None
         current_arg = ''
         for char in post_formula:
-            if char in ('+', '-'):
+            if char in ('+', '-', '*', '/'):
                 if current_command is not None:
                     ops.append((current_command, current_arg))
                 current_command = char
@@ -416,6 +416,10 @@ class Assembler:
                 value += arg_value
             elif command == '-':
                 value -= arg_value
+            elif command == '*':
+                value *= arg_value
+            elif command == '/':
+                value //= arg_value
 
         return value
 
@@ -726,7 +730,7 @@ class Assembler:
         valid_chars = 0
         for char in token[len(pre_formula):]:
             if not in_math:
-                if char in ('+', '-'):
+                if char in ('+', '-', '*', '/'):
                     if valid_chars < 1:
                         break
                     in_math = True

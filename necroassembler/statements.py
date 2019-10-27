@@ -87,7 +87,7 @@ class Label(Statement):
         key = self.tokens[0]
         if key in assembler.labels:
             raise LabelAlreadyDefined(self)
-        if key in ('>', '<', '-', '+'):
+        if key in ('>', '<', '-', '+', '*', '/'):
             raise InvalidLabel(self)
         if assembler.parse_integer(key, 64, False) is not None:
             raise InvalidLabel(self)
