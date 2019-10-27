@@ -9,6 +9,7 @@ A Python framework for building assemblers, includes ready-to-use modules for
 * 68000 (sega genesis/megadrive, amiga)
 * AVR (arduino)
 * Z80 (ZX spectrum)
+* PowerPC (gamecube, wii)
 
 
 
