@@ -755,3 +755,9 @@ class Assembler:
 
     def register_define(self, name, value):
         self.defines[name] = value
+
+    def main(self):
+        import sys
+        self.assemble_file(sys.argv[1])
+        self.link()
+        self.save(sys.argv[2])

@@ -19,7 +19,7 @@ def pack_8s(*args):
 
 def pack_le32s(*args):
     return struct.pack('<' + ('i' * len(args)),
-                       *[neg_fix(n & 0xffffffff, 16) if n is not None else 0 for n in args])
+                       *[neg_fix(n & 0xffffffff, 32) if n is not None else 0 for n in args])
 
 
 def pack_le32u(*args):
@@ -39,7 +39,7 @@ def pack_be32s(*args):
 
 def pack_le16s(*args):
     return struct.pack('<' + ('h' * len(args)),
-                       *[neg_fix(n & 0xffff, 32) if n is not None else 0 for n in args])
+                       *[neg_fix(n & 0xffff, 16) if n is not None else 0 for n in args])
 
 
 def pack_le16u(*args):
@@ -126,3 +126,19 @@ def substitute_with_dict(tokens, _dict, start, prefixes=(), suffixes=()):
                 new_name = name[len(prefix):]
                 if new_name in _dict:
                     tokens[i] = prefix + _dict[new_name]
+
+
+def match(iterable, *args):
+    if len(iterable) != len(args):
+        return False
+    for index, pattern in enumerate(args):
+        if pattern is None:
+            continue
+
+        if isinstance(pattern, str):
+            if iterable[index].upper() == pattern.upper():
+                continue
+        elif any([iterable[index].upper() == x.upper() for x in pattern]):
+            continue
+        return False
+    return True
