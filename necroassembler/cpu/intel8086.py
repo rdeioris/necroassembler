@@ -251,9 +251,17 @@ def _Ev(instr, assembler, index, modrm):
         return 2 + delta, b'' if index == 1 else _build_modrm(assembler, modrm)
 
 
-def _I0(instr, index):
-    # TODO
-    return instr[index].upper() not in REGS8 + REGS16 + SEGMENTS
+def _I0(instr, assembler, index, modrm):
+    if len(instr.tokens) == 1:
+        return 1, b''
+    if len(instr.tokens) == 2:
+        value = assembler.parse_integer(
+            instr.tokens[index], size=1, bits_size=8)
+        if value is None:
+            return None
+        if value == 0xA:
+            return 1, b''
+        return 1, pack_byte(value)
 
 
 def _Sw(instr, assembler, index, modrm):
@@ -265,14 +273,20 @@ def _Sw(instr, assembler, index, modrm):
         return 1, b''
 
 
-def _M(instr, index):
-    # TODO
-    return False
+def _M(instr, assembler, index, modrm):
+    if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS + ('[', ']'):
+        return 1, pack_le16u(assembler.parse_integer_or_label(
+            instr.tokens[index], size=2, bits_size=16, offset=1))
 
 
-def _Mp(instr, index):
-    # TODO
-    return False
+def _Mp(instr, assembler, index, modrm):
+    arg = instr.tokens[index]
+    if ':' in arg and arg.upper() not in REGS8 + REGS16 + SEGMENTS:
+        segment, offset = arg.split(':')
+        return 1, pack_le16u(
+            assembler.parse_integer_or_label(
+                segment, size=2, bits_size=16, offset=1),
+            assembler.parse_integer_or_label(offset, size=2, bits_size=16, offset=3))
 
 
 def _Ap(instr, assembler, index, modrm):
