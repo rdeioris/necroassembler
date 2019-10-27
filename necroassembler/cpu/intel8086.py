@@ -1,11 +1,11 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_bits, pack_byte, pack_le16u, pack_le16s, match
+from necroassembler.utils import pack_bits, pack_byte, pack_le16u, pack_le16s, pack_8s, match
 from necroassembler.exceptions import InvalidOpCodeArguments
 
 
 REGS8 = ('AL', 'CL', 'DL', 'BL', 'AH', 'CH', 'DH', 'BH')
 REGS16 = ('AX', 'CX', 'DX', 'BX', 'SP', 'BP', 'SI', 'DI')
-SEGMENTS = ('CS', 'DS', 'SS', 'ES')
+SEGMENTS = ('ES', 'CS', 'SS', 'DS')
 
 
 def _build_modrm(assembler, modrm):
@@ -19,6 +19,7 @@ def _build_modrm(assembler, modrm):
             modrm['displacement'],
             size=2,
             bits_size=16,
+            offset=1,
             signed=True))
     return blob
 
@@ -181,32 +182,39 @@ def _SS(instr, assembler, index, modrm):
 def _Ib(instr, assembler, index, modrm):
     if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS + ('[', ']'):
         return 1, pack_byte(assembler.parse_integer_or_label(
-            instr.tokens[index], size=1, bits_size=8))
+            instr.tokens[index], size=1, bits_size=8, offset=1))
 
 
 def _Iv(instr, assembler, index, modrm):
     if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS + ('[', ']'):
         return 1, pack_le16u(assembler.parse_integer_or_label(
-            instr.tokens[index], size=2, bits_size=16))
+            instr.tokens[index], size=2, bits_size=16, offset=1))
 
 
-def _Jb(instr, index):
-    # TODO
-    return instr[index].upper() not in REGS8 + REGS16 + SEGMENTS
+def _Jb(instr, assembler, index, modrm):
+    arg = instr.tokens[index]
+    if ':' not in arg and arg.upper() not in REGS8 + REGS16 + SEGMENTS:
+        return 1, pack_8s(
+            assembler.parse_integer_or_label(
+                arg,
+                size=1,
+                bits_size=8,
+                offset=1,
+                relative=assembler.pc+2))
 
 
 def _Ob(instr, assembler, index, modrm):
-    # TODO with []
-    if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS:
-        return 1, pack_le16u(assembler.parse_integer_or_label(
-            instr.tokens[index], size=1, bits_size=8))
+    if match(instr.tokens[index:index+2], '[', None, ']'):
+        if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS:
+            return 3, pack_le16u(assembler.parse_integer_or_label(
+                instr.tokens[index], size=1, bits_size=8, offset=1))
 
 
 def _Ov(instr, assembler, index, modrm):
-    # TODO with []
-    if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS:
-        return 1, pack_le16u(assembler.parse_integer_or_label(
-            instr.tokens[index], size=2, bits_size=16))
+    if match(instr.tokens[index:index+2], '[', None, ']'):
+        if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS:
+            return 3, pack_le16u(assembler.parse_integer_or_label(
+                instr.tokens[index], size=2, bits_size=16, offset=1))
 
 
 def _Eb(instr, assembler, index, modrm):
@@ -249,9 +257,12 @@ def _I0(instr, index):
 
 
 def _Sw(instr, assembler, index, modrm):
-    # TODO
-    if instr.tokens[index].upper() in SEGMENTS:
-        return 1, pack_byte(0)
+    reg = instr.tokens[index].upper()
+    if reg in SEGMENTS:
+        modrm['reg'] = SEGMENTS.index(reg)
+        if index > 1:
+            return 1, _build_modrm(assembler, modrm)
+        return 1, b''
 
 
 def _M(instr, index):
@@ -265,14 +276,13 @@ def _Mp(instr, index):
 
 
 def _Ap(instr, assembler, index, modrm):
-    # TODO ? with [] ???
     arg = instr.tokens[index]
     if ':' in arg and arg.upper() not in REGS8 + REGS16 + SEGMENTS:
         segment, offset = arg.split(':')
         return 1, pack_le16u(
             assembler.parse_integer_or_label(
                 segment, size=2, bits_size=16, offset=1),
-            assembler.parse_integer_or_label(offset, size=2, bits_size=16, offset=1))
+            assembler.parse_integer_or_label(offset, size=2, bits_size=16, offset=3))
 
 
 def _3(instr, assembler, index, modrm):
@@ -281,11 +291,15 @@ def _3(instr, assembler, index, modrm):
 
 
 def _Jv(instr, assembler, index, modrm):
-    # TODO ? with [] ???
     arg = instr.tokens[index]
     if ':' not in arg and arg.upper() not in REGS8 + REGS16 + SEGMENTS:
         return 1, pack_le16u(
-            assembler.parse_integer_or_label(arg, size=2, bits_size=16, offset=1))
+            assembler.parse_integer_or_label(
+                arg,
+                size=2,
+                bits_size=16,
+                offset=1,
+                relative=assembler.pc+3))
 
 
 OPCODES_TABLE = (
@@ -516,7 +530,7 @@ class Intel8086OpCode:
     def __call__(self, instr):
         for base, args in self.conditions:
             modrm = {}
-            if not args and len(instr) == 1:
+            if not args and len(instr.tokens) == 1:
                 return pack_byte(base)
             index = 1
             skip = False
