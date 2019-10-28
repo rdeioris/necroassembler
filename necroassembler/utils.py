@@ -138,6 +138,9 @@ def match(iterable, *args):
         if isinstance(pattern, str):
             if iterable[index].upper() == pattern.upper():
                 continue
+        elif callable(pattern):
+            if pattern(iterable[index]):
+                continue
         elif any([iterable[index].upper() == x.upper() for x in pattern]):
             continue
         return False
