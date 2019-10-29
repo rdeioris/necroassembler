@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='necroassembler',
-      version='0.4.1',
+      version='0.5',
       description='framework for building assemblers',
       url='https://github.com/rdeioris/necroassembler/',
       author='Roberto De Ioris',
