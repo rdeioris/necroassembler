@@ -378,9 +378,77 @@ class AssemblerLR35902(Assembler):
                                      b3_a=0x5F,
                                      b7_h=0x7C)
 
+    @opcode('RLC')
+    def _rlc(self, instr):
+        return self._build_cb_opcode(instr,
+                                     b=0x00,
+                                     c=0x01,
+                                     d=0x02,
+                                     e=0x03,
+                                     h=0x04,
+                                     l=0x05,
+                                     ind_hl=0x06,
+                                     a=0x07)
+
+    @opcode('RRC')
+    def _rrc(self, instr):
+        return self._build_cb_opcode(instr,
+                                     b=0x08,
+                                     c=0x09,
+                                     d=0x0A,
+                                     e=0x0B,
+                                     h=0x0C,
+                                     l=0x0D,
+                                     ind_hl=0x0E,
+                                     a=0x0F)
+
     @opcode('RL')
     def _rl(self, instr):
-        return self._build_cb_opcode(instr, c=0x11)
+        return self._build_cb_opcode(instr,
+                                     b=0x10,
+                                     c=0x11,
+                                     d=0x12,
+                                     e=0x13,
+                                     h=0x14,
+                                     l=0x15,
+                                     ind_hl=0x16,
+                                     a=0x17)
+
+    @opcode('RR')
+    def _rr(self, instr):
+        return self._build_cb_opcode(instr,
+                                     b=0x18,
+                                     c=0x19,
+                                     d=0x1A,
+                                     e=0x1B,
+                                     h=0x1C,
+                                     l=0x1D,
+                                     ind_hl=0x1E,
+                                     a=0x1F)
+
+    @opcode('SLA')
+    def _sla(self, instr):
+        return self._build_cb_opcode(instr,
+                                     b=0x20,
+                                     c=0x21,
+                                     d=0x22,
+                                     e=0x23,
+                                     h=0x24,
+                                     l=0x25,
+                                     ind_hl=0x26,
+                                     a=0x27)
+
+    @opcode('SRA')
+    def _sra(self, instr):
+        return self._build_cb_opcode(instr,
+                                     b=0x28,
+                                     c=0x29,
+                                     d=0x2A,
+                                     e=0x2B,
+                                     h=0x2C,
+                                     l=0x2D,
+                                     ind_hl=0x2E,
+                                     a=0x2F)
 
     @opcode('DEC')
     def _dec(self, instr):

@@ -458,3 +458,39 @@ class TestGameboy(unittest.TestCase):
         self.asm.assemble('LD HL, SP-2')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xF8\x04\xF8\xFD\xF8\xFE')
+
+    def test_cb_line0_0_7(self):
+        self.asm.assemble(
+            'RLC B\nRLC C\nRLC D\nRLC E\nRLC H\nRLC L\nRLC (HL)\nRLC A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x00\xCB\x01\xCB\x02\xCB\x03\xCB\x04\xCB\x05\xCB\x06\xCB\x07')
+
+    def test_cb_line0_8_f(self):
+        self.asm.assemble(
+            'RRC B\nRRC C\nRRC D\nRRC E\nRRC H\nRRC L\nRRC (HL)\nRRC A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x08\xCB\x09\xCB\x0A\xCB\x0B\xCB\x0C\xCB\x0D\xCB\x0E\xCB\x0F')
+
+    def test_cb_line1_0_7(self):
+        self.asm.assemble(
+            'RL B\nRL C\nRL D\nRL E\nRL H\nRL L\nRL (HL)\nRL A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x10\xCB\x11\xCB\x12\xCB\x13\xCB\x14\xCB\x15\xCB\x16\xCB\x17')
+
+    def test_cb_line1_8_f(self):
+        self.asm.assemble(
+            'RR B\nRR C\nRR D\nRR E\nRR H\nRR L\nRR (HL)\nRR A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x18\xCB\x19\xCB\x1A\xCB\x1B\xCB\x1C\xCB\x1D\xCB\x1E\xCB\x1F')
+
+    def test_cb_line2_0_7(self):
+        self.asm.assemble(
+            'SLA B\nSLA C\nSLA D\nSLA E\nSLA H\nSLA L\nSLA (HL)\nSLA A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x20\xCB\x21\xCB\x22\xCB\x23\xCB\x24\xCB\x25\xCB\x26\xCB\x27')
+
+    def test_cb_line2_8_f(self):
+        self.asm.assemble(
+            'SRA B\nSRA C\nSRA D\nSRA E\nSRA H\nSRA L\nSRA (HL)\nSRA A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x28\xCB\x29\xCB\x2A\xCB\x2B\xCB\x2C\xCB\x2D\xCB\x2E\xCB\x2F')
