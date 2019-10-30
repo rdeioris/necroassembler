@@ -38,7 +38,7 @@ class AssemblerLR35902(Assembler):
         self.register_instruction('BRA', b'\x1F')
         self.register_instruction('HALT', b'\x76')
         self.register_instruction('DI', b'\xF3')
-        self.register_instruction('EI', b'\xF8')
+        self.register_instruction('EI', b'\xFB')
         self.register_instruction('RLA', b'\x17')
         self.register_instruction('RLCA', b'\x07')
         self.register_instruction('RRA', b'\x1F')
@@ -147,6 +147,11 @@ class AssemblerLR35902(Assembler):
                     self._reg_name, None, self._reg_name, None)
                 return pack_byte(kwargs[reg8 + '_ind_' + reg16])
 
+            if instr.match(REGS8, '(', REGS8, ')') or instr.match(REGS8, '[', REGS8, ']'):
+                reg8, reg8_2 = instr.apply(
+                    self._reg_name, None, self._reg_name, None)
+                return pack_byte(kwargs[reg8 + '_ind_' + reg8_2])
+
             if instr.match(REGS8, '(', VALUE, ')') or instr.match(REGS8, '[', VALUE, ']'):
                 reg8, value = instr.apply(
                     self._reg_name, None, self._data16, None)
@@ -194,9 +199,20 @@ class AssemblerLR35902(Assembler):
         if instr.match('(', VALUE, ')', 'A') or instr.match('[', VALUE, ']', 'A'):
             a8, = instr.apply(None, self._data8, None, None)
             return pack_byte(0xE0) + a8
+        if instr.match('A', '(', VALUE, ')') or instr.match('A', '[', VALUE, ']'):
+            a8, = instr.apply(None, None, self._data8, None)
+            return pack_byte(0xF0) + a8
 
     @opcode('LD')
     def _ld(self, instr):
+        if len(instr.tokens) > 2:
+            value = None
+            if instr.tokens[2].startswith('SP+'):
+                value = self._rel8(instr.tokens[2][3:])
+            elif instr.tokens[2].startswith('SP-'):
+                value = self._rel8(instr.tokens[2][2:])
+            if value is not None:
+                return pack_byte(0xF8) + value
         return self._build_opcode(instr,
                                   bc_d16=0x01,
                                   ind_bc_a=0x02,
@@ -286,6 +302,8 @@ class AssemblerLR35902(Assembler):
                                   ind_hl_e=0x73,
                                   ind_hl_h=0x74,
                                   ind_hl_l=0x75,
+                                  a_ind_c=0xF2,
+                                  sp_hl=0xF9,
                                   sp_d16=0x31)
 
     @opcode('INC')
@@ -414,6 +432,7 @@ class AssemblerLR35902(Assembler):
                                   a_h=0xB4, h=0xB4,
                                   a_l=0xB5, l=0xB5,
                                   a_ind_hl=0xB6, ind_hl=0xB6,
+                                  a_d8=0xF6, d8=0xF6,
                                   a_a=0xB7, a=0xB7)
 
     @opcode('JR')
@@ -445,6 +464,7 @@ class AssemblerLR35902(Assembler):
         return self._build_opcode(instr,
                                   bc=0xC5,
                                   hl=0xE5,
+                                  af=0xF5,
                                   de=0xD5)
 
     @opcode('POP')
@@ -452,6 +472,7 @@ class AssemblerLR35902(Assembler):
         return self._build_opcode(instr,
                                   bc=0xC1,
                                   hl=0xE1,
+                                  af=0xF1,
                                   de=0xD1)
 
     @opcode('ADD')

@@ -430,3 +430,31 @@ class TestGameboy(unittest.TestCase):
         self.asm.assemble('RST 28H')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xE8\xFF\xE9\xEA\x34\x12\xEE\xFC\xEF')
+
+    def test_lineF_0_7(self):
+        self.asm.assemble('LDH A, ($12)')
+        self.asm.assemble('POP AF')
+        self.asm.assemble('LD A, (C)')
+        self.asm.assemble('DI')
+        self.asm.assemble('PUSH AF')
+        self.asm.assemble('OR -4')
+        self.asm.assemble('RST 30H')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xF0\x12\xF1\xF2\xF3\xF5\xF6\xFC\xF7')
+
+    def test_lineF_8_f(self):
+        self.asm.assemble('LD Hl, SP-1')
+        self.asm.assemble('LD SP, HL')
+        self.asm.assemble('LD A, ($1234)')
+        self.asm.assemble('EI')
+        self.asm.assemble('CP 1')
+        self.asm.assemble('RST 38H')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xF8\xFF\xF9\xFA\x34\x12\xFB\xFE\x01\xFF')
+
+    def test_ld_sp_rel8(self):
+        self.asm.assemble('LD HL, SP+4')
+        self.asm.assemble('LD HL, SP+-3')
+        self.asm.assemble('LD HL, SP-2')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xF8\x04\xF8\xFD\xF8\xFE')
