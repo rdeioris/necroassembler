@@ -8,7 +8,7 @@ A Python framework for building assemblers, includes ready-to-use modules for
 * ARM Thumb (gameboy advance)
 * 68000 (sega genesis/megadrive, amiga)
 * AVR (arduino)
-* Z80 (ZX spectrum)
+* Z80 (ZX spectrum, Sega Master System, Game Gear)
 * PowerPC (gamecube, wii)
 
 
