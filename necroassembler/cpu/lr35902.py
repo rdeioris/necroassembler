@@ -65,8 +65,8 @@ class AssemblerLR35902(Assembler):
             label=arg, bits_size=16, offset=1, size=2)
         return pack_le16u(value)
 
-    def _reg_name(self, reg, prefix=''):
-        return prefix + reg.lower().replace('+', '_plus').replace('-', '_minus')
+    def _reg_name(self, reg):
+        return reg.lower().replace('+', '_plus').replace('-', '_minus')
 
     def _build_cb_opcode(self, instr, **kwargs):
         try:
@@ -119,6 +119,9 @@ class AssemblerLR35902(Assembler):
                 return pack_byte(kwargs[reg16_d + '_' + reg16_s])
 
             if instr.match(REGS16, VALUE):
+                if self._reg_name(instr.tokens[1]) + '_r8' in kwargs:
+                    reg16, value = instr.apply(self._reg_name, self._rel8)
+                    return pack_byte(kwargs[reg16 + '_r8']) + value
                 reg16, value = instr.apply(self._reg_name, self._data16)
                 return pack_byte(kwargs[reg16 + '_d16']) + value
 
@@ -185,6 +188,12 @@ class AssemblerLR35902(Assembler):
 
         except KeyError:
             raise InvalidOpCodeArguments()
+
+    @opcode('LDH')
+    def _ldh(self, instr):
+        if instr.match('(', VALUE, ')', 'A') or instr.match('[', VALUE, ']', 'A'):
+            a8, = instr.apply(None, self._data8, None, None)
+            return pack_byte(0xE0) + a8
 
     @opcode('LD')
     def _ld(self, instr):
@@ -326,7 +335,8 @@ class AssemblerLR35902(Assembler):
                                   h=0xAC,
                                   l=0xAD,
                                   ind_hl=0xAE,
-                                  a=0xAF)
+                                  a_d8=0xEE, d8=0xEE,
+                                  a=0xAF, a_a=0xAF)
 
     @opcode('CP')
     def _cp(self, instr):
@@ -434,12 +444,14 @@ class AssemblerLR35902(Assembler):
     def _push(self, instr):
         return self._build_opcode(instr,
                                   bc=0xC5,
+                                  hl=0xE5,
                                   de=0xD5)
 
     @opcode('POP')
     def _pop(self, instr):
         return self._build_opcode(instr,
                                   bc=0xC1,
+                                  hl=0xE1,
                                   de=0xD1)
 
     @opcode('ADD')
@@ -458,6 +470,7 @@ class AssemblerLR35902(Assembler):
                                   hl_hl=0x29,
                                   hl_sp=0x39,
                                   a_d8=0xC6,
+                                  sp_r8=0xE8,
                                   a_ind_hl=0x86)
 
     @opcode('ADC')

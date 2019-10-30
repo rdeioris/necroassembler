@@ -411,3 +411,22 @@ class TestGameboy(unittest.TestCase):
         self.asm.assemble('RST 18H')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xD8\xD9\xDA\x34\x12\xDC\x78\x56\xDE\xFD\xDF')
+
+    def test_lineE_0_7(self):
+        self.asm.assemble('LDH ($12), A')
+        self.asm.assemble('POP HL')
+        self.asm.assemble('LD (C), A')
+        self.asm.assemble('PUSH HL')
+        self.asm.assemble('AND -3')
+        self.asm.assemble('RST 20H')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xE0\x12\xE1\xE2\xE5\xE6\xFD\xE7')
+
+    def test_lineE_8_f(self):
+        self.asm.assemble('ADD SP, -1')
+        self.asm.assemble('JP (HL)')
+        self.asm.assemble('LD ($1234), A')
+        self.asm.assemble('XOR -4')
+        self.asm.assemble('RST 28H')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xE8\xFF\xE9\xEA\x34\x12\xEE\xFC\xEF')
