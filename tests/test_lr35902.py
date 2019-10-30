@@ -343,3 +343,27 @@ class TestGameboy(unittest.TestCase):
         self.asm.assemble('XOR A')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xA8\xA9\xAA\xAB\xAC\xAD\xAE\xAF')
+
+    def test_lineB_0_7(self):
+        self.asm.assemble('OR B')
+        self.asm.assemble('OR C')
+        self.asm.assemble('OR D')
+        self.asm.assemble('OR E')
+        self.asm.assemble('OR H')
+        self.asm.assemble('OR L')
+        self.asm.assemble('OR (HL)')
+        self.asm.assemble('OR A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xB0\xB1\xB2\xB3\xB4\xB5\xB6\xB7')
+
+    def test_lineB_8_f(self):
+        self.asm.assemble('CP B')
+        self.asm.assemble('CP C')
+        self.asm.assemble('CP D')
+        self.asm.assemble('CP E')
+        self.asm.assemble('CP H')
+        self.asm.assemble('CP L')
+        self.asm.assemble('CP (HL)')
+        self.asm.assemble('CP A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xB8\xB9\xBA\xBB\xBC\xBD\xBE\xBF')

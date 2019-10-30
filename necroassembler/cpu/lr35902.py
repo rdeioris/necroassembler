@@ -325,8 +325,14 @@ class AssemblerLR35902(Assembler):
     def _cp(self, instr):
         return self._build_opcode(instr,
                                   d8=0xFE,
-                                  ind_hl=0xBE,
-                                  a_l=0xBD, l=0xBD)
+                                  a_b=0xB8, b=0xB8,
+                                  a_c=0xB9, c=0xB9,
+                                  a_d=0xBA, d=0xBA,
+                                  a_e=0xBB, e=0xBB,
+                                  a_h=0xBC, h=0xBC,
+                                  a_l=0xBD, l=0xBD,
+                                  a_ind_hl=0xBE, ind_hl=0xBE,
+                                  a_a=0xBF, a=0xBF)
 
     @opcode('BIT')
     def _bit(self, instr):
@@ -378,7 +384,15 @@ class AssemblerLR35902(Assembler):
 
     @opcode('OR')
     def _or(self, instr):
-        return self._build_opcode(instr, e=0xB3)
+        return self._build_opcode(instr,
+                                  a_b=0xB0, b=0xB0,
+                                  a_c=0xB1, c=0xB1,
+                                  a_d=0xB2, d=0xB2,
+                                  a_e=0xB3, e=0xB3,
+                                  a_h=0xB4, h=0xB4,
+                                  a_l=0xB5, l=0xB5,
+                                  a_ind_hl=0xB6, ind_hl=0xB6,
+                                  a_a=0xB7, a=0xB7)
 
     @opcode('JR')
     def _jr(self, instr):
