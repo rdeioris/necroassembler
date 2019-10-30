@@ -94,6 +94,10 @@ class AssemblerLR35902(Assembler):
                 condition, value = instr.apply(self._reg_name, self._data16)
                 return pack_byte(kwargs[condition + '_a16']) + value
 
+            if kwargs.get('conditional') and instr.match(CONDITIONS):
+                condition, = instr.apply(self._reg_name)
+                return pack_byte(kwargs[condition])
+
             if instr.match('(', '$FF00+C', ')', 'A') or instr.match('[', '$FF00+C', ']', 'A'):
                 return pack_byte(kwargs['ind_c_a'])
 
@@ -367,7 +371,10 @@ class AssemblerLR35902(Assembler):
     def _ret(self, instr):
         if len(instr.tokens) == 1:
             return b'\xC9'
-        return self._build_opcode(instr, nz=0xC0)
+        return self._build_opcode(instr,
+                                  conditional=True,
+                                  z=0xC8,
+                                  nz=0xC0)
 
     @opcode('AND')
     def _and(self, instr):
@@ -440,6 +447,7 @@ class AssemblerLR35902(Assembler):
                                   hl_de=0x19,
                                   hl_hl=0x29,
                                   hl_sp=0x39,
+                                  a_d8=0xC6,
                                   a_ind_hl=0x86)
 
     @opcode('ADC')
@@ -452,7 +460,8 @@ class AssemblerLR35902(Assembler):
                                   a_h=0x8C,
                                   a_l=0x8D,
                                   a_ind_hl=0x8E,
-                                  a_a=0x8F
+                                  a_a=0x8F,
+                                  a_d8=0xCE,
                                   )
 
     @opcode('SBC')
@@ -472,6 +481,13 @@ class AssemblerLR35902(Assembler):
     def _stop(self, instr):
         if len(instr.tokens) == 1 or instr.match('0'):
             return pack_byte(0x10, 0x00)
+
+    @opcode('RST')
+    def _rst(self, instr):
+        vectors_table = {'00H': 0xC7, '08H': 0xCF, '10H': 0xD7,
+                         '18H': 0xDf, '20H': 0xE7, '28H': 0xEF, '30H': 0xF7, '38H': 0xFF}
+        if instr.match(vectors_table.keys()):
+            return pack_byte(vectors_table[instr.tokens[1].upper()])
 
 
 def main():

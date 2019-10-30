@@ -367,3 +367,27 @@ class TestGameboy(unittest.TestCase):
         self.asm.assemble('CP A')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xB8\xB9\xBA\xBB\xBC\xBD\xBE\xBF')
+
+    def test_lineC_0_7(self):
+        self.asm.assemble('RET NZ')
+        self.asm.assemble('POP BC')
+        self.asm.assemble('JP NZ, $1234')
+        self.asm.assemble('JP $5678')
+        self.asm.assemble('CALL NZ, $1122')
+        self.asm.assemble('PUSH BC')
+        self.asm.assemble('ADD A, -1')
+        self.asm.assemble('RST 00H')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xC0\xC1\xC2\x34\x12\xC3\x78\x56\xC4\x22\x11\xC5\xC6\xFF\xC7')
+
+    def test_lineC_8_f(self):
+        self.asm.assemble('RET Z')
+        self.asm.assemble('RET')
+        self.asm.assemble('JP Z,$1234')
+
+        self.asm.assemble('CALL Z, $5678')
+        self.asm.assemble('CALL $1111')
+        self.asm.assemble('ADC A, -2')
+        self.asm.assemble('RST 08H')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xC8\xC9\xCA\x34\x12\xCC\x78\x56\xCD\x11\x11\xCE\xFE\xCF')
