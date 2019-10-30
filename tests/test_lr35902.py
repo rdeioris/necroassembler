@@ -270,3 +270,76 @@ class TestGameboy(unittest.TestCase):
         self.asm.assemble('LD A,A')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\x78\x79\x7A\x7B\x7C\x7D\x7E\x7F')
+
+    def test_line8_0_7(self):
+        self.asm.assemble('ADD A,B')
+        self.asm.assemble('ADD A,C')
+        self.asm.assemble('ADD A,D')
+        self.asm.assemble('ADD A,E')
+        self.asm.assemble('ADD A,H')
+        self.asm.assemble('ADD A,L')
+        self.asm.assemble('ADD A,(HL)')
+        self.asm.assemble('ADD A,A')
+
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x80\x81\x82\x83\x84\x85\x86\x87')
+
+    def test_line8_8_f(self):
+        self.asm.assemble('ADC A,B')
+        self.asm.assemble('ADC A,C')
+        self.asm.assemble('ADC A,D')
+        self.asm.assemble('ADC A,E')
+        self.asm.assemble('ADC A,H')
+        self.asm.assemble('ADC A,L')
+        self.asm.assemble('ADC A,(HL)')
+        self.asm.assemble('ADC A,A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x88\x89\x8A\x8B\x8C\x8D\x8E\x8F')
+
+    def test_line9_0_7(self):
+        self.asm.assemble('SUB B')
+        self.asm.assemble('SUB C')
+        self.asm.assemble('SUB D')
+        self.asm.assemble('SUB E')
+        self.asm.assemble('SUB H')
+        self.asm.assemble('SUB L')
+        self.asm.assemble('SUB (HL)')
+        self.asm.assemble('SUB A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x90\x91\x92\x93\x94\x95\x96\x97')
+
+    def test_line9_8_f(self):
+        self.asm.assemble('SBC A,B')
+        self.asm.assemble('SBC A,C')
+        self.asm.assemble('SBC A,D')
+        self.asm.assemble('SBC A,E')
+        self.asm.assemble('SBC A,H')
+        self.asm.assemble('SBC A,L')
+        self.asm.assemble('SBC A,(HL)')
+        self.asm.assemble('SBC A,A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x98\x99\x9A\x9B\x9C\x9D\x9E\x9F')
+
+    def test_lineA_0_7(self):
+        self.asm.assemble('AND B')
+        self.asm.assemble('AND C')
+        self.asm.assemble('AND D')
+        self.asm.assemble('AND E')
+        self.asm.assemble('AND H')
+        self.asm.assemble('AND L')
+        self.asm.assemble('AND (HL)')
+        self.asm.assemble('AND A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xA0\xA1\xA2\xA3\xA4\xA5\xA6\xA7')
+
+    def test_lineA_8_f(self):
+        self.asm.assemble('XOR B')
+        self.asm.assemble('XOR C')
+        self.asm.assemble('XOR D')
+        self.asm.assemble('XOR E')
+        self.asm.assemble('XOR H')
+        self.asm.assemble('XOR L')
+        self.asm.assemble('XOR (HL)')
+        self.asm.assemble('XOR A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xA8\xA9\xAA\xAB\xAC\xAD\xAE\xAF')

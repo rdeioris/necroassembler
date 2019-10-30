@@ -311,7 +311,15 @@ class AssemblerLR35902(Assembler):
 
     @opcode('XOR')
     def _xor(self, instr):
-        return self._build_opcode(instr, a=0xAF)
+        return self._build_opcode(instr,
+                                  b=0xA8,
+                                  c=0xA9,
+                                  d=0xAA,
+                                  e=0xAb,
+                                  h=0xAC,
+                                  l=0xAD,
+                                  ind_hl=0xAE,
+                                  a=0xAF)
 
     @opcode('CP')
     def _cp(self, instr):
@@ -357,7 +365,16 @@ class AssemblerLR35902(Assembler):
 
     @opcode('AND')
     def _and(self, instr):
-        return self._build_opcode(instr, d8=0xE6)
+        return self._build_opcode(instr,
+                                  b=0xA0,
+                                  c=0xA1,
+                                  d=0xA2,
+                                  e=0xA3,
+                                  h=0xA4,
+                                  l=0xA5,
+                                  ind_hl=0xA6,
+                                  a=0xA7,
+                                  d8=0xE6)
 
     @opcode('OR')
     def _or(self, instr):
@@ -376,7 +393,15 @@ class AssemblerLR35902(Assembler):
 
     @opcode('SUB')
     def _sub(self, instr):
-        return self._build_opcode(instr, b=0x90)
+        return self._build_opcode(instr,
+                                  b=0x90,
+                                  c=0x91,
+                                  d=0x92,
+                                  e=0x93,
+                                  h=0x94,
+                                  l=0x95,
+                                  ind_hl=0x96,
+                                  a=0x97)
 
     @opcode('PUSH')
     def _push(self, instr):
@@ -389,12 +414,45 @@ class AssemblerLR35902(Assembler):
     @opcode('ADD')
     def _add(self, instr):
         return self._build_opcode(instr,
+                                  a_b=0x80,
+                                  a_c=0x81,
+                                  a_d=0x82,
+                                  a_e=0x83,
+                                  a_h=0x84,
+                                  a_l=0x85,
+                                  a_a=0x87,
                                   ind_hl=0x86,
                                   hl_bc=0x09,
                                   hl_de=0x19,
                                   hl_hl=0x29,
                                   hl_sp=0x39,
                                   a_ind_hl=0x86)
+
+    @opcode('ADC')
+    def _adc(self, instr):
+        return self._build_opcode(instr,
+                                  a_b=0x88,
+                                  a_c=0x89,
+                                  a_d=0x8A,
+                                  a_e=0x8B,
+                                  a_h=0x8C,
+                                  a_l=0x8D,
+                                  a_ind_hl=0x8E,
+                                  a_a=0x8F
+                                  )
+
+    @opcode('SBC')
+    def _sbc(self, instr):
+        return self._build_opcode(instr,
+                                  a_b=0x98,
+                                  a_c=0x99,
+                                  a_d=0x9A,
+                                  a_e=0x9B,
+                                  a_h=0x9C,
+                                  a_l=0x9D,
+                                  a_ind_hl=0x9E,
+                                  a_a=0x9F
+                                  )
 
     @opcode('STOP')
     def _stop(self, instr):
