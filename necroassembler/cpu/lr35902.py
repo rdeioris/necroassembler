@@ -46,6 +46,7 @@ class AssemblerLR35902(Assembler):
         self.register_instruction('CPL', b'\x2F')
         self.register_instruction('SCF', b'\x37')
         self.register_instruction('CCF', b'\x3f')
+        self.register_instruction('RETI', b'\xD9')
 
     def _data8(self, arg):
         value = self.parse_integer_or_label(
@@ -309,6 +310,8 @@ class AssemblerLR35902(Assembler):
     def _call(self, instr):
         return self._build_opcode(instr,
                                   conditional=True,
+                                  c_a16=0xDC,
+                                  nc_a16=0xD4,
                                   z_a16=0xCC,
                                   nz_a16=0xC4,
                                   a16=0xCD)
@@ -373,6 +376,8 @@ class AssemblerLR35902(Assembler):
             return b'\xC9'
         return self._build_opcode(instr,
                                   conditional=True,
+                                  c=0xD8,
+                                  nc=0xD0,
                                   z=0xC8,
                                   nz=0xC0)
 
@@ -422,15 +427,20 @@ class AssemblerLR35902(Assembler):
                                   h=0x94,
                                   l=0x95,
                                   ind_hl=0x96,
-                                  a=0x97)
+                                  a=0x97,
+                                  a_d8=0xD6, d8=0xD6)
 
     @opcode('PUSH')
     def _push(self, instr):
-        return self._build_opcode(instr, bc=0xC5)
+        return self._build_opcode(instr,
+                                  bc=0xC5,
+                                  de=0xD5)
 
     @opcode('POP')
     def _pop(self, instr):
-        return self._build_opcode(instr, bc=0xC1)
+        return self._build_opcode(instr,
+                                  bc=0xC1,
+                                  de=0xD1)
 
     @opcode('ADD')
     def _add(self, instr):
@@ -474,7 +484,8 @@ class AssemblerLR35902(Assembler):
                                   a_h=0x9C,
                                   a_l=0x9D,
                                   a_ind_hl=0x9E,
-                                  a_a=0x9F
+                                  a_a=0x9F,
+                                  a_d8=0xDE, d8=0xDE
                                   )
 
     @opcode('STOP')
