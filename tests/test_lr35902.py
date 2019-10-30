@@ -221,3 +221,52 @@ class TestGameboy(unittest.TestCase):
         self.asm.assemble('LD E,A')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\x58\x59\x5A\x5B\x5C\x5D\x5E\x5F')
+
+    def test_line6_0_7(self):
+        self.asm.assemble('LD H,B')
+        self.asm.assemble('LD H,C')
+        self.asm.assemble('LD H,D')
+        self.asm.assemble('LD H,E')
+        self.asm.assemble('LD H,H')
+        self.asm.assemble('LD H,L')
+        self.asm.assemble('LD H, (HL)')
+        self.asm.assemble('LD H,A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x60\x61\x62\x63\x64\x65\x66\x67')
+
+    def test_line6_8_f(self):
+        self.asm.assemble('LD L,B')
+        self.asm.assemble('LD L,C')
+        self.asm.assemble('LD L,D')
+        self.asm.assemble('LD L,E')
+        self.asm.assemble('LD L,H')
+        self.asm.assemble('LD L,L')
+        self.asm.assemble('LD L,(HL)')
+        self.asm.assemble('LD L,A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x68\x69\x6A\x6B\x6C\x6D\x6E\x6F')
+
+    def test_line7_0_7(self):
+        self.asm.assemble('LD (HL),B')
+        self.asm.assemble('LD (HL),C')
+        self.asm.assemble('LD (HL),D')
+        self.asm.assemble('LD (HL),E')
+        self.asm.assemble('LD (HL),H')
+        self.asm.assemble('LD (HL),L')
+        self.asm.assemble('HALT')
+        self.asm.assemble('LD (HL),A')
+
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x70\x71\x72\x73\x74\x75\x76\x77')
+
+    def test_line7_8_f(self):
+        self.asm.assemble('LD A,B')
+        self.asm.assemble('LD A,C')
+        self.asm.assemble('LD A,D')
+        self.asm.assemble('LD A,E')
+        self.asm.assemble('LD A,H')
+        self.asm.assemble('LD A,L')
+        self.asm.assemble('LD A,(HL)')
+        self.asm.assemble('LD A,A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x78\x79\x7A\x7B\x7C\x7D\x7E\x7F')
