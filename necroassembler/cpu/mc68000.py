@@ -16,26 +16,45 @@ def _is_immediate(token):
     return len(token) > 1 and token.startswith('#')
 
 
-def _is_address(token):
+def _is_displacement(token):
     return token.lower() not in D_REGS + A_REGS + ('(', ')') and not token.startswith('#')
 
 
+def _is_indexed_reg(token):
+    if token.lower().endswith('.W'):
+        return token.lower()[0:-2] in D_REGS+A_REGS
+    if token.lower().endswith('.L'):
+        return token.lower()[0:-2] in D_REGS+A_REGS
+    return token in D_REGS+A_REGS
+
+
 IMMEDIATE = _is_immediate
-ADDRESS = _is_address
+DISPLACEMENT = _is_displacement
+INDEXED_REG = _is_indexed_reg
 
 
 def _reg(token):
     return int(token[1:])
 
 
+def _indexed_reg(token):
+    d_or_a = 0 if token.lower().startswith('d') else 1
+    if token.lower().endswith('.W'):
+        return d_or_a, _reg(token[0:-2]), 0
+    if token.lower().endswith('.L'):
+        return d_or_a, _reg(token[0:-2]), 1
+    return d_or_a, _reg(token), 0
+
+
 def _suffix(token):
-    if token.lower().endswith('.b'):
-        return 1, 0, None, 1
-    if token.lower().endswith('.l'):
-        return 4, 2, 1, 2
-    if token.lower().endswith('.w'):
-        return 2, 1, 0, 3
-    return 2, 1, 0, 3
+    token = token.lower()
+    if token.endswith('.b'):
+        return 0, None, 1
+    if token.endswith('.l'):
+        return 2, 1, 2
+    if token.endswith('.w'):
+        return 1, 0, 2
+    return 1, 0, 2
 
 
 class AssemblerMC68000(Assembler):
@@ -79,45 +98,60 @@ class AssemblerMC68000(Assembler):
         if size == 4:
             return self._value32
 
-    def _mode(self, instr, start):
-        args = instr.tokens
-        if len(args) == 1:
-            raise InvalidMode(instr)
-        if args[start].lower() in D_REGS:
-            return 0, int(args[start][1:]), 1
-        if args[start].lower() in A_REGS:
-            return 1, int(args[start][1:]), 1
-        if len(args) > 3 and args[start] == '(' and args[start+1].lower() in A_REGS and args[start+2] == ')':
-            if len(args) > 4 and args[start+3] == '+':
-                return 3, int(args[start+1][1:]), 4
-            return 2,  int(args[start+1][1:]), 3
-        if len(args) > 4 and args[start] == '-' and args[start+1] == '(' and args[start+2].lower() in A_REGS and args[start+3] == ')':
-            return 4,  int(args[start+2][1:]), 4
+    def _mode(self, instr, start, offset):
+        # Dn
+        found, index = instr.unbound_match(D_REGS)
+        if found:
+            return index, 0, _reg(instr.token[start]), index
+        # An
+        found, index = instr.unbound_match(A_REGS)
+        if found:
+            return index, 1, _reg(instr.token[start]), index
+        # (An)+ must be checked before (An) !
+        found, index = instr.unbound_match('(', A_REGS, ')', '+')
+        if found:
+            return index, 3, _reg(instr.token[start+1]), index
+        # (An)
+        found, index = instr.unbound_match('(', A_REGS, ')')
+        if found:
+            return index, 2, _reg(instr.token[start+1]), index
+        # -(An)
+        found, index = instr.unbound_match('-', '(', A_REGS, ')')
+        if found:
+            return index, 4, _reg(instr.token[start+2]), index
+        # (d, An)
+        found, index = instr.unbound_match('(', DISPLACEMENT, A_REGS, ')')
+        if found:
+            value = self.parse_integer_or_label(instr.tokens[start+2],
+                                                size=2,
+                                                bits_size=16,
+                                                signed=True,
+                                                offset=2+offset)
+            return index, 5, _reg(instr.token[start+3]), index, pack_be16u(value)
+        # (d, An, Xn)
+        found, index = instr.unbound_match(
+            '(', DISPLACEMENT, A_REGS, INDEXED_REG, ')')
+        if found:
+            value = self.parse_integer_or_label(instr.tokens[start+2],
+                                                size=2,
+                                                bits_size=8,
+                                                bits=(7, 0),
+                                                signed=True,
+                                                offset=2+offset)
+            m, xn, s = _indexed_reg(instr.token[start+4])
+
+            return index, 6, _reg(instr.token[start+3]), index, pack_bits_be16u(0, ((15, 15), m), ((14, 12), xn), ((11, 11), s), ((7, 0), value))
 
     def _build_opcode(self, base, *args):
         return pack_bits_be16u(base, *args)
 
     @opcode('move', 'move.w', 'move.b', 'move.l')
     def _move(self, instr):
-        size, _, _, op_size = _suffix(instr.tokens[0])
-        if instr.match(IMMEDIATE, D_REGS):
-            value, reg = instr.apply(self._value(size), _reg)
-            return self._build_opcode(0b0000000000111100, ((13, 12), op_size), ((11, 9), reg)) + value
-        if instr.match(D_REGS, D_REGS):
-            value, reg = instr.apply(self._value(size), _reg)
-            return self._build_opcode(0b0000000000111100, ((13, 12), op_size), ((11, 9), reg)) + value
-
-    @opcode('moveq')
-    def _moveq(self, instr):
-        if instr.match(IMMEDIATE, D_REGS):
-            value, reg = instr.apply(self._raw, _reg)
-            return self._build_opcode(0b0111000000000000, ((11, 9), reg), ((7, 0), value))
-
-    @opcode('jmp')
-    def _jmp(self, instr):
-        if instr.match(ADDRESS):
-            address, = instr.apply(self._addr)
-            return self._build_opcode(0b0100111011111001) + address
+        op_size = _suffix(instr.tokens[0])[2]
+        next_index, src_m, src_xn, src_data = self._mode(instr, 1, 2)
+        _, dst_m, dst_xn, dst_data = self._mode(
+            instr, next_index, 2 + len(src_data))
+        return self._build_opcode(0b0000000000000000, ((13, 12), op_size), ((11, 9), src_xn), ((8, 6), src_m), ((5, 3), dst_m), ((2, 0), dst_xn)) + src_data + dst_data
 
 
 def main():

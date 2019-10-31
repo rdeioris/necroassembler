@@ -586,7 +586,7 @@ class Assembler:
             value = self.parse_integer(instr.tokens[2], 8, False)
             if value is None:
                 raise InvalidArgumentsForDirective(instr)
-        blob = bytes([value] * (offset - len(self.assembled_bytes)))
+        blob = bytes([value] * (offset - self.pc))
         self.append_assembled_bytes(blob)
 
     def directive_ram(self, instr):

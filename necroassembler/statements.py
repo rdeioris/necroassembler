@@ -72,6 +72,24 @@ class Instruction(Statement):
             return False
         return True
 
+    def unbound_match(self, *args, start=1):
+        if (len(self.tokens) - start) < len(args):
+            return False, None
+        for index, pattern in enumerate(args):
+            if pattern is None:
+                continue
+            if callable(pattern):
+                if pattern(self.tokens[index+1]):
+                    continue
+            else:
+                if isinstance(pattern, str):
+                    if self.tokens[index + start].upper() == pattern.upper():
+                        continue
+                if any([self.tokens[index + start].upper() == x.upper() for x in pattern]):
+                    continue
+            return False, None
+        return True, start+index+1
+
     def apply(self, *args, start=1):
         out = []
         for index, arg in enumerate(args):
