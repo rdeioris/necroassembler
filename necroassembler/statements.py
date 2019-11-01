@@ -48,6 +48,10 @@ class Instruction(Statement):
                 # trick for adding more infos to the exception
                 exc.args = (exc.args[0] + ' ' + str(self),)
                 raise exc from None
+            except:
+                # here we have a non-AssemblerException, so we
+                # need to report the whole exceptions chain
+                raise InvalidInstruction(self)
         else:
             if len(self.tokens) != 1:
                 raise InvalidOpCodeArguments(self)
@@ -61,7 +65,7 @@ class Instruction(Statement):
             if pattern is None:
                 continue
             if callable(pattern):
-                if pattern(self.tokens[index+1]):
+                if pattern(self.tokens[index+start]):
                     continue
             else:
                 if isinstance(pattern, str):
@@ -79,7 +83,7 @@ class Instruction(Statement):
             if pattern is None:
                 continue
             if callable(pattern):
-                if pattern(self.tokens[index+1]):
+                if pattern(self.tokens[index+start]):
                     continue
             else:
                 if isinstance(pattern, str):

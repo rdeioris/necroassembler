@@ -17,6 +17,7 @@ setup(name='necroassembler',
               'necro_gb=necroassembler.platforms.gameboy:main',
               'necro_gba=necroassembler.platforms.gba:main',
               'necro_psx=necroassembler.platforms.psx:main',
+              'necro_z80=necroassembler.cpu.z80:main',
               'necro_genesis=necroassembler.platforms.genesis:main'
           ],
       },

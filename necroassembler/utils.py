@@ -51,6 +51,10 @@ def pack_be16u(*args):
     return struct.pack('>' + ('H' * len(args)),
                        *[n & 0xffff if n is not None else 0 for n in args])
 
+def pack_be16s(*args):
+    return struct.pack('>' + ('h' * len(args)),
+                       *[neg_fix(n & 0xffff, 16) if n is not None else 0 for n in args])
+
 
 def pack(fmt, *args):
     return struct.pack(fmt, *[n if n is not None else 0 for n in args])
