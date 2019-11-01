@@ -65,3 +65,19 @@ class TestMC68000(unittest.TestCase):
     def test_move_abs_w_a0(self):
         self.asm.assemble('move (100).w, a0')
         self.assertEqual(self.asm.assembled_bytes, b'\x30\x78\x00\x64')
+
+    def test_ori_ccr(self):
+        self.asm.assemble('ori #100, ccr')
+        self.assertEqual(self.asm.assembled_bytes, b'\x00\x3C\x00\x64')
+
+    def test_ori_sr(self):
+        self.asm.assemble('ori #-1, sr')
+        self.assertEqual(self.asm.assembled_bytes, b'\x00\x7C\xff\xff')
+
+    def test_ori_l_disp_a3(self):
+        self.asm.assemble('ori.l #10000, (100, a3)')
+        self.assertEqual(self.asm.assembled_bytes, b'\x00\xAB\x00\x00\x27\x10\x00\x64')
+
+    def test_andi_l_disp_a4(self):
+        self.asm.assemble('andi.l #10001, (101, a4)')
+        self.assertEqual(self.asm.assembled_bytes, b'\x02\xAC\x00\x00\x27\x11\x00\x65')

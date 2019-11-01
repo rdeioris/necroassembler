@@ -1,6 +1,6 @@
 
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_bits_be16u, pack_byte, pack_be16u, pack_be32u
+from necroassembler.utils import pack_bits_be16u, pack_be16u, pack_be32u
 from necroassembler.exceptions import AssemblerException
 
 
@@ -91,33 +91,6 @@ class AssemblerMC68000(Assembler):
     def register_instructions(self):
         self.register_instruction('RTS', b'\x4E\x75')
         self.register_instruction('NOP', b'\x4E\x71')
-
-    def _value8(self, token):
-        value = self.parse_integer_or_label(token[1:], size=2, offset=2)
-        return pack_be16u(value & 0xff)
-
-    def _value16(self, token):
-        value = self.parse_integer_or_label(token[1:], size=2, offset=2)
-        return pack_be16u(value)
-
-    def _value32(self, token):
-        value = self.parse_integer_or_label(token[1:], size=4, offset=2)
-        return pack_be32u(value)
-
-    def _raw(self, token):
-        return self.parse_integer_or_label(token[1:], size=1, offset=2)
-
-    def _addr(self, token):
-        value = self.parse_integer_or_label(token, size=4, offset=2)
-        return pack_be32u(value)
-
-    def _value(self, size):
-        if size == 1:
-            return self._value8
-        if size == 2:
-            return self._value16
-        if size == 4:
-            return self._value32
 
     def _mode(self, instr, start_index, offset, size):
         # Dn
@@ -218,15 +191,17 @@ class AssemblerMC68000(Assembler):
         # #imm
         found, index = instr.unbound_match(IMMEDIATE, start=start_index)
         if found:
-            value = self.parse_integer_or_label(instr.tokens[start_index][1:],
-                                                size=size,
-                                                bits_size=size*8,
-                                                offset=2+offset)
-            packers = {1: pack_byte, 2: pack_be16u, 4: pack_be32u}
-            return index, 7, 4, packers[size](value)
+            packed = self._packer(instr.tokens[start_index][1:], size, offset)
+            return index, 7, 4, packed
 
     def _build_opcode(self, base, *args):
         return pack_bits_be16u(base, *args)
+
+    def _packer(self, token, op_size, offset):
+        value = self.parse_integer_or_label(
+            token, size=op_size + (op_size % 2), bits_size=op_size*8, offset=2+offset)
+        packers = {1: pack_be16u, 2: pack_be16u, 4: pack_be32u}
+        return packers[op_size](value)
 
     @opcode('move', 'move.w', 'move.b', 'move.l')
     def _move(self, instr):
@@ -235,6 +210,84 @@ class AssemblerMC68000(Assembler):
         _, dst_m, dst_xn, dst_data = self._mode(
             instr, next_index, len(src_data), op_size)
         return self._build_opcode(0b0000000000000000, ((13, 12), s), ((11, 9), dst_xn), ((8, 6), dst_m), ((5, 3), src_m), ((2, 0), src_xn)) + src_data + dst_data
+
+    @opcode('ori', 'ori.w', 'ori.b', 'ori.l')
+    def _ori(self, instr):
+        if instr.match(IMMEDIATE, 'CCR'):
+            packed = self._packer(instr.tokens[1][1:], 1, 0)
+            return self._build_opcode(0b0000000000111100) + packed
+        if instr.match(IMMEDIATE, 'SR'):
+            packed = self._packer(instr.tokens[1][1:], 2, 0)
+            return self._build_opcode(0b0000000001111100) + packed
+        found, index = instr.unbound_match(IMMEDIATE)
+        if found:
+            op_size, s = _s_light(instr.tokens[0])
+            packed = self._packer(instr.tokens[1][1:], op_size, 0)
+            _, dst_m, dst_xn, dst_data = self._mode(
+                instr, index, op_size + (op_size % 2), op_size)
+            return self._build_opcode(0b0000000000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
+
+    @opcode('andi', 'andi.w', 'andi.b', 'andi.l')
+    def _andi(self, instr):
+        if instr.match(IMMEDIATE, 'CCR'):
+            packed = self._packer(instr.tokens[1][1:], 1, 0)
+            return self._build_opcode(0b0000001000111100) + packed
+        if instr.match(IMMEDIATE, 'SR'):
+            packed = self._packer(instr.tokens[1][1:], 2, 0)
+            return self._build_opcode(0b0000001001111100) + packed
+        found, index = instr.unbound_match(IMMEDIATE)
+        if found:
+            op_size, s = _s_light(instr.tokens[0])
+            packed = self._packer(instr.tokens[1][1:], op_size, 0)
+            _, dst_m, dst_xn, dst_data = self._mode(
+                instr, index, op_size + (op_size % 2), op_size)
+            return self._build_opcode(0b0000001000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
+
+    @opcode('subi', 'subi.w', 'subi.b', 'subi.l')
+    def _subi(self, instr):
+        found, index = instr.unbound_match(IMMEDIATE)
+        if found:
+            op_size, s = _s_light(instr.tokens[0])
+            packed = self._packer(instr.tokens[1][1:], op_size, 0)
+            _, dst_m, dst_xn, dst_data = self._mode(
+                instr, index, op_size + (op_size % 2), op_size)
+            return self._build_opcode(0b0000010000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
+
+    @opcode('addi', 'addi.w', 'addi.b', 'addi.l')
+    def _addi(self, instr):
+        found, index = instr.unbound_match(IMMEDIATE)
+        if found:
+            op_size, s = _s_light(instr.tokens[0])
+            packed = self._packer(instr.tokens[1][1:], op_size, 0)
+            _, dst_m, dst_xn, dst_data = self._mode(
+                instr, index, op_size + (op_size % 2), op_size)
+            return self._build_opcode(0b0000011000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
+
+    @opcode('eori', 'eori.w', 'eori.b', 'eori.l')
+    def _eori(self, instr):
+        if instr.match(IMMEDIATE, 'CCR'):
+            packed = self._packer(instr.tokens[1][1:], 1, 0)
+            return self._build_opcode(0b0000101000111100) + packed
+        if instr.match(IMMEDIATE, 'SR'):
+            packed = self._packer(instr.tokens[1][1:], 2, 0)
+            return self._build_opcode(0b0000101001111100) + packed
+        found, index = instr.unbound_match(IMMEDIATE)
+        if found:
+            op_size, s = _s_light(instr.tokens[0])
+            packed = self._packer(instr.tokens[1][1:], op_size, 0)
+            _, dst_m, dst_xn, dst_data = self._mode(
+                instr, index, op_size + (op_size % 2), op_size)
+            return self._build_opcode(0b0000101000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
+
+    @opcode('cmpi', 'cmpi.w', 'cmpi.b', 'cmpi.l')
+    def _cmpi(self, instr):
+        found, index = instr.unbound_match(IMMEDIATE)
+        if found:
+            op_size, s = _s_light(instr.tokens[0])
+            packed = self._packer(instr.tokens[1][1:], op_size, 0)
+            _, dst_m, dst_xn, dst_data = self._mode(
+                instr, index, op_size + (op_size % 2), op_size)
+            return self._build_opcode(0b0000110000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
 
 
 def main():
