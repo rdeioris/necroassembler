@@ -81,3 +81,11 @@ class TestMC68000(unittest.TestCase):
     def test_andi_l_disp_a4(self):
         self.asm.assemble('andi.l #10001, (101, a4)')
         self.assertEqual(self.asm.assembled_bytes, b'\x02\xAC\x00\x00\x27\x11\x00\x65')
+
+    def test_jmp(self):
+        self.asm.assemble('jmp 2048')
+        self.assertEqual(self.asm.assembled_bytes, b'\x4e\xf9\x00\x00\x08\x00')
+
+    def test_jmp_word(self):
+        self.asm.assemble('jmp 2048.w')
+        self.assertEqual(self.asm.assembled_bytes, b'\x4e\xf8\x08\x00')

@@ -20,6 +20,14 @@ def _is_displacement(token):
     return token.lower() not in D_REGS + A_REGS + ('(', ')') and not token.startswith('#')
 
 
+def _is_absolute_with_w(token):
+    return _is_displacement(token) and token.lower().endswith('.w')
+
+
+def _is_absolute_with_l(token):
+    return _is_displacement(token) and token.lower().endswith('.l')
+
+
 def _is_indexed_reg(token):
     if token.lower().endswith('.w'):
         return token.lower()[0:-2] in D_REGS+A_REGS
@@ -32,6 +40,8 @@ IMMEDIATE = _is_immediate
 DISPLACEMENT = _is_displacement
 INDEXED_REG = _is_indexed_reg
 ABSOLUTE = _is_displacement
+ABSOLUTE_W = _is_absolute_with_w
+ABSOLUTE_L = _is_absolute_with_l
 
 
 def _reg(token):
@@ -194,6 +204,33 @@ class AssemblerMC68000(Assembler):
             packed = self._packer(instr.tokens[start_index][1:], size, offset)
             return index, 7, 4, packed
 
+        # (xxx).w ALIAS addr.w
+        found, index = instr.unbound_match(ABSOLUTE_W, start=start_index)
+        if found:
+            value = self.parse_integer_or_label(instr.tokens[start_index][:-2],
+                                                size=2,
+                                                bits_size=16,
+                                                offset=2+offset)
+            return index, 7, 0, pack_be16u(value)
+
+        # (xxx).l ALIAS addr.l
+        found, index = instr.unbound_match(ABSOLUTE_L, start=start_index)
+        if found:
+            value = self.parse_integer_or_label(instr.tokens[start_index][:-2],
+                                                size=4,
+                                                bits_size=32,
+                                                offset=2+offset)
+            return index, 7, 1, pack_be32u(value)
+
+        # (xxx).l ALIAS [2] addr (better to use 32bit when not specified)
+        found, index = instr.unbound_match(ABSOLUTE, start=start_index)
+        if found:
+            value = self.parse_integer_or_label(instr.tokens[start_index],
+                                                size=4,
+                                                bits_size=32,
+                                                offset=2+offset)
+            return index, 7, 1, pack_be32u(value)
+
     def _build_opcode(self, base, *args):
         return pack_bits_be16u(base, *args)
 
@@ -288,6 +325,11 @@ class AssemblerMC68000(Assembler):
             _, dst_m, dst_xn, dst_data = self._mode(
                 instr, index, op_size + (op_size % 2), op_size)
             return self._build_opcode(0b0000110000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
+
+    @opcode('jmp')
+    def _jmp(self, instr):
+        _, src_m, src_xn, src_data = self._mode(instr, 1, 0, 0)
+        return self._build_opcode(0b0100111011000000, ((5, 3), src_m), ((2, 0), src_xn)) + src_data
 
 
 def main():
