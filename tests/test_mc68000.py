@@ -24,7 +24,7 @@ class TestMC68000(unittest.TestCase):
         self.asm.assemble(' move d4, d3')
         self.assertEqual(self.asm.assembled_bytes, b'\x36\x04')
 
-    def test_move_d5_a6(self):
+    def test_move_d5_a6_with_conversion_to_movea(self):
         self.asm.assemble('MOVE d5, a6')
         self.assertEqual(self.asm.assembled_bytes, b'\x3C\x45')
 
@@ -37,33 +37,33 @@ class TestMC68000(unittest.TestCase):
         self.assertEqual(self.asm.assembled_bytes, b'\x35\x0B')
 
     def test_move_label_pc_a1(self):
-        self.asm.assemble('move (foo, PC), a1\nfoo:')
+        self.asm.assemble('movea (foo, PC), a1\nfoo:')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, b'\x32\x7A\x00\x02')
 
-    def test_move_label_backward_pc_a1(self):
+    def test_move_label_backward_pc_a1_with_conversion_to_movea(self):
         self.asm.assemble('foo: move (foo, PC), a1')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, b'\x32\x7A\xFF\xFE')
 
     def test_move_too_far_backward_pc_a1(self):
         self.assertRaises(NotInBitRange, self.asm.assemble,
-                          'move (-32769, PC), a1')
+                          'movea (-32769, PC), a1')
 
     def test_move_far_backward_pc_a1(self):
-        self.asm.assemble('move (-32768, PC), a1')
+        self.asm.assemble('movea (-32768, PC), a1')
         self.assertEqual(self.asm.assembled_bytes, b'\x32\x7A\x80\x00')
 
     def test_move_disp_pc_a0l_a3(self):
-        self.asm.assemble('move (8, PC, a0.l), a3')
+        self.asm.assemble('movea (8, PC, a0.l), a3')
         self.assertEqual(self.asm.assembled_bytes, b'\x36\x7b\x88\x08')
 
     def test_move_abs_l_a0(self):
-        self.asm.assemble('move (100).l, a0')
+        self.asm.assemble('movea (100).l, a0')
         self.assertEqual(self.asm.assembled_bytes, b'\x30\x79\x00\x00\x00\x64')
 
     def test_move_abs_w_a0(self):
-        self.asm.assemble('move (100).w, a0')
+        self.asm.assemble('movea (100).w, a0')
         self.assertEqual(self.asm.assembled_bytes, b'\x30\x78\x00\x64')
 
     def test_ori_ccr(self):

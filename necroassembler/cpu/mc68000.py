@@ -46,6 +46,9 @@ ABSOLUTE = _is_displacement
 ABSOLUTE_W = _is_absolute_with_w
 ABSOLUTE_L = _is_absolute_with_l
 
+MODES = ('Dn', 'An', '(An)', '(An)+', '-(An)', '(d16,An)', '(d8,An,Xn)',
+         '(xxx).W', '(xxx).L', '#<data>', '(d16,PC)', '(d8,PC,Xn)')
+
 
 def _reg(token):
     return int(token[1:])
@@ -109,38 +112,43 @@ class AssemblerMC68000(Assembler):
         self.register_instruction('RTS', b'\x4E\x75')
         self.register_instruction('NOP', b'\x4E\x71')
 
-    def _mode(self, instr, start_index, offset, size):
+    def _mode(self, instr, start_index, offset, size, blacklist=()):
+        # first check the blacklist
+        for black_item in blacklist:
+            if black_item not in MODES:
+                raise InvalidMode(instr)
+
         # Dn
         found, index = instr.unbound_match(D_REGS, start=start_index)
-        if found:
+        if found and 'Dn' not in blacklist:
             return index, 0, _reg(instr.tokens[start_index]), b''
 
         # An
         found, index = instr.unbound_match(A_REGS, start=start_index)
-        if found:
+        if found and 'An' not in blacklist:
             return index, 1, _reg(instr.tokens[start_index]), b''
 
         # (An)+ must be checked before (An) !
         found, index = instr.unbound_match(
             '(', A_REGS, ')', '+', start=start_index)
-        if found:
+        if found and '(An)+' not in blacklist:
             return index, 3, _reg(instr.tokens[start_index+1]), b''
 
         # (An)
         found, index = instr.unbound_match('(', A_REGS, ')', start=start_index)
-        if found:
+        if found and '(An)' not in blacklist:
             return index, 2, _reg(instr.tokens[start_index+1]), b''
 
         # -(An)
         found, index = instr.unbound_match(
             '-', '(', A_REGS, ')', start=start_index)
-        if found:
+        if found and '-(An)' not in blacklist:
             return index, 4, _reg(instr.tokens[start_index+2]), b''
 
-        # (d, An)
+        # (d16, An)
         found, index = instr.unbound_match(
             '(', DISPLACEMENT, A_REGS, ')', start=start_index)
-        if found:
+        if found and '(d16,An)' not in blacklist:
             value = self.parse_integer_or_label(instr.tokens[start_index+1],
                                                 size=2,
                                                 bits_size=16,
@@ -148,10 +156,10 @@ class AssemblerMC68000(Assembler):
                                                 offset=2+offset)
             return index, 5, _reg(instr.tokens[start_index+2]), pack_be16u(value)
 
-        # (d, An, Xn)
+        # (d8, An, Xn)
         found, index = instr.unbound_match(
             '(', DISPLACEMENT, A_REGS, INDEXED_REG, ')', start=start_index)
-        if found:
+        if found and '(d8,An,Xn)' not in blacklist:
             value = self.parse_integer_or_label(instr.tokens[start_index+1],
                                                 size=2,
                                                 bits_size=8,
@@ -161,10 +169,10 @@ class AssemblerMC68000(Assembler):
             m, xn, s = _indexed_reg(instr.tokens[start_index+3])
             return index, 6, _reg(instr.tokens[start_index+2]), pack_bits_be16u(0, ((15, 15), m), ((14, 12), xn), ((11, 11), s), ((7, 0), value))
 
-        # (d, PC)
+        # (d16, PC)
         found, index = instr.unbound_match(
             '(', DISPLACEMENT, 'PC', ')', start=start_index)
-        if found:
+        if found and '(d16,PC)' not in blacklist:
             value = self.parse_integer_or_label(instr.tokens[start_index+1],
                                                 size=2,
                                                 bits_size=16,
@@ -172,10 +180,10 @@ class AssemblerMC68000(Assembler):
                                                 offset=2+offset)
             return index, 7, 2, pack_be16u(value)
 
-        # (d, PC, Xn)
+        # (d8, PC, Xn)
         found, index = instr.unbound_match(
             '(', DISPLACEMENT, 'PC', INDEXED_REG, ')', start=start_index)
-        if found:
+        if found and '(d8,PC,Xn)' not in blacklist:
             value = self.parse_integer_or_label(instr.tokens[start_index+1],
                                                 size=2,
                                                 bits_size=8,
@@ -188,7 +196,7 @@ class AssemblerMC68000(Assembler):
         # (xxx).w
         found, index = instr.unbound_match(
             '(', ABSOLUTE, ')', '.W', start=start_index)
-        if found:
+        if found and '(xxx).W' not in blacklist:
             value = self.parse_integer_or_label(instr.tokens[start_index+1],
                                                 size=2,
                                                 bits_size=16,
@@ -198,7 +206,7 @@ class AssemblerMC68000(Assembler):
         # (xxx).l
         found, index = instr.unbound_match(
             '(', ABSOLUTE, ')', '.L', start=start_index)
-        if found:
+        if found and '(xxx).L' not in blacklist:
             value = self.parse_integer_or_label(instr.tokens[start_index+1],
                                                 size=4,
                                                 bits_size=32,
@@ -207,13 +215,13 @@ class AssemblerMC68000(Assembler):
 
         # #imm
         found, index = instr.unbound_match(IMMEDIATE, start=start_index)
-        if found:
+        if found and '#<data>' not in blacklist:
             packed = self._packer(instr.tokens[start_index][1:], size, offset)
             return index, 7, 4, packed
 
         # (xxx).w ALIAS addr.w
         found, index = instr.unbound_match(ABSOLUTE_W, start=start_index)
-        if found:
+        if found and '(xxx).W' not in blacklist:
             value = self.parse_integer_or_label(instr.tokens[start_index][:-2],
                                                 size=2,
                                                 bits_size=16,
@@ -222,7 +230,7 @@ class AssemblerMC68000(Assembler):
 
         # (xxx).l ALIAS addr.l
         found, index = instr.unbound_match(ABSOLUTE_L, start=start_index)
-        if found:
+        if found and '(xxx).L' not in blacklist:
             value = self.parse_integer_or_label(instr.tokens[start_index][:-2],
                                                 size=4,
                                                 bits_size=32,
@@ -231,12 +239,14 @@ class AssemblerMC68000(Assembler):
 
         # (xxx).l ALIAS [2] addr (better to use 32bit when not specified)
         found, index = instr.unbound_match(ABSOLUTE, start=start_index)
-        if found:
+        if found and '(xxx).L' not in blacklist:
             value = self.parse_integer_or_label(instr.tokens[start_index],
                                                 size=4,
                                                 bits_size=32,
                                                 offset=2+offset)
             return index, 7, 1, pack_be32u(value)
+
+        raise InvalidMode(instr)
 
     def _build_opcode(self, base, *args):
         return pack_bits_be16u(base, *args)
@@ -251,9 +261,19 @@ class AssemblerMC68000(Assembler):
     def _move(self, instr):
         op_size, s = _s_dark(instr.tokens[0])
         next_index, src_m, src_xn, src_data = self._mode(instr, 1, 0, op_size)
+        # convert to MOVEA
+        if op_size in (2, 4) and instr.match(A_REGS, start=next_index):
+            return self._build_opcode(0b0000000001000000, ((13, 12), s), ((11, 9), _reg(instr.tokens[next_index])), ((5, 3), src_m), ((2, 0), src_xn)) + src_data
         _, dst_m, dst_xn, dst_data = self._mode(
-            instr, next_index, len(src_data), op_size)
+            instr, next_index, len(src_data), op_size, blacklist=('An', '#<data>', '(d16,PC)', '(d8,PC,Xn)'))
         return self._build_opcode(0b0000000000000000, ((13, 12), s), ((11, 9), dst_xn), ((8, 6), dst_m), ((5, 3), src_m), ((2, 0), src_xn)) + src_data + dst_data
+
+    @opcode('movea', 'movea.w', 'move.l')
+    def _movea(self, instr):
+        op_size, s = _s_dark(instr.tokens[0])
+        next_index, src_m, src_xn, src_data = self._mode(instr, 1, 0, op_size)
+        if instr.match(A_REGS, start=next_index):
+            return self._build_opcode(0b0000000001000000, ((13, 12), s), ((11, 9), _reg(instr.tokens[next_index])), ((5, 3), src_m), ((2, 0), src_xn)) + src_data
 
     @opcode('ori', 'ori.w', 'ori.b', 'ori.l')
     def _ori(self, instr):
