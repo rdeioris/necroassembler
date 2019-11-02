@@ -288,7 +288,7 @@ class AssemblerMC68000(Assembler):
             op_size, s = _s_light(instr.tokens[0])
             packed = self._packer(instr.tokens[1][1:], op_size, 0)
             _, dst_m, dst_xn, dst_data = self._mode(
-                instr, index, op_size + (op_size % 2), op_size)
+                instr, index, op_size + (op_size % 2), op_size, blacklist=('An', '#<data>', '(d16,PC)', '(d8,PC,Xn)'))
             return self._build_opcode(0b0000000000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
 
     @opcode('andi', 'andi.w', 'andi.b', 'andi.l')
@@ -304,7 +304,7 @@ class AssemblerMC68000(Assembler):
             op_size, s = _s_light(instr.tokens[0])
             packed = self._packer(instr.tokens[1][1:], op_size, 0)
             _, dst_m, dst_xn, dst_data = self._mode(
-                instr, index, op_size + (op_size % 2), op_size)
+                instr, index, op_size + (op_size % 2), op_size, blacklist=('An', '#<data>', '(d16,PC)', '(d8,PC,Xn)'))
             return self._build_opcode(0b0000001000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
 
     @opcode('subi', 'subi.w', 'subi.b', 'subi.l')
@@ -314,7 +314,7 @@ class AssemblerMC68000(Assembler):
             op_size, s = _s_light(instr.tokens[0])
             packed = self._packer(instr.tokens[1][1:], op_size, 0)
             _, dst_m, dst_xn, dst_data = self._mode(
-                instr, index, op_size + (op_size % 2), op_size)
+                instr, index, op_size + (op_size % 2), op_size, blacklist=('An', '#<data>', '(d16,PC)', '(d8,PC,Xn)'))
             return self._build_opcode(0b0000010000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
 
     @opcode('addi', 'addi.w', 'addi.b', 'addi.l')
@@ -324,7 +324,7 @@ class AssemblerMC68000(Assembler):
             op_size, s = _s_light(instr.tokens[0])
             packed = self._packer(instr.tokens[1][1:], op_size, 0)
             _, dst_m, dst_xn, dst_data = self._mode(
-                instr, index, op_size + (op_size % 2), op_size)
+                instr, index, op_size + (op_size % 2), op_size, blacklist=('An', '#<data>', '(d16,PC)', '(d8,PC,Xn)'))
             return self._build_opcode(0b0000011000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
 
     @opcode('eori', 'eori.w', 'eori.b', 'eori.l')
@@ -340,7 +340,7 @@ class AssemblerMC68000(Assembler):
             op_size, s = _s_light(instr.tokens[0])
             packed = self._packer(instr.tokens[1][1:], op_size, 0)
             _, dst_m, dst_xn, dst_data = self._mode(
-                instr, index, op_size + (op_size % 2), op_size)
+                instr, index, op_size + (op_size % 2), op_size, blacklist=('An', '#<data>', '(d16,PC)', '(d8,PC,Xn)'))
             return self._build_opcode(0b0000101000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
 
     @opcode('cmpi', 'cmpi.w', 'cmpi.b', 'cmpi.l')
@@ -350,17 +350,18 @@ class AssemblerMC68000(Assembler):
             op_size, s = _s_light(instr.tokens[0])
             packed = self._packer(instr.tokens[1][1:], op_size, 0)
             _, dst_m, dst_xn, dst_data = self._mode(
-                instr, index, op_size + (op_size % 2), op_size)
+                instr, index, op_size + (op_size % 2), op_size, blacklist=('An', '#<data>', '(d16,PC)', '(d8,PC,Xn)'))
             return self._build_opcode(0b0000110000000000, ((7, 6), s), ((5, 3), dst_m), ((2, 0), dst_xn)) + packed + dst_data
 
     @opcode('jmp')
     def _jmp(self, instr):
-        _, src_m, src_xn, src_data = self._mode(instr, 1, 0, 0)
+        _, src_m, src_xn, src_data = self._mode(
+            instr, 1, 0, 0, blacklist=('Dn', 'An', '(An)+', '-(An)', '#<data>'))
         return self._build_opcode(0b0100111011000000, ((5, 3), src_m), ((2, 0), src_xn)) + src_data
 
     @opcode('lea', 'lea.l')
     def _lea(self, instr):
-        next_index, src_m, src_xn, src_data = self._mode(instr, 1, 0, 4)
+        next_index, src_m, src_xn, src_data = self._mode(instr, 1, 0, 4, blacklist=('Dn', 'An', '(An)+', '-(An)', '#<data>'))
         if instr.match(A_REGS, start=next_index):
             return self._build_opcode(0b0100000111000000, ((11, 9), _reg(instr.tokens[next_index])), ((5, 3), src_m), ((2, 0), src_xn)) + src_data
 
