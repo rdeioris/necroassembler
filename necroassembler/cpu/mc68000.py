@@ -390,6 +390,12 @@ class AssemblerMC68000(Assembler):
                                                     relative=self.pc+2)
                 return self._build_opcode(0b0110000000000000, ((11, 8), condition)) + pack_be16u(value)
 
+    @opcode('jsr')
+    def _jsr(self, instr):
+        _, src_m, src_xn, src_data = self._mode(
+            instr, 1, 0, 0, blacklist=('Dn', 'An', '(An)+', '-(An)', '#<data>'))
+        return self._build_opcode(0b0100111010000000, ((5, 3), src_m), ((2, 0), src_xn)) + src_data
+
 
 def main():
     import sys
