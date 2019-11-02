@@ -55,6 +55,8 @@ def _reg(token):
 
 
 def _cond(token):
+    if token[0:2].upper() == 'RA':
+        return 1
     return CONDITIONS.index(token[0:2].upper())
 
 
@@ -268,7 +270,7 @@ class AssemblerMC68000(Assembler):
             instr, next_index, len(src_data), op_size, blacklist=('An', '#<data>', '(d16,PC)', '(d8,PC,Xn)'))
         return self._build_opcode(0b0000000000000000, ((13, 12), s), ((11, 9), dst_xn), ((8, 6), dst_m), ((5, 3), src_m), ((2, 0), src_xn)) + src_data + dst_data
 
-    @opcode('movea', 'movea.w', 'move.l')
+    @opcode('movea', 'movea.w', 'movea.l')
     def _movea(self, instr):
         op_size, s = _s_dark(instr.tokens[0])
         next_index, src_m, src_xn, src_data = self._mode(instr, 1, 0, op_size)
@@ -361,7 +363,8 @@ class AssemblerMC68000(Assembler):
 
     @opcode('lea', 'lea.l')
     def _lea(self, instr):
-        next_index, src_m, src_xn, src_data = self._mode(instr, 1, 0, 4, blacklist=('Dn', 'An', '(An)+', '-(An)', '#<data>'))
+        next_index, src_m, src_xn, src_data = self._mode(
+            instr, 1, 0, 4, blacklist=('Dn', 'An', '(An)+', '-(An)', '#<data>'))
         if instr.match(A_REGS, start=next_index):
             return self._build_opcode(0b0100000111000000, ((11, 9), _reg(instr.tokens[next_index])), ((5, 3), src_m), ((2, 0), src_xn)) + src_data
 
@@ -389,6 +392,21 @@ class AssemblerMC68000(Assembler):
                                                     offset=2,
                                                     relative=self.pc+2)
                 return self._build_opcode(0b0110000000000000, ((11, 8), condition)) + pack_be16u(value)
+
+    @opcode('dbt', 'dbf', 'dbra', 'dbhi', 'dbls', 'dbcc', 'dbcs', 'dbne', 'dbeq', 'dbvc', 'dbvs', 'dbpl', 'dbmi', 'dbge', 'dblt', 'dbgt', 'dble',
+            'dbt.w', 'dbf.w', 'dbra.w', 'dbhi.w', 'dbls.w', 'dbcc.w', 'dbcs.w', 'dbne.w', 'dbeq.w', 'dbvc.w', 'dbvs.w', 'dbpl.w', 'dbmi.w', 'dbge.w', 'dblt.w', 'dbgt.w', 'dble.w'
+            )
+    def _dbcc(self, instr):
+        if instr.match(D_REGS, DISPLACEMENT):
+            condition = _cond(instr.tokens[0][2:])
+            d_reg = _reg(instr.tokens[1])
+            value = self.parse_integer_or_label(instr.tokens[2],
+                                                size=2,
+                                                bits_size=16,
+                                                alignment=2,  # here is safe to check for alignment
+                                                offset=2,
+                                                relative=self.pc+2)
+            return self._build_opcode(0b0101000011001000, ((11, 8), condition), ((2, 0), d_reg)) + pack_be16u(value)
 
     @opcode('jsr')
     def _jsr(self, instr):
