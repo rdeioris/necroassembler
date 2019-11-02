@@ -11,6 +11,9 @@ class InvalidMode(AssemblerException):
 D_REGS = ('d0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7')
 A_REGS = ('a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7')
 
+CONDITIONS = ('T', 'F', 'HI', 'LS', 'CC', 'CS', 'NE', 'EQ',
+              'VC', 'VS', 'PL', 'MI', 'GE', 'LT', 'GT', 'LE')
+
 
 def _is_immediate(token):
     return len(token) > 1 and token.startswith('#')
@@ -46,6 +49,10 @@ ABSOLUTE_L = _is_absolute_with_l
 
 def _reg(token):
     return int(token[1:])
+
+
+def _cond(token):
+    return CONDITIONS.index(token[0:2].upper())
 
 
 def _indexed_reg(token):
@@ -330,6 +337,37 @@ class AssemblerMC68000(Assembler):
     def _jmp(self, instr):
         _, src_m, src_xn, src_data = self._mode(instr, 1, 0, 0)
         return self._build_opcode(0b0100111011000000, ((5, 3), src_m), ((2, 0), src_xn)) + src_data
+
+    @opcode('lea', 'lea.l')
+    def _lea(self, instr):
+        next_index, src_m, src_xn, src_data = self._mode(instr, 1, 0, 4)
+        if instr.match(A_REGS, start=next_index):
+            return self._build_opcode(0b0100000111000000, ((11, 9), _reg(instr.tokens[next_index])), ((5, 3), src_m), ((2, 0), src_xn)) + src_data
+
+    @opcode('bhi', 'bls', 'bcc', 'bcs', 'bne', 'beq', 'bvc', 'bvs', 'bpl', 'bmi', 'bge', 'blt', 'bgt', 'ble',
+            'bhi.b', 'bls.b', 'bcc.b', 'bcs.b', 'bne.b', 'beq.b', 'bvc.b', 'bvs.b', 'bpl.b', 'bmi.b', 'bge.b', 'blt.b', 'bgt.b', 'ble.b',
+            'bhi.w', 'bls.w', 'bcc.w', 'bcs.w', 'bne.w', 'beq.w', 'bvc.w', 'bvs.w', 'bpl.w', 'bmi.w', 'bge.w', 'blt.w', 'bgt.w', 'ble.w'
+            )
+    def _bcc(self, instr):
+        if instr.match(DISPLACEMENT):
+            condition = _cond(instr.tokens[0][1:])
+            op_size, _ = _s_dark(instr.tokens[0])
+            if op_size == 1:
+                value = self.parse_integer_or_label(instr.tokens[1],
+                                                    size=2,
+                                                    bits_size=8,
+                                                    bits=(7, 0),
+                                                    alignment=2,  # here is safe to check for alignment
+                                                    relative=self.pc+2)
+                return self._build_opcode(0b0110000000000000, ((11, 8), condition), ((7, 0), value))
+            elif op_size == 2:
+                value = self.parse_integer_or_label(instr.tokens[1],
+                                                    size=2,
+                                                    bits_size=16,
+                                                    alignment=2,  # here is safe to check for alignment
+                                                    offset=2,
+                                                    relative=self.pc+2)
+                return self._build_opcode(0b0110000000000000, ((11, 8), condition)) + pack_be16u(value)
 
 
 def main():

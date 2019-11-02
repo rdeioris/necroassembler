@@ -89,3 +89,11 @@ class TestMC68000(unittest.TestCase):
     def test_jmp_word(self):
         self.asm.assemble('jmp 2048.w')
         self.assertEqual(self.asm.assembled_bytes, b'\x4e\xf8\x08\x00')
+
+    def test_bne(self):
+        self.asm.assemble('bne -2')
+        self.assertEqual(self.asm.assembled_bytes, b'\x66\x00\xff\xfe')
+
+    def test_bne_b(self):
+        self.asm.assemble('bne.b -2')
+        self.assertEqual(self.asm.assembled_bytes, b'\x66\xfe')
