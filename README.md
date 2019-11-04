@@ -49,6 +49,8 @@ all of the wrappers have the same syntax:
 necro_<platform>.exe <src> <dst>
 ```
 
+## Platforms
+
 ## Installation
 
 just
@@ -56,6 +58,12 @@ just
 ```sh
 pip install necroassembler
 ```
+
+## Labels and Directives
+
+## Building your own assembler
+
+
 
 ## Sponsor
 
