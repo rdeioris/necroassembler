@@ -42,6 +42,12 @@ necro_8086.exe bootblock.S block000.bin
 necro_m68k.exe copper.S copper.bin
 ```
 
+all of the wrappers have the same syntax:
+
+```sh
+necro_<platform>.exe <src> <dst>
+```
+
 ## Installation
 
 just
