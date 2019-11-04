@@ -11,7 +11,15 @@ A Python framework for building assemblers, includes ready-to-use modules for
 * Z80 (ZX spectrum, Sega Master System, Game Gear)
 * PowerPC (gamecube, wii)
 
-
+```python
+>>> from necroassembler.cpu.mos6502 import AssemblerMOS6502
+>>> asm = AssemblerMOS6502()
+>>> asm.assemble('LDA #17')
+>>> asm.assemble('STA $4000')
+>>> asm.assembled_bytes      
+bytearray(b'\xa9\x11\x8d\x00@')
+>>>
+```
 
 ## Sponsor
 
