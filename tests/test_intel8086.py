@@ -46,3 +46,7 @@ class TestIntel8086(unittest.TestCase):
     def test_al_ob(self):
         self.asm.assemble('MOV AL, [0x17]')
         self.assertEqual(self.asm.assembled_bytes, b'\xA0\x17\x00')
+
+    def test_jmp_b(self):
+        self.asm.assemble('JMP 4')
+        self.assertEqual(self.asm.assembled_bytes, b'\xE9\x04\x00')
