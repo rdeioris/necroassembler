@@ -592,4 +592,4 @@ class AssemblerIntel8086(Assembler):
 
 
 if __name__ == '__main__':
-    AssemblerIntel8086().main()
+    AssemblerIntel8086.main()

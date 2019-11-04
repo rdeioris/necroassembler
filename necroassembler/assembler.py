@@ -778,8 +778,10 @@ class Assembler:
             raise InvalidDefine()
         self.defines[name] = value
 
-    def main(self):
+    @classmethod
+    def main(cls):
         import sys
-        self.assemble_file(sys.argv[1])
-        self.link()
-        self.save(sys.argv[2])
+        asm = cls()
+        asm.assemble_file(sys.argv[1])
+        asm.link()
+        asm.save(sys.argv[2])

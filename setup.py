@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='necroassembler',
-      version='0.5.1',
+      version='0.6.4',
       description='framework for building assemblers',
       url='https://github.com/rdeioris/necroassembler/',
       author='Roberto De Ioris',
@@ -17,7 +17,9 @@ setup(name='necroassembler',
               'necro_gb=necroassembler.platforms.gameboy:main',
               'necro_gba=necroassembler.platforms.gba:main',
               'necro_psx=necroassembler.platforms.psx:main',
-              'necro_z80=necroassembler.cpu.z80:main',
+              'necro_z80=necroassembler.cpu.z80:AssemblerZ80.main',
+              'necro_m68k=necroassembler.cpu.mc68000:AssemblerMC68000.main',
+              'necro_8086=necroassembler.cpu.intel8086:AssemblerIntel8086.main',
               'necro_genesis=necroassembler.platforms.genesis:main'
           ],
       },

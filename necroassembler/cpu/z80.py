@@ -1408,4 +1408,4 @@ class AssemblerZ80(Assembler):
 
 
 if __name__ == '__main__':
-    AssemblerZ80().main()
+    AssemblerZ80.main()
