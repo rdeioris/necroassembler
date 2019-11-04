@@ -554,3 +554,51 @@ class TestGameboy(unittest.TestCase):
             'BIT 7, B\nBIT 7,C\nBIT 7, D\nBIT 7, E\nBIT 7, H\nBIT 7, L\nBIT 7, (HL)\nBIT 7, A')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xCB\x78\xCB\x79\xCB\x7A\xCB\x7B\xCB\x7C\xCB\x7D\xCB\x7E\xCB\x7F')
+
+    def test_cb_line8_0_7(self):
+        self.asm.assemble(
+            'RES 0, B\nRES 0,C\nRES 0, D\nRES 0, E\nRES 0, H\nRES 0, L\nRES 0, (HL)\nRES 0, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x80\xCB\x81\xCB\x82\xCB\x83\xCB\x84\xCB\x85\xCB\x86\xCB\x87')
+
+    def test_cb_line8_8_f(self):
+        self.asm.assemble(
+            'RES 1, B\nRES 1,C\nRES 1, D\nRES 1, E\nRES 1, H\nRES 1, L\nRES 1, (HL)\nRES 1, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x88\xCB\x89\xCB\x8A\xCB\x8B\xCB\x8C\xCB\x8D\xCB\x8E\xCB\x8F')
+
+    def test_cb_line9_0_7(self):
+        self.asm.assemble(
+            'RES 2, B\nRES 2,C\nRES 2, D\nRES 2, E\nRES 2, H\nRES 2, L\nRES 2, (HL)\nRES 2, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x90\xCB\x91\xCB\x92\xCB\x93\xCB\x94\xCB\x95\xCB\x96\xCB\x97')
+
+    def test_cb_line9_8_f(self):
+        self.asm.assemble(
+            'RES 3, B\nRES 3,C\nRES 3, D\nRES 3, E\nRES 3, H\nRES 3, L\nRES 3, (HL)\nRES 3, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x98\xCB\x99\xCB\x9A\xCB\x9B\xCB\x9C\xCB\x9D\xCB\x9E\xCB\x9F')
+
+    def test_cb_lineA_0_7(self):
+        self.asm.assemble(
+            'RES 4, B\nRES 4,C\nRES 4, D\nRES 4, E\nRES 4, H\nRES 4, L\nRES 4, (HL)\nRES 4, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xA0\xCB\xA1\xCB\xA2\xCB\xA3\xCB\xA4\xCB\xA5\xCB\xA6\xCB\xA7')
+
+    def test_cb_lineA_8_f(self):
+        self.asm.assemble(
+            'RES 5, B\nRES 5,C\nRES 5, D\nRES 5, E\nRES 5, H\nRES 5, L\nRES 5, (HL)\nRES 5, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xA8\xCB\xA9\xCB\xAA\xCB\xAB\xCB\xAC\xCB\xAD\xCB\xAE\xCB\xAF')
+
+    def test_cb_lineB_0_7(self):
+        self.asm.assemble(
+            'RES 6, B\nRES 6,C\nRES 6, D\nRES 6, E\nRES 6, H\nRES 6, L\nRES 6, (HL)\nRES 6, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xB0\xCB\xB1\xCB\xB2\xCB\xB3\xCB\xB4\xCB\xB5\xCB\xB6\xCB\xB7')
+
+    def test_cb_lineB_8_f(self):
+        self.asm.assemble(
+            'RES 7, B\nRES 7,C\nRES 7, D\nRES 7, E\nRES 7, H\nRES 7, L\nRES 7, (HL)\nRES 7, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xB8\xCB\xB9\xCB\xBA\xCB\xBB\xCB\xBC\xCB\xBD\xCB\xBE\xCB\xBF')
