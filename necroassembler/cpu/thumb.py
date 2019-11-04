@@ -476,3 +476,7 @@ class AssemblerThumb(Assembler):
 
         rlist = self._rlist(instr.tokens[2:-(1+lr)])
         return self._build_opcode(0b1011010000000000, ((11, 11), lr), ((7, 0), rlist))
+
+
+if __name__ == '__main__':
+    AssemblerThumb.main()

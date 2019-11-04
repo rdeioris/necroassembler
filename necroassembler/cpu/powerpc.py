@@ -1374,13 +1374,5 @@ class AssemblerPowerPC(Assembler):
             self.register_instruction(entry[1], powerpc_opcode)
 
 
-def main():
-    import sys
-    asm = AssemblerPowerPC()
-    asm.assemble_file(sys.argv[1])
-    asm.link()
-    asm.save(sys.argv[2])
-
-
 if __name__ == '__main__':
-    main()
+    AssemblerPowerPC.main()
