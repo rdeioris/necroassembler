@@ -34,6 +34,14 @@ bytearray(b'\x00\x03')
 >>>
 ```
 
+## Installation
+
+just
+
+```sh
+pip install necroassembler
+```
+
 ## Sponsor
 
 The necroassembler development is sponsored by AIV (Accademia Italiana Videogiochi)
