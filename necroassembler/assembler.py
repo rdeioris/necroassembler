@@ -1,12 +1,12 @@
 from necroassembler.tokenizer import Tokenizer
 from necroassembler.utils import (pack_byte, pack_le32u, pack_le16u,
                                   pack_be32u, pack_be16u, in_bit_range,
-                                  in_bit_range_decimal, pack_bits)
+                                  in_bit_range_decimal, pack_bits, is_valid_name)
 from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode,
                                        AddressOverlap, NegativeSignNotAllowed, NotInRepeatMode,
                                        UnsupportedNestedRepeat,
                                        AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed,
-                                       InvalidArgumentsForDirective, LabelNotAllowed)
+                                       InvalidArgumentsForDirective, LabelNotAllowed, InvalidDefine)
 from necroassembler.macros import Macro
 
 
@@ -60,9 +60,6 @@ class Assembler:
     dec_prefixes = ()
     dec_suffixes = ()
 
-    special_prefixes = ()
-    special_suffixes = ()
-
     case_sensitive = False
 
     fill_value = 0
@@ -98,8 +95,6 @@ class Assembler:
         self.oct_suffixes = tuple(self.oct_suffixes)
         self.dec_prefixes = tuple(self.dec_prefixes)
         self.dec_suffixes = tuple(self.dec_suffixes)
-        self.special_prefixes = tuple(self.special_prefixes)
-        self.special_suffixes = tuple(self.special_suffixes)
 
         self._register_internal_directives()
         self._discover()
@@ -394,7 +389,7 @@ class Assembler:
         current_command = None
         current_arg = ''
         for char in post_formula:
-            if char in ('+', '-', '*', '/'):
+            if char in ('+', '-', '*', '/', '&', '|'):
                 if current_command is not None:
                     ops.append((current_command, current_arg))
                 current_command = char
@@ -421,6 +416,10 @@ class Assembler:
                 value *= arg_value
             elif command == '/':
                 value //= arg_value
+            elif command == '&':
+                value &= arg_value
+            elif command == '|':
+                value |= arg_value
 
         return value
 
@@ -747,7 +746,7 @@ class Assembler:
         valid_chars = 0
         for char in token[len(pre_formula):]:
             if not in_math:
-                if char in ('+', '-', '*', '/'):
+                if char in ('+', '-', '*', '/', '&', '|'):
                     if valid_chars < 1:
                         break
                     in_math = True
@@ -775,6 +774,8 @@ class Assembler:
         self.directives[key] = logic
 
     def register_define(self, name, value):
+        if not is_valid_name(name):
+            raise InvalidDefine()
         self.defines[name] = value
 
     def main(self):

@@ -103,6 +103,9 @@ class LabelAlreadyDefined(AssemblerException):
 class InvalidLabel(AssemblerException):
     message = 'invalid label'
 
+class InvalidDefine(AssemblerException):
+    message = 'invalid define'
+
 
 class LabelNotAllowed(AssemblerException):
     message = 'label not allowed here'

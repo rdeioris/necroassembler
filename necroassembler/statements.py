@@ -1,6 +1,6 @@
 from necroassembler.exceptions import (InvalidOpCodeArguments, UnknownInstruction, LabelNotAllowedInMacro,
                                        InvalidInstruction, UnknownDirective, LabelAlreadyDefined, InvalidLabel, AssemblerException)
-from necroassembler.utils import substitute_with_dict
+from necroassembler.utils import substitute_with_dict, is_valid_name
 
 
 class Statement:
@@ -23,8 +23,8 @@ class Instruction(Statement):
             macro.add_instruction(self)
             return
 
-        substitute_with_dict(self.tokens, assembler.defines, 0,
-                             ('<', '>') + assembler.special_prefixes, ('+', '-', '*', '/', '&', '|') + assembler.special_suffixes)
+        # apply defines
+        substitute_with_dict(self.tokens, assembler.defines, 0)
 
         key = self.tokens[0]
         if not assembler.case_sensitive:
@@ -109,7 +109,7 @@ class Label(Statement):
         key = self.tokens[0]
         if key in assembler.labels:
             raise LabelAlreadyDefined(self)
-        if key in ('>', '<', '-', '+', '*', '/'):
+        if not is_valid_name(key):
             raise InvalidLabel(self)
         if assembler.parse_integer(key, 64, False) is not None:
             raise InvalidLabel(self)

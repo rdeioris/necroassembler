@@ -1,3 +1,4 @@
+import string
 import struct
 from necroassembler.exceptions import NotInBitRange, InvalidBitRange
 
@@ -121,22 +122,42 @@ def known_args(args, known):
     return all([key in known for key in args.keys()])
 
 
-def substitute_with_dict(tokens, _dict, start, prefixes=(), suffixes=()):
+def is_valid_name(name):
+    valid_chars = tuple(string.ascii_lowercase) + \
+        tuple(string.ascii_uppercase) + tuple(string.digits) + ('_', '.')
+    for char in name:
+        if char not in valid_chars:
+            return False
+    return True
+
+
+def substitute_with_dict(tokens, _dict, start):
     for i in range(start, len(tokens)):
         name = tokens[i]
+        # simple case first
         if name in _dict:
             tokens[i] = _dict[name]
             continue
-        stripped_name = name.lstrip(''.join(prefixes))
-        base = name[0:len(name)-len(stripped_name)]
-        name = stripped_name
-        if name in _dict:
-            tokens[i] = base + _dict[name]
-            continue
-        for suffix in suffixes:
-            new_name, *others = name.split(suffix, 1)
-            if new_name in _dict:
-                tokens[i] = base + _dict[new_name] + suffix + ''.join(others)
+        # now decompose each token
+        accumulator = ''
+        rebuilt_token = ''
+        for char in name:
+            if is_valid_name(char):
+                accumulator += char
+                continue
+            if accumulator:
+                if accumulator in _dict:
+                    accumulator = _dict[accumulator]
+                rebuilt_token += accumulator
+                accumulator = ''
+            rebuilt_token += char
+
+        if accumulator:
+            if accumulator in _dict:
+                accumulator = _dict[accumulator]
+            rebuilt_token += accumulator
+
+        tokens[i] = rebuilt_token
 
 
 def match(iterable, *args):

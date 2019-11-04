@@ -56,8 +56,6 @@ class AssemblerThumb(Assembler):
 
     bin_prefixes = ('0b', '0y')
 
-    special_prefixes = ('#',)
-
     def _offset(self, arg, bits, alignment):
         return self.parse_integer_or_label(label=arg,
                                            size=2,

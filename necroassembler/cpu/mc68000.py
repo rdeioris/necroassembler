@@ -106,8 +106,6 @@ class AssemblerMC68000(Assembler):
 
     bin_prefixes = ('%',)
 
-    special_prefixes = ('#',)
-
     big_endian = True
 
     def register_instructions(self):

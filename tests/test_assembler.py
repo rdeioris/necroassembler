@@ -206,3 +206,10 @@ class TestAssembler(unittest.TestCase):
             '.org 1\nstart:\n.org 10\nend:\n.db end-start-2+start+start+1/2')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, b'\x05')
+
+    def test_complex_math_bitmask(self):
+        self.asm.assemble(
+            '.define ONE 1\n.define TWO 2\n.define FOUR 4')
+        self.asm.assemble('LOAD ONE|TWO|FOUR|8')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xAA\xBB\xCC\xDD\x00\x00\x00\x0F')
