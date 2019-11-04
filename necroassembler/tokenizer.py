@@ -139,6 +139,6 @@ class Tokenizer:
         # hack for avoiding losing the last statement
         code += '\n'
         for byte in code:
+            self.step(byte)
             if byte == '\n':
                 self.line += 1
-            self.step(byte)

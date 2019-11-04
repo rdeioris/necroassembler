@@ -51,6 +51,7 @@ def pack_be16u(*args):
     return struct.pack('>' + ('H' * len(args)),
                        *[n & 0xffff if n is not None else 0 for n in args])
 
+
 def pack_be16s(*args):
     return struct.pack('>' + ('h' * len(args)),
                        *[neg_fix(n & 0xffff, 16) if n is not None else 0 for n in args])
@@ -125,11 +126,17 @@ def substitute_with_dict(tokens, _dict, start, prefixes=(), suffixes=()):
         name = tokens[i]
         if name in _dict:
             tokens[i] = _dict[name]
-        for prefix in prefixes:
-            if name.startswith(prefix):
-                new_name = name[len(prefix):]
-                if new_name in _dict:
-                    tokens[i] = prefix + _dict[new_name]
+            continue
+        stripped_name = name.lstrip(''.join(prefixes))
+        base = name[0:len(name)-len(stripped_name)]
+        name = stripped_name
+        if name in _dict:
+            tokens[i] = base + _dict[name]
+            continue
+        for suffix in suffixes:
+            new_name, *others = name.split(suffix, 1)
+            if new_name in _dict:
+                tokens[i] = base + _dict[new_name] + suffix + ''.join(others)
 
 
 def match(iterable, *args):

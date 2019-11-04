@@ -1363,10 +1363,10 @@ class Z80OpCode:
             elif arg == 'd':
                 sanitized_args.append(self._is_value)
                 hook = self._build_d, index
-            elif arg in ('IX+d'):
+            elif arg == 'IX+d':
                 sanitized_args.append(self._is_index_x)
                 hook = self._build_index, index
-            elif arg in ('IY+d'):
+            elif arg == 'IY+d':
                 sanitized_args.append(self._is_index_y)
                 hook = self._build_index, index
             else:
