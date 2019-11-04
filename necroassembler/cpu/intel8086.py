@@ -204,17 +204,17 @@ def _Jb(instr, assembler, index, modrm):
 
 
 def _Ob(instr, assembler, index, modrm):
-    if match(instr.tokens[index:index+2], '[', None, ']'):
-        if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS:
+    if match(instr.tokens[index:index+3], '[', None, ']'):
+        if instr.tokens[index+1].upper() not in REGS8 + REGS16 + SEGMENTS:
             return 3, pack_le16u(assembler.parse_integer_or_label(
-                instr.tokens[index], size=1, bits_size=8, offset=1))
+                instr.tokens[index+1], size=1, bits_size=8, offset=1))
 
 
 def _Ov(instr, assembler, index, modrm):
-    if match(instr.tokens[index:index+2], '[', None, ']'):
-        if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS:
+    if match(instr.tokens[index:index+3], '[', None, ']'):
+        if instr.tokens[index+1].upper() not in REGS8 + REGS16 + SEGMENTS:
             return 3, pack_le16u(assembler.parse_integer_or_label(
-                instr.tokens[index], size=2, bits_size=16, offset=1))
+                instr.tokens[index+1], size=2, bits_size=16, offset=1))
 
 
 def _Eb(instr, assembler, index, modrm):
@@ -229,9 +229,12 @@ def _Eb(instr, assembler, index, modrm):
             end_index = instr.tokens.index(']', index+1)
         except ValueError:
             raise InvalidOpCodeArguments(instr)
-        modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
-            tuple(instr.tokens[index+1:end_index]))
-        return 2 + delta, b'' if index == 1 else _build_modrm(assembler, modrm)
+        try:
+            modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
+                tuple(instr.tokens[index+1:end_index]))
+            return 2 + delta, b'' if index == 1 else _build_modrm(assembler, modrm)
+        except InvalidOpCodeArguments:
+            return None
 
 
 def _Ev(instr, assembler, index, modrm):
@@ -246,9 +249,12 @@ def _Ev(instr, assembler, index, modrm):
             end_index = instr.tokens.index(']', index+1)
         except ValueError:
             raise InvalidOpCodeArguments(instr)
-        modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
-            tuple(instr.tokens[index+1:end_index]))
-        return 2 + delta, b'' if index == 1 else _build_modrm(assembler, modrm)
+        try:
+            modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
+                tuple(instr.tokens[index+1:end_index]))
+            return 2 + delta, b'' if index == 1 else _build_modrm(assembler, modrm)
+        except InvalidOpCodeArguments:
+            return None
 
 
 def _I0(instr, assembler, index, modrm):
@@ -280,13 +286,12 @@ def _M(instr, assembler, index, modrm):
 
 
 def _Mp(instr, assembler, index, modrm):
-    arg = instr.tokens[index]
-    if ':' in arg and arg.upper() not in REGS8 + REGS16 + SEGMENTS:
-        segment, offset = arg.split(':')
-        return 1, pack_le16u(
-            assembler.parse_integer_or_label(
-                segment, size=2, bits_size=16, offset=1),
-            assembler.parse_integer_or_label(offset, size=2, bits_size=16, offset=3))
+    if match(instr.tokens[index:index+3], '[', None, ']'):
+        if instr.tokens[index+1].upper() not in REGS8 + REGS16 + SEGMENTS:
+            modrm['mod'] = 0
+            modrm['rm'] = 6
+            return 3, _build_modrm(assembler, modrm) + pack_le16u(assembler.parse_integer_or_label(
+                instr.tokens[index+1], size=2, bits_size=16, offset=1))
 
 
 def _Ap(instr, assembler, index, modrm):
@@ -295,8 +300,8 @@ def _Ap(instr, assembler, index, modrm):
         segment, offset = arg.split(':')
         return 1, pack_le16u(
             assembler.parse_integer_or_label(
-                segment, size=2, bits_size=16, offset=1),
-            assembler.parse_integer_or_label(offset, size=2, bits_size=16, offset=3))
+                offset, size=2, bits_size=16, offset=1),
+            assembler.parse_integer_or_label(segment, size=2, bits_size=16, offset=3))
 
 
 def _3(instr, assembler, index, modrm):

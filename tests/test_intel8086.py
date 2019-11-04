@@ -38,3 +38,11 @@ class TestIntel8086(unittest.TestCase):
     def test_mov_immediate16(self):
         self.asm.assemble('MOV DX, 0x17')
         self.assertEqual(self.asm.assembled_bytes, b'\xBA\x17\x00')
+
+    def test_lds(self):
+        self.asm.assemble('LDS AX, [0x17]')
+        self.assertEqual(self.asm.assembled_bytes, b'\xC5\x06\x17\x00')
+
+    def test_al_ob(self):
+        self.asm.assemble('MOV AL, [0x17]')
+        self.assertEqual(self.asm.assembled_bytes, b'\xA0\x17\x00')
