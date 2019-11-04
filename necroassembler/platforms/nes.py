@@ -11,7 +11,7 @@ class CartidgeHeaderNotSet(AssemblerException):
     message = 'cartridge header not set'
 
 
-class OnlyIndexedImageAreSupported(AssemblerException):
+class OnlyIndexedImagesAreSupported(AssemblerException):
     message = 'only indexed (palette based) images are supported'
 
 
@@ -106,7 +106,7 @@ class AssemblerNES(AssemblerMOS6502):
         from PIL import Image
         image = Image.open(filename)
         if image.mode != 'P':
-            raise OnlyIndexedImageAreSupported(instr)
+            raise OnlyIndexedImagesAreSupported(instr)
         width, height = image.size
         if width != 128 or height != 128:
             raise InvalidImageSize(instr)

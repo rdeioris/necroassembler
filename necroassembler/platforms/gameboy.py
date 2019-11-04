@@ -11,11 +11,24 @@ class CartidgeHeaderNotSet(AssemblerException):
     message = 'cartridge header not set'
 
 
+class OnlyIndexedImagesAreSupported(AssemblerException):
+    message = 'only indexed (palette based) images are supported'
+
+
+class InvalidPaletteEntry(AssemblerException):
+    message = 'only values between 0 and 3 are allowed for pixel colors'
+
+
+class InvalidImageSize(AssemblerException):
+    message = 'image width and height size must be a multiple of 8'
+
+
 class AssemblerGameboy(AssemblerLR35902):
 
     cartridge_set = False
 
     defines = {
+        'VRAM': '$8000',
         'LCDC': '$FF40',
         'STAT': '$FF41',
         'SCY': '$FF42',
@@ -23,7 +36,13 @@ class AssemblerGameboy(AssemblerLR35902):
         'LY': '$FF44',
         'LYC': '$FF45',
         'WY': '$FF4A',
-        'WX': '$FF4B'
+        'WX': '$FF4B',
+        'TMAP0': '$9800',
+        'TMAP1': '$9C00',
+        'WRAM': '$C000',
+        'WRAM0': '$C000',
+        'WRAM1': '$D000',
+        'HRAM': '$FF80',
     }
 
     @directive('cartridge')
@@ -31,7 +50,7 @@ class AssemblerGameboy(AssemblerLR35902):
         if len(self.assembled_bytes) != 256:
             raise InvalidCartidgeHeaderOffset(instr)
 
-        self.change_org(0x100, 0x14f)
+        self.change_org(0x100, self.current_org_end)
         nop_jp_150 = b'\x00\xC3\x50\x01'
         nintendo_logo = bytes((
             0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B,
@@ -98,6 +117,42 @@ class AssemblerGameboy(AssemblerLR35902):
     def _set_cartridge_destination(self, instr):
         self._cartridge_fill(instr, 0x14A, 1)
 
+    @directive('tiles')
+    def _build_tiles(self, instr):
+        def _convert_cell(image, cell_x, cell_y):
+            planes = []
+            for y in range(0, 8):
+                byte0 = 0
+                byte1 = 0
+                for x in range(0, 8):
+                    pixel_x = cell_x * 8 + x
+                    pixel_y = cell_y * 8 + y
+                    pixel_value = image.getpixel((pixel_x, pixel_y))
+                    if not 0 <= pixel_value <= 3:
+                        raise InvalidPaletteEntry(instr)
+                    byte0 |= (pixel_value & 0x1) << (7 - x)
+                    byte1 |= (pixel_value >> 1) << (7 - x)
+                planes.append((byte0, byte1))
+            blob = b''
+            for plane in planes:
+                blob += bytes(plane)
+            return blob
+
+        if len(instr.tokens) != 2:
+            raise InvalidArgumentsForDirective(instr)
+        filename = self.stringify(instr.tokens[1])
+        from PIL import Image
+        image = Image.open(filename)
+        if image.mode != 'P':
+            raise OnlyIndexedImagesAreSupported(instr)
+        width, height = image.size
+        if (width % 8) != 0 or (height % 8) != 0:
+            raise InvalidImageSize(instr)
+        for cell_y in range(0, height // 8):
+            for cell_x in range(0, width // 8):
+                blob = _convert_cell(image, cell_x, cell_y)
+                self.append_assembled_bytes(blob)
+
     @post_link
     def _fix(self):
         # header checksum
@@ -116,13 +171,5 @@ class AssemblerGameboy(AssemblerLR35902):
         self.assembled_bytes[0x14f] = global_checksum & 0xFF
 
 
-def main():
-    import sys
-    asm = AssemblerGameboy()
-    asm.assemble_file(sys.argv[1])
-    asm.link()
-    asm.save(sys.argv[2])
-
-
 if __name__ == '__main__':
-    main()
+    AssemblerGameboy.main()
