@@ -11,6 +11,14 @@ A Python framework for building assemblers, includes ready-to-use modules for
 * Z80 (ZX spectrum, Sega Master System, Game Gear)
 * PowerPC (gamecube, wii)
 
+## Installation
+
+just
+
+```sh
+pip install necroassembler
+```
+
 ## Usage
 
 You can use necroassembler from your python code:
@@ -54,6 +62,8 @@ necro_<platform>.exe <src> <dst>
 In addition to 'core' assemblers, a bunch of ready to use subclasses and related wrappers are available for specific platforms (mainly 80's and 90's game consoles and home computers).
 
 As an example the AssemblerGameboy class exposes utilities for importing images as well as setting the cartridge header for you roms:
+
+![BGB Emulator Screenshot](docs/bgb00001.png)
 
 ```asm
 .org $0000 $7fff ; the size of the cartridge must be 32k (second bank at $4000 can be bank-switched)
@@ -142,15 +152,15 @@ end_of_tiles:
 
 ```
 
-The '.tiles' directive transforms an indexed (palette-based) image (max 4 colors) to a gameboy-compatibile tileset, while the '.cartridge' stuff build and fix the rom for being used in an emulator or a true gameboy hardware
+The '.tiles' directive transforms an indexed (palette-based) image (max 4 colors) to a gameboy-compatible tileset, while the '.cartridge' stuff build and fix the rom for being used in an emulator or a true gameboy hardware.
 
-## Installation
-
-just
+You can assemble the file using the AssemblerGameboy class or directly with:
 
 ```sh
-pip install necroassembler
+necro_gb.exe necro.S necro.gb
 ```
+
+
 
 ## Labels and Directives
 
@@ -160,4 +170,4 @@ pip install necroassembler
 
 ## Sponsor
 
-The necroassembler development is sponsored by AIV (Accademia Italiana Videogiochi)
+The necroassembler development is sponsored by AIV (Accademia Italiana Videogiochi http://www.aiv01.it)
