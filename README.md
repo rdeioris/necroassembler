@@ -14,10 +14,10 @@ A Python framework for building assemblers, includes ready-to-use modules for
 ```python
 >>> from necroassembler.cpu.mos6502 import AssemblerMOS6502
 >>> asm = AssemblerMOS6502()
->>> asm.assemble('LDA #17')
->>> asm.assemble('STA $4000')
->>> asm.assembled_bytes      
-bytearray(b'\xa9\x11\x8d\x00@')
+>>> asm.assemble('LDA #17')  
+>>> asm.assemble('STA $1111') 
+>>> asm.assembled_bytes
+bytearray(b'\xa9\x11\x8d\x11\x11')
 >>>
 ```
 
