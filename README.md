@@ -11,6 +11,14 @@ A Python framework for building assemblers, includes ready-to-use modules for
 * Z80 (ZX spectrum, Sega Master System, Game Gear)
 * PowerPC (gamecube, wii)
 
+## Installation
+
+just
+
+```sh
+pip install necroassembler
+```
+
 ## Usage
 
 You can use necroassembler from your python code:
@@ -142,15 +150,15 @@ end_of_tiles:
 
 ```
 
-The '.tiles' directive transforms an indexed (palette-based) image (max 4 colors) to a gameboy-compatibile tileset, while the '.cartridge' stuff build and fix the rom for being used in an emulator or a true gameboy hardware
+The '.tiles' directive transforms an indexed (palette-based) image (max 4 colors) to a gameboy-compatible tileset, while the '.cartridge' stuff build and fix the rom for being used in an emulator or a true gameboy hardware.
 
-## Installation
-
-just
+You can assemble the file using the AssemblerGameboy class or directly with:
 
 ```sh
-pip install necroassembler
+necro_gb.exe necro.S necro.gb
 ```
+
+
 
 ## Labels and Directives
 
