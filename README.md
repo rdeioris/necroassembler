@@ -51,6 +51,19 @@ necro_<platform>.exe <src> <dst>
 
 ## Platforms
 
+In addition to 'core' assemblers, a bunch of ready to use subclasses and related wrappers are available for specific platforms (mainly 80's and 90's game consoles and home computers).
+
+As an example the AssemblerGameboy class exposes utilities for importing images as well as setting the cartridge header for you roms:
+
+```asm
+.org $0000
+.cartridge
+.cartridge_title "NECROBOY"
+
+.goto $100
+
+```
+
 ## Installation
 
 just
