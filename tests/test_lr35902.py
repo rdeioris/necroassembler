@@ -494,3 +494,63 @@ class TestGameboy(unittest.TestCase):
             'SRA B\nSRA C\nSRA D\nSRA E\nSRA H\nSRA L\nSRA (HL)\nSRA A')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xCB\x28\xCB\x29\xCB\x2A\xCB\x2B\xCB\x2C\xCB\x2D\xCB\x2E\xCB\x2F')
+
+    def test_cb_line3_0_7(self):
+        self.asm.assemble(
+            'SWAP B\nSWAP C\nSWAP D\nSWAP E\nSWAP H\nSWAP L\nSWAP (HL)\nSWAP A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x30\xCB\x31\xCB\x32\xCB\x33\xCB\x34\xCB\x35\xCB\x36\xCB\x37')
+
+    def test_cb_line3_8_f(self):
+        self.asm.assemble(
+            'SRL B\nSRL C\nSRL D\nSRL E\nSRL H\nSRL L\nSRL (HL)\nSRL A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x38\xCB\x39\xCB\x3A\xCB\x3B\xCB\x3C\xCB\x3D\xCB\x3E\xCB\x3F')
+
+    def test_cb_line4_0_7(self):
+        self.asm.assemble(
+            'BIT 0, B\nBIT 0,C\nBIT 0, D\nBIT 0, E\nBIT 0, H\nBIT 0, L\nBIT 0, (HL)\nBIT 0, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x40\xCB\x41\xCB\x42\xCB\x43\xCB\x44\xCB\x45\xCB\x46\xCB\x47')
+
+    def test_cb_line4_8_f(self):
+        self.asm.assemble(
+            'BIT 1, B\nBIT 1,C\nBIT 1, D\nBIT 1, E\nBIT 1, H\nBIT 1, L\nBIT 1, (HL)\nBIT 1, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x48\xCB\x49\xCB\x4A\xCB\x4B\xCB\x4C\xCB\x4D\xCB\x4E\xCB\x4F')
+
+    def test_cb_line5_0_7(self):
+        self.asm.assemble(
+            'BIT 2, B\nBIT 2,C\nBIT 2, D\nBIT 2, E\nBIT 2, H\nBIT 2, L\nBIT 2, (HL)\nBIT 2, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x50\xCB\x51\xCB\x52\xCB\x53\xCB\x54\xCB\x55\xCB\x56\xCB\x57')
+
+    def test_cb_line5_8_f(self):
+        self.asm.assemble(
+            'BIT 3, B\nBIT 3,C\nBIT 3, D\nBIT 3, E\nBIT 3, H\nBIT 3, L\nBIT 3, (HL)\nBIT 3, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x58\xCB\x59\xCB\x5A\xCB\x5B\xCB\x5C\xCB\x5D\xCB\x5E\xCB\x5F')
+
+    def test_cb_line6_0_7(self):
+        self.asm.assemble(
+            'BIT 4, B\nBIT 4,C\nBIT 4, D\nBIT 4, E\nBIT 4, H\nBIT 4, L\nBIT 4, (HL)\nBIT 4, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x60\xCB\x61\xCB\x62\xCB\x63\xCB\x64\xCB\x65\xCB\x66\xCB\x67')
+
+    def test_cb_line6_8_f(self):
+        self.asm.assemble(
+            'BIT 5, B\nBIT 5,C\nBIT 5, D\nBIT 5, E\nBIT 5, H\nBIT 5, L\nBIT 5, (HL)\nBIT 5, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x68\xCB\x69\xCB\x6A\xCB\x6B\xCB\x6C\xCB\x6D\xCB\x6E\xCB\x6F')
+
+    def test_cb_line7_0_7(self):
+        self.asm.assemble(
+            'BIT 6, B\nBIT 6,C\nBIT 6, D\nBIT 6, E\nBIT 6, H\nBIT 6, L\nBIT 6, (HL)\nBIT 6, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x70\xCB\x71\xCB\x72\xCB\x73\xCB\x74\xCB\x75\xCB\x76\xCB\x77')
+
+    def test_cb_line7_8_f(self):
+        self.asm.assemble(
+            'BIT 7, B\nBIT 7,C\nBIT 7, D\nBIT 7, E\nBIT 7, H\nBIT 7, L\nBIT 7, (HL)\nBIT 7, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\x78\xCB\x79\xCB\x7A\xCB\x7B\xCB\x7C\xCB\x7D\xCB\x7E\xCB\x7F')

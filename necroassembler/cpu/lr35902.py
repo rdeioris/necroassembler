@@ -80,7 +80,8 @@ class AssemblerLR35902(Assembler):
                 value, reg8 = instr.apply(str, self._reg_name)
                 return pack_byte(0xCB, kwargs['b' + value + '_' + reg8])
             if instr.match(NUMBER, '(', 'HL', ')') or instr.match(NUMBER, '[', 'HL', ']'):
-                return pack_byte(0xCB, kwargs['b' + value + 'ind_hl'])
+                value = instr.tokens[1]
+                return pack_byte(0xCB, kwargs['b' + value + '_ind_hl'])
 
         except KeyError:
             raise InvalidOpCodeArguments()
@@ -372,11 +373,70 @@ class AssemblerLR35902(Assembler):
     @opcode('BIT')
     def _bit(self, instr):
         return self._build_cb_opcode(instr,
+                                     b0_b=0x40,
+                                     b0_c=0x41,
+                                     b0_d=0x42,
+                                     b0_e=0x43,
+                                     b0_h=0x44,
+                                     b0_l=0x45,
+                                     b0_ind_hl=0x46,
                                      b0_a=0x47,
+                                     b1_b=0x48,
+                                     b1_c=0x49,
+                                     b1_d=0x4A,
+                                     b1_e=0x4B,
+                                     b1_h=0x4C,
+                                     b1_l=0x4D,
+                                     b1_ind_hl=0x4E,
                                      b1_a=0x4F,
+                                     b2_b=0x50,
+                                     b2_c=0x51,
+                                     b2_d=0x52,
+                                     b2_e=0x53,
+                                     b2_h=0x54,
+                                     b2_l=0x55,
+                                     b2_ind_hl=0x56,
                                      b2_a=0x57,
+                                     b3_b=0x58,
+                                     b3_c=0x59,
+                                     b3_d=0x5A,
+                                     b3_e=0x5B,
+                                     b3_h=0x5C,
+                                     b3_l=0x5D,
+                                     b3_ind_hl=0x5E,
                                      b3_a=0x5F,
-                                     b7_h=0x7C)
+                                     b4_b=0x60,
+                                     b4_c=0x61,
+                                     b4_d=0x62,
+                                     b4_e=0x63,
+                                     b4_h=0x64,
+                                     b4_l=0x65,
+                                     b4_ind_hl=0x66,
+                                     b4_a=0x67,
+                                     b5_b=0x68,
+                                     b5_c=0x69,
+                                     b5_d=0x6A,
+                                     b5_e=0x6B,
+                                     b5_h=0x6C,
+                                     b5_l=0x6D,
+                                     b5_ind_hl=0x6E,
+                                     b5_a=0x6F,
+                                     b6_b=0x70,
+                                     b6_c=0x71,
+                                     b6_d=0x72,
+                                     b6_e=0x73,
+                                     b6_h=0x74,
+                                     b6_l=0x75,
+                                     b6_ind_hl=0x76,
+                                     b6_a=0x77,
+                                     b7_b=0x78,
+                                     b7_c=0x79,
+                                     b7_d=0x7A,
+                                     b7_e=0x7B,
+                                     b7_h=0x7C,
+                                     b7_l=0x7D,
+                                     b7_ind_hl=0x7E,
+                                     b7_a=0x7F)
 
     @opcode('RLC')
     def _rlc(self, instr):
@@ -449,6 +509,30 @@ class AssemblerLR35902(Assembler):
                                      l=0x2D,
                                      ind_hl=0x2E,
                                      a=0x2F)
+
+    @opcode('SRL')
+    def _srl(self, instr):
+        return self._build_cb_opcode(instr,
+                                     b=0x38,
+                                     c=0x39,
+                                     d=0x3A,
+                                     e=0x3B,
+                                     h=0x3C,
+                                     l=0x3D,
+                                     ind_hl=0x3E,
+                                     a=0x3F)
+
+    @opcode('SWAP')
+    def _swap(self, instr):
+        return self._build_cb_opcode(instr,
+                                     b=0x30,
+                                     c=0x31,
+                                     d=0x32,
+                                     e=0x33,
+                                     h=0x34,
+                                     l=0x35,
+                                     ind_hl=0x36,
+                                     a=0x37)
 
     @opcode('DEC')
     def _dec(self, instr):
