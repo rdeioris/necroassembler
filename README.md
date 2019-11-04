@@ -168,4 +168,4 @@ necro_gb.exe necro.S necro.gb
 
 ## Sponsor
 
-The necroassembler development is sponsored by AIV (Accademia Italiana Videogiochi)
+The necroassembler development is sponsored by AIV (Accademia Italiana Videogiochi http://www.aiv01.it)
