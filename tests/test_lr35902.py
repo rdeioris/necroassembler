@@ -602,3 +602,51 @@ class TestGameboy(unittest.TestCase):
             'RES 7, B\nRES 7,C\nRES 7, D\nRES 7, E\nRES 7, H\nRES 7, L\nRES 7, (HL)\nRES 7, A')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xCB\xB8\xCB\xB9\xCB\xBA\xCB\xBB\xCB\xBC\xCB\xBD\xCB\xBE\xCB\xBF')
+
+    def test_cb_lineC_0_7(self):
+        self.asm.assemble(
+            'SET 0, B\nSET 0,C\nSET 0, D\nSET 0, E\nSET 0, H\nSET 0, L\nSET 0, (HL)\nSET 0, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xC0\xCB\xC1\xCB\xC2\xCB\xC3\xCB\xC4\xCB\xC5\xCB\xC6\xCB\xC7')
+
+    def test_cb_lineC_8_f(self):
+        self.asm.assemble(
+            'SET 1, B\nSET 1,C\nSET 1, D\nSET 1, E\nSET 1, H\nSET 1, L\nSET 1, (HL)\nSET 1, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xC8\xCB\xC9\xCB\xCA\xCB\xCB\xCB\xCC\xCB\xCD\xCB\xCE\xCB\xCF')
+
+    def test_cb_lineD_0_7(self):
+        self.asm.assemble(
+            'SET 2, B\nSET 2,C\nSET 2, D\nSET 2, E\nSET 2, H\nSET 2, L\nSET 2, (HL)\nSET 2, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xD0\xCB\xD1\xCB\xD2\xCB\xD3\xCB\xD4\xCB\xD5\xCB\xD6\xCB\xD7')
+
+    def test_cb_lineD_8_f(self):
+        self.asm.assemble(
+            'SET 3, B\nSET 3,C\nSET 3, D\nSET 3, E\nSET 3, H\nSET 3, L\nSET 3, (HL)\nSET 3, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xD8\xCB\xD9\xCB\xDA\xCB\xDB\xCB\xDC\xCB\xDD\xCB\xDE\xCB\xDF')
+
+    def test_cb_lineE_0_7(self):
+        self.asm.assemble(
+            'SET 4, B\nSET 4,C\nSET 4, D\nSET 4, E\nSET 4, H\nSET 4, L\nSET 4, (HL)\nSET 4, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xE0\xCB\xE1\xCB\xE2\xCB\xE3\xCB\xE4\xCB\xE5\xCB\xE6\xCB\xE7')
+
+    def test_cb_lineE_8_f(self):
+        self.asm.assemble(
+            'SET 5, B\nSET 5,C\nSET 5, D\nSET 5, E\nSET 5, H\nSET 5, L\nSET 5, (HL)\nSET 5, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xE8\xCB\xE9\xCB\xEA\xCB\xEB\xCB\xEC\xCB\xED\xCB\xEE\xCB\xEF')
+
+    def test_cb_lineF_0_7(self):
+        self.asm.assemble(
+            'SET 6, B\nSET 6,C\nSET 6, D\nSET 6, E\nSET 6, H\nSET 6, L\nSET 6, (HL)\nSET 6, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xF0\xCB\xF1\xCB\xF2\xCB\xF3\xCB\xF4\xCB\xF5\xCB\xF6\xCB\xF7')
+
+    def test_cb_lineF_8_f(self):
+        self.asm.assemble(
+            'SET 7, B\nSET 7,C\nSET 7, D\nSET 7, E\nSET 7, H\nSET 7, L\nSET 7, (HL)\nSET 7, A')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xCB\xF8\xCB\xF9\xCB\xFA\xCB\xFB\xCB\xFC\xCB\xFD\xCB\xFE\xCB\xFF')
