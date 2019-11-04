@@ -405,13 +405,5 @@ class AssemblerMOS6502(Assembler):
                                  absolute=0x8C)
 
 
-def main():
-    import sys
-    asm = AssemblerMOS6502()
-    asm.assemble_file(sys.argv[1])
-    asm.link()
-    asm.save(sys.argv[2])
-
-
 if __name__ == '__main__':
-    main()
+    AssemblerMOS6502.main()

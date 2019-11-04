@@ -413,13 +413,5 @@ class AssemblerMC68000(Assembler):
         return self._build_opcode(0b0100111010000000, ((5, 3), src_m), ((2, 0), src_xn)) + src_data
 
 
-def main():
-    import sys
-    asm = AssemblerMC68000()
-    asm.assemble_file(sys.argv[1])
-    asm.link()
-    asm.save(sys.argv[2])
-
-
 if __name__ == '__main__':
-    main()
+    AssemblerMC68000.main()

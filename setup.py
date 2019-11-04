@@ -11,7 +11,7 @@ setup(name='necroassembler',
                 'necroassembler.platforms'],
       entry_points={
           'console_scripts': [
-              'necro_6502=necroassembler.cpu.mos6502:main',
+              'necro_6502=necroassembler.cpu.mos6502:AssemblerMOS6502.main',
               'necro_thumb=necroassembler.cpu.thumb:main',
               'necro_nes=necroassembler.platforms.nes:main',
               'necro_gb=necroassembler.platforms.gameboy:main',

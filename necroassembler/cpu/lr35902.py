@@ -823,13 +823,5 @@ class AssemblerLR35902(Assembler):
             return pack_byte(vectors_table[instr.tokens[1].upper()])
 
 
-def main():
-    import sys
-    asm = AssemblerLR35902()
-    asm.assemble_file(sys.argv[1])
-    asm.link()
-    asm.save(sys.argv[2])
-
-
 if __name__ == '__main__':
-    main()
+    AssemblerLR35902.main()
