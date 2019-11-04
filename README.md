@@ -63,6 +63,8 @@ In addition to 'core' assemblers, a bunch of ready to use subclasses and related
 
 As an example the AssemblerGameboy class exposes utilities for importing images as well as setting the cartridge header for you roms:
 
+![BGB Emulator Screenshot](docs/bgb00001.png)
+
 ```asm
 .org $0000 $7fff ; the size of the cartridge must be 32k (second bank at $4000 can be bank-switched)
 
