@@ -34,6 +34,14 @@ bytearray(b'\x00\x03')
 >>>
 ```
 
+or directly from command line using the various included wrappers (remove .exe in unix environments):
+
+```sh
+necro_6502.exe hello_world.S hello_world.bin
+necro_8086.exe bootblock.S block000.bin
+necro_m68k.exe copper.S copper.bin
+```
+
 ## Installation
 
 just
