@@ -1336,7 +1336,7 @@ class PowerPCOPCode:
     def __call__(self, instr):
         for condition in self.conditions:
             if condition is None:
-              if len(instr.tokens) == 1:
+                if len(instr.tokens) == 1:
                     return pack_be32u(self.base)
             elif instr.match(*[item[2] for item in condition]):
                 return pack_be32u(

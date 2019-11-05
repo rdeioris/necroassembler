@@ -110,7 +110,7 @@ class Assembler:
         self.register_directive('include', self.directive_include)
         self.register_directive('incbin', self.directive_incbin)
         self.register_directive('inccsv', self.directive_inccsv)
-        self.register_directive('inccsv16le', self.directive_inccsv16le)
+        self.register_directive('inccsv_le16', self.directive_inccsv_le16)
         self.register_directive('incjson', self.directive_incjson)
         self.register_directive('define', self.directive_define)
         self.register_directive('db', self.directive_db)
@@ -713,7 +713,7 @@ class Assembler:
 
         self.append_assembled_bytes(blob)
 
-    def directive_inccsv16le(self, instr):
+    def directive_inccsv_le16(self, instr):
         if len(instr.tokens) != 2:
             raise InvalidArgumentsForDirective(instr)
         import csv
