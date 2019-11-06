@@ -213,3 +213,15 @@ class TestAssembler(unittest.TestCase):
         self.asm.assemble('LOAD ONE|TWO|FOUR|8')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\xAA\xBB\xCC\xDD\x00\x00\x00\x0F')
+
+    def test_upto(self):
+        self.asm.assemble('.org 1\n.upto 100')
+        self.assertEqual(len(self.asm.assembled_bytes), 100)
+
+    def test_upto_filled(self):
+        self.asm.assemble('.org 1\n.db 0\n.upto 100')
+        self.assertEqual(len(self.asm.assembled_bytes), 100)
+
+    def test_upto_after_goto(self):
+        self.asm.assemble('.org 1\n.db 0\n.org 10\n.upto 100')
+        self.assertEqual(len(self.asm.assembled_bytes), 101)

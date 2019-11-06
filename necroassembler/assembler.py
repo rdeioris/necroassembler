@@ -131,6 +131,7 @@ class Assembler:
         self.register_directive('repeat', self.directive_repeat)
         self.register_directive('endrepeat', self.directive_end_repeat)
         self.register_directive('goto', self.directive_goto)
+        self.register_directive('upto', self.directive_upto)
 
     def register_directives(self):
         pass
@@ -587,6 +588,22 @@ class Assembler:
             if value is None:
                 raise InvalidArgumentsForDirective(instr)
         blob = bytes([value] * (offset - self.pc))
+        self.append_assembled_bytes(blob)
+
+    def directive_upto(self, instr):
+        if len(instr.tokens) not in (2, 3):
+            raise InvalidArgumentsForDirective(instr)
+        offset = self.parse_integer(instr.tokens[1], 64, False)
+        if offset is None:
+            raise InvalidArgumentsForDirective(instr)
+        if offset < len(self.assembled_bytes):
+            raise AddressOverlap(instr)
+        value = self.fill_value
+        if len(instr.tokens) == 3:
+            value = self.parse_integer(instr.tokens[2], 8, False)
+            if value is None:
+                raise InvalidArgumentsForDirective(instr)
+        blob = bytes([value] * (offset - (self.pc - self.current_org)))
         self.append_assembled_bytes(blob)
 
     def directive_ram(self, instr):
