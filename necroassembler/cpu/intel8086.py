@@ -222,7 +222,7 @@ def _Eb(instr, assembler, index, modrm):
     if arg in REGS8:
         modrm['mod'] = 3
         modrm['rm'] = REGS8.index(arg)
-        return 1, b'' if index == 1 else _build_modrm(assembler, modrm)
+        return 1, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
 
     if arg == '[':
         try:
@@ -232,7 +232,7 @@ def _Eb(instr, assembler, index, modrm):
         try:
             modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
                 tuple(instr.tokens[index+1:end_index]))
-            return 2 + delta, b'' if index == 1 else _build_modrm(assembler, modrm)
+            return 2 + delta, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
         except InvalidOpCodeArguments:
             return None
 
@@ -242,7 +242,7 @@ def _Ev(instr, assembler, index, modrm):
     if arg in REGS16:
         modrm['mod'] = 3
         modrm['rm'] = REGS16.index(arg)
-        return 1, b'' if index == 1 else _build_modrm(assembler, modrm)
+        return 1, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
 
     if arg == '[':
         try:
@@ -252,7 +252,7 @@ def _Ev(instr, assembler, index, modrm):
         try:
             modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
                 tuple(instr.tokens[index+1:end_index]))
-            return 2 + delta, b'' if index == 1 else _build_modrm(assembler, modrm)
+            return 2 + delta, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
         except InvalidOpCodeArguments:
             return None
 
@@ -530,7 +530,10 @@ OPCODES_TABLE = (
     (0xFA, 'CLI'),
     (0xFB, 'STI'),
     (0xFC, 'CLD'),
-    (0xFD, 'STD')
+    (0xFD, 'STD'),
+
+# extended opcodes
+    (0xF706, 'DIV', _Ev)
 
 
 )
@@ -549,6 +552,9 @@ class Intel8086OpCode:
     def __call__(self, instr):
         for base, args in self.conditions:
             modrm = {}
+            if base > 0xFF:
+                modrm['reg'] = base & 0xFF
+                base = base >> 8
             if not args:
                 if len(instr.tokens) == 1:
                     return pack_byte(base)
