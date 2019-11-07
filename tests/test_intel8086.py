@@ -89,3 +89,21 @@ class TestIntel8086(unittest.TestCase):
 
     def test_aas_args(self):
         self.assertRaises(InvalidOpCodeArguments, self.asm.assemble, 'AAS BX')
+
+    def test_adc(self):
+        self.asm.assemble('ADC AL, 2')
+        self.assertEqual(self.asm.assembled_bytes, b'\x14\x02')
+
+    def test_cbw(self):
+        self.asm.assemble('CBW')
+        self.assertEqual(self.asm.assembled_bytes, b'\x98')
+
+    def test_cbw_args(self):
+        self.assertRaises(InvalidOpCodeArguments, self.asm.assemble, 'CBW BX')
+
+    def test_cli(self):
+        self.asm.assemble('CLI')
+        self.assertEqual(self.asm.assembled_bytes, b'\xFA')
+
+    def test_cli_args(self):
+        self.assertRaises(InvalidOpCodeArguments, self.asm.assemble, 'CLI test')
