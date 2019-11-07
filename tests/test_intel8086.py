@@ -1,5 +1,6 @@
 import unittest
 from necroassembler.cpu.intel8086 import AssemblerIntel8086
+from necroassembler.exceptions import InvalidOpCodeArguments
 
 
 class TestIntel8086(unittest.TestCase):
@@ -50,3 +51,41 @@ class TestIntel8086(unittest.TestCase):
     def test_jmp_b(self):
         self.asm.assemble('JMP 4')
         self.assertEqual(self.asm.assembled_bytes, b'\xE9\x04\x00')
+
+    def test_aaa(self):
+        self.asm.assemble('AAA')
+        self.assertEqual(self.asm.assembled_bytes, b'\x37')
+
+    def test_aaa_args(self):
+        self.assertRaises(InvalidOpCodeArguments, self.asm.assemble, 'AAA AX')
+
+    def test_aad(self):
+        self.asm.assemble('AAD')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD5')
+
+    def test_aad_a(self):
+        self.asm.assemble('AAD 0x0A')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD5')
+
+    def test_aad_1(self):
+        self.asm.assemble('AAD 0x01')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD5\x01')
+
+    def test_aam(self):
+        self.asm.assemble('AAM')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD4')
+
+    def test_aam_a(self):
+        self.asm.assemble('AAM 0x0A')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD4')
+
+    def test_aam_2(self):
+        self.asm.assemble('AAM 0x02')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD4\x02')
+
+    def test_aas(self):
+        self.asm.assemble('AAS')
+        self.assertEqual(self.asm.assembled_bytes, b'\x3F')
+
+    def test_aas_args(self):
+        self.assertRaises(InvalidOpCodeArguments, self.asm.assemble, 'AAS BX')

@@ -281,6 +281,10 @@ class Assembler:
         self.labels_addresses[index] = label_data
 
     def _internal_parse_integer(self, token):
+        # first check for an ascii char
+        if token[0] == '\'' and token[2] == '\'':
+            return ord(token[1:2]), False
+            
         for prefix in self.hex_prefixes:
             if token.startswith(prefix):
                 return int(token[len(prefix):], 16), False

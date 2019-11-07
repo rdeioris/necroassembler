@@ -262,7 +262,7 @@ def _I0(instr, assembler, index, modrm):
         return 1, b''
     if len(instr.tokens) == 2:
         value = assembler.parse_integer(
-            instr.tokens[index], size=1, bits_size=8)
+            instr.tokens[index], 8, False)
         if value is None:
             return None
         if value == 0xA:
@@ -549,8 +549,10 @@ class Intel8086OpCode:
     def __call__(self, instr):
         for base, args in self.conditions:
             modrm = {}
-            if not args and len(instr.tokens) == 1:
-                return pack_byte(base)
+            if not args:
+                if len(instr.tokens) == 1:
+                    return pack_byte(base)
+                raise InvalidOpCodeArguments(instr)
             index = 1
             skip = False
             full_blob = b''
