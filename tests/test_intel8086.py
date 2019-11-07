@@ -107,3 +107,27 @@ class TestIntel8086(unittest.TestCase):
 
     def test_cli_args(self):
         self.assertRaises(InvalidOpCodeArguments, self.asm.assemble, 'CLI test')
+
+    def test_mul(self):
+        self.asm.assemble('MUL BX')
+        self.assertEqual(self.asm.assembled_bytes, b'\xF7\xE3')
+    
+    def test_div(self):
+        self.asm.assemble('DIV BX')
+        self.assertEqual(self.asm.assembled_bytes, b'\xF7\xF3')
+
+    def test_shl16(self):
+        self.asm.assemble('SHL BX, 1')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD1\xE3')
+
+    def test_shl8(self):
+        self.asm.assemble('SHL AH, 1')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD0\xE4')
+
+    def test_shr16(self):
+        self.asm.assemble('SHR CX, 1')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD1\xE9')
+
+    def test_shr8(self):
+        self.asm.assemble('SHR BH, 1')
+        self.assertEqual(self.asm.assembled_bytes, b'\xD0\xEF')

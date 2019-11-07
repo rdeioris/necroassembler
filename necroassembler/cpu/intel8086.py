@@ -309,6 +309,11 @@ def _3(instr, assembler, index, modrm):
         return 1, b''
 
 
+def _1(instr, assembler, index, modrm):
+    if instr.tokens[index] == '1':
+        return 1, b''
+
+
 def _Jv(instr, assembler, index, modrm):
     arg = instr.tokens[index]
     if ':' not in arg and arg.upper() not in REGS8 + REGS16 + SEGMENTS:
@@ -532,10 +537,13 @@ OPCODES_TABLE = (
     (0xFC, 'CLD'),
     (0xFD, 'STD'),
 
-# extended opcodes
-    (0xF706, 'DIV', _Ev)
-
-
+    # extended opcodes
+    (0xF706, 'DIV', _Ev),
+    (0xF704, 'MUL', _Ev),
+    (0xD004, 'SHL', _Eb),
+    (0xD104, 'SHL', _Ev),
+    (0xD005, 'SHR', _Eb),
+    (0xD105, 'SHR', _Ev)
 )
 
 
