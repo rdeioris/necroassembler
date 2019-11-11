@@ -114,7 +114,9 @@ class Label(Statement):
         if assembler.parse_integer(key, 64, False) is not None:
             raise InvalidLabel(self)
         assembler.labels[key] = {
-            'base': assembler.org_counter, 'org': assembler.current_org}
+            'base': assembler.org_counter,
+            'org': assembler.current_org,
+            'section': assembler.current_section}
 
 
 class Directive(Statement):

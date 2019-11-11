@@ -6,8 +6,10 @@ from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, Not
                                        AddressOverlap, NegativeSignNotAllowed, NotInRepeatMode,
                                        UnsupportedNestedRepeat,
                                        AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed,
-                                       InvalidArgumentsForDirective, LabelNotAllowed, InvalidDefine)
+                                       InvalidArgumentsForDirective, LabelNotAllowed, InvalidDefine,
+                                       SectionAlreadyDefined, SymbolAlreadyExported)
 from necroassembler.macros import Macro
+from necroassembler.linker import Dummy
 
 
 def opcode(*name):
@@ -83,6 +85,9 @@ class Assembler:
         self.macro_recording = None
         self.repeat = None
         self.log = False
+        self.sections = {}
+        self.current_section = None
+        self.exports = []
 
         # avoid subclasses to overwrite parent
         # class variables by making a copy
@@ -132,6 +137,8 @@ class Assembler:
         self.register_directive('endrepeat', self.directive_end_repeat)
         self.register_directive('goto', self.directive_goto)
         self.register_directive('upto', self.directive_upto)
+        self.register_directive('section', self.directive_section)
+        self.register_directive('export', self.directive_export)
 
     def register_directives(self):
         pass
@@ -196,6 +203,12 @@ class Assembler:
                                                   (self.current_org + self.org_counter)))
                 self.append_assembled_bytes(blob)
 
+        # fix opened section
+        if self.current_section:
+            self.sections[self.current_section]['end'] = self.pc
+            self.sections[self.current_section]['size'] = len(
+                self.assembled_bytes) - self.sections[self.current_section]['offset']
+
     def assemble_file(self, filename):
         with open(filename) as f:
             self.assemble(f.read(), filename)
@@ -204,7 +217,7 @@ class Assembler:
         with open(filename, 'wb') as handle:
             handle.write(self.assembled_bytes)
 
-    def _resolve_labels(self):
+    def _resolve_labels(self, linker):
         for address in self.labels_addresses:
             data = self.labels_addresses[address]
             label = data.label
@@ -218,7 +231,9 @@ class Assembler:
                     label, data.relative)
 
             if true_address is None:
-                raise UnknownLabel(label)
+                true_address = linker.resolve_unknown_symbol(
+                    self, address, data)
+                absolute_address = true_address
 
             if data.hook:
                 data.hook(address, true_address)
@@ -253,15 +268,27 @@ class Assembler:
                 print('label "{0}" translated to ({1}) at address {2}'.format(
                     label, ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[address:address+size]]), hex(address)))
 
-    def link(self):
+
+    def link(self, linker=None):
+
+        if not linker:
+            linker = Dummy()
 
         for _pass in self.pre_link_passes:
-            _pass()
+            if hasattr(_pass, '__self__') and _pass.__self__ == self:
+                _pass()
+            else:
+                _pass(self)
 
-        self._resolve_labels()
+        self._resolve_labels(linker)
 
         for _pass in self.post_link_passes:
-            _pass()
+            if hasattr(_pass, '__self__') and _pass.__self__ == self:
+                _pass()
+            else:
+                _pass(self)
+
+        self.assembled_bytes = linker.link(self)
 
     @property
     def pc(self):
@@ -284,7 +311,7 @@ class Assembler:
         # first check for an ascii char
         if token[0] == '\'' and token[2] == '\'':
             return ord(token[1:2]), False
-            
+
         for prefix in self.hex_prefixes:
             if token.startswith(prefix):
                 return int(token[len(prefix):], 16), False
@@ -717,6 +744,36 @@ class Assembler:
             blob = f.read()
             self.append_assembled_bytes(blob)
 
+    def directive_section(self, instr):
+        if len(instr.tokens) not in (3, 4):
+            raise InvalidArgumentsForDirective(instr)
+        name = self.stringify(instr.tokens[1])
+        if name in self.sections:
+            raise SectionAlreadyDefined(instr)
+        permissions = instr.tokens[2]
+        if not all([True if letter in 'RWXE' else False for letter in permissions]):
+            raise InvalidArgumentsForDirective(instr)
+        if len(instr.tokens) == 4:
+            new_org_start = self.parse_integer(instr.tokens[3], 64, False)
+            if new_org_start is None:
+                raise InvalidArgumentsForDirective(instr)
+            self.change_org(new_org_start, 0)
+        if self.current_section:
+            self.sections[self.current_section]['end'] = self.pc
+            self.sections[self.current_section]['size'] = len(
+                self.assembled_bytes) - self.sections[self.current_section]['offset']
+        self.current_section = name
+        self.sections[self.current_section] = {
+            'start': self.pc, 'offset': len(self.assembled_bytes), 'permissions': permissions}
+
+    def directive_export(self, instr):
+        if len(instr.tokens) != 2:
+            raise InvalidArgumentsForDirective(instr)
+        name = self.stringify(instr.tokens[1])
+        if name in self.exports:
+            raise SymbolAlreadyExported(instr)
+        self.exports.append(name)
+
     def directive_inccsv(self, instr):
         if len(instr.tokens) != 2:
             raise InvalidArgumentsForDirective(instr)
@@ -818,9 +875,19 @@ class Assembler:
         self.defines[name] = value
 
     @classmethod
-    def main(cls):
+    def main(cls, pre_link_passes=[], post_link_passes=[], linker=None):
         import sys
+        import os
+        try:
+            *sources, destination = sys.argv[1:]
+        except ValueError:
+            print('usage: {0} <sources> <destination>'.format(
+                os.path.basename(sys.argv[0])))
+            return
         asm = cls()
-        asm.assemble_file(sys.argv[1])
-        asm.link()
-        asm.save(sys.argv[2])
+        asm.pre_link_passes += pre_link_passes
+        asm.post_link_passes += post_link_passes
+        for source in sources:
+            asm.assemble_file(source)
+        asm.link(linker=linker)
+        asm.save(destination)

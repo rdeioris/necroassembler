@@ -16,7 +16,7 @@ def _build_modrm(assembler, modrm):
 
     if modrm.get('displacement') is not None:
         blob += pack_le16s(assembler.parse_integer_or_label(
-            modrm['displacement'],
+            modrm['displacement'].lstrip('+'),
             size=2,
             bits_size=16,
             offset=1,
@@ -280,9 +280,17 @@ def _Sw(instr, assembler, index, modrm):
 
 
 def _M(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS + ('[', ']'):
-        return 1, pack_le16u(assembler.parse_integer_or_label(
-            instr.tokens[index], size=2, bits_size=16, offset=1))
+    if instr.tokens[index] == '[':
+        try:
+            end_index = instr.tokens.index(']', index+1)
+        except ValueError:
+            raise InvalidOpCodeArguments(instr)
+        try:
+            modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
+                tuple(instr.tokens[index+1:end_index]))
+            return 2 + delta, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
+        except InvalidOpCodeArguments:
+            return None
 
 
 def _Mp(instr, assembler, index, modrm):
@@ -508,6 +516,8 @@ OPCODES_TABLE = (
     (0xCF, 'IRET'),
     (0xD4, 'AAM', _I0),
     (0xD5, 'AAD', _I0),
+    (0xD4, 'AAM'),
+    (0xD5, 'AAD'),
     (0xD7, 'XLAT'),
     (0xE0, 'LOOPNZ', _Jb),
     (0xE1, 'LOOPZ', _Jb),
@@ -567,6 +577,8 @@ class Intel8086OpCode:
                 if len(instr.tokens) == 1:
                     return pack_byte(base)
                 raise InvalidOpCodeArguments(instr)
+            if len(instr.tokens) < 2:
+                continue
             index = 1
             skip = False
             full_blob = b''

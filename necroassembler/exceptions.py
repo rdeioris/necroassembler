@@ -67,14 +67,18 @@ class UnknownDirective(AssemblerException):
 class UnsupportedNestedMacro(AssemblerException):
     message = 'nested macros are not supported'
 
+
 class UnsupportedNestedRepeat(AssemblerException):
     message = 'nested repeats are not supported'
+
 
 class NotInMacroRecordingMode(AssemblerException):
     message = 'not in macro recording mode'
 
+
 class NotInRepeatMode(AssemblerException):
     message = 'not in repeat mode'
+
 
 class UnknownRegister(AssemblerException):
     message = 'unknown cpu register'
@@ -100,8 +104,17 @@ class LabelAlreadyDefined(AssemblerException):
     message = 'label already defined'
 
 
+class SectionAlreadyDefined(AssemblerException):
+    message = 'section already defined'
+
+
+class SymbolAlreadyExported(AssemblerException):
+    message = 'symbol already exported'
+
+
 class InvalidLabel(AssemblerException):
     message = 'invalid label'
+
 
 class InvalidDefine(AssemblerException):
     message = 'invalid define'

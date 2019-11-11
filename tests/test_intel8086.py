@@ -131,3 +131,7 @@ class TestIntel8086(unittest.TestCase):
     def test_shr8(self):
         self.asm.assemble('SHR BH, 1')
         self.assertEqual(self.asm.assembled_bytes, b'\xD0\xEF')
+
+    def test_lea(self):
+        self.asm.assemble('LEA AX, [ DI + 0x1000]')
+        self.assertEqual(self.asm.assembled_bytes, b'\x8D\x85\x00\x10')
