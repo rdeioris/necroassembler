@@ -7,7 +7,9 @@ from necroassembler.exceptions import UnsupportedNestedMacro, LabelNotAllowedInM
 class TestAssembler(unittest.TestCase):
 
     class AssemblerDumb(Assembler):
-        hex_prefixes = ('0x',)
+        hex_prefixes = ('0x', '$')
+        hex_suffixes = ('h', )
+        bin_prefixes = ('%', '0b')
 
         big_endian = True
 
@@ -23,6 +25,22 @@ class TestAssembler(unittest.TestCase):
 
     def setUp(self):
         self.asm = self.AssemblerDumb()
+
+    def test_label_and_directive(self):
+        self.asm.assemble('data:  .db 0x17 ; hello world, i am a comment')
+        self.assertEqual(self.asm.assembled_bytes, b'\x17')
+
+    def test_math(self):
+        self.asm.assemble('data: .db 1+2+3*4/5*2+1*3')
+        self.assertEqual(self.asm.assembled_bytes, b'\x0A')
+
+    def test_math_simple(self):
+        self.asm.assemble('data: .db 1+4*3')
+        self.assertEqual(self.asm.assembled_bytes, b'\x0D')
+
+    def test_parse_integer(self):
+        self.asm.assemble('.db $17 + 5 + 0x08 - 08h +%1 - (0b1 << 3), 0x17, 0x22+$30+0x30, 1')
+        self.assertEqual(self.asm.assembled_bytes, b'\x15\x17\x82\x01')
 
     def test_assemble(self):
         self.asm.assemble('LOAD 0x12345678')
@@ -135,44 +153,53 @@ class TestAssembler(unittest.TestCase):
 
     def test_parse_integer_unsigned_red(self):
         self.assertRaises(
-            NotInBitRange, self.asm.parse_integer, '17', 1, False)
+            NotInBitRange, self.asm.parse_integer, ['17'], 1, False)
 
     def test_parse_integer_signed_red(self):
         self.assertRaises(
-            NotInBitRange, self.asm.parse_integer, '17', 5, True)
+            NotInBitRange, self.asm.parse_integer, ['33'], 5, True)
 
     def test_parse_integer_unsigned(self):
-        self.assertEqual(self.asm.parse_integer('17', 5, False), 17)
+        self.assertEqual(self.asm.parse_integer(['17'], 5, False), 17)
 
     def test_parse_integer_signed(self):
-        self.assertEqual(self.asm.parse_integer('-1000', 11, True), -1000)
+        self.assertEqual(self.asm.parse_integer(['-1000'], 11, True), -1000)
 
     def test_parse_integer_signed_edge(self):
-        self.assertEqual(self.asm.parse_integer('-1024', 11, True), -1024)
+        self.assertEqual(self.asm.parse_integer(['-1024'], 11, True), -1024)
 
     def test_parse_integer_signed_positive_edge(self):
-        self.assertEqual(self.asm.parse_integer('1023', 11, True), 1023)
+        self.assertEqual(self.asm.parse_integer(['1023'], 11, True), 1023)
 
     def test_parse_integer_signed_too_low(self):
         self.assertRaises(
-            NotInBitRange, self.asm.parse_integer, '-1025', 11, True)
+            NotInBitRange, self.asm.parse_integer, ['-', '2049'], 11, True)
 
     def test_parse_integer_signed_too_high(self):
         self.assertRaises(
-            NotInBitRange, self.asm.parse_integer, '1024', 11, True)
+            NotInBitRange, self.asm.parse_integer, ['2048'], 11, True)
 
     def test_parse_integer_signed_too_high_hex(self):
         self.assertRaises(
-            NotInBitRange, self.asm.parse_integer, '0x800', 11, True)
+            NotInBitRange, self.asm.parse_integer, ['0x800'], 11, True)
 
     def test_parse_integer_signed_edge_hex(self):
-        self.assertEqual(self.asm.parse_integer('0x7FF', 11, True), 2047)
+        self.assertEqual(self.asm.parse_integer(['0x7FF'], 11, True), -1)
 
     def test_parse_integer_signed_edge_hex_plus(self):
-        self.assertEqual(self.asm.parse_integer('0x7FE+', 11, True), 2047)
+        self.assertEqual(self.asm.parse_integer(['0x7FE', '+', '1'], 11, True), -1)
+
+    def test_parse_integer_negative_hex(self):
+        self.assertEqual(self.asm.parse_integer(['0xFF'], 8, True), -1)
+
+    def test_parse_integer_negative_dec(self):
+        self.assertEqual(self.asm.parse_integer(['-', '1'], 8, True), -1)
+
+    def test_parse_integer_negative_dec_unsigned(self):
+        self.assertEqual(self.asm.parse_integer(['-', '1'], 8, False), 255)
 
     def test_parse_integer_unsigned_edge_hex_plus(self):
-        self.assertEqual(self.asm.parse_integer('0x7FE+', 11, True), 2047)
+        self.assertEqual(self.asm.parse_integer(['0x7FE', '+', '1'], 11, False), 2047)
 
     def test_repeat(self):
         self.asm.assemble('.repeat 10\n.db 0x17\n.endrepeat')

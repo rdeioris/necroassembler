@@ -1,7 +1,7 @@
 from necroassembler.tokenizer import Tokenizer
 from necroassembler.utils import (pack_byte, pack_le32u, pack_le16u,
                                   pack_be32u, pack_be16u, in_bit_range,
-                                  in_bit_range_decimal, pack_bits, is_valid_name)
+                                  in_bit_range, two_s_complement, pack_bits)
 from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode,
                                        AddressOverlap, NegativeSignNotAllowed, NotInRepeatMode,
                                        UnsupportedNestedRepeat,
@@ -10,6 +10,7 @@ from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, Not
                                        SectionAlreadyDefined, SymbolAlreadyExported)
 from necroassembler.macros import Macro
 from necroassembler.linker import Dummy
+from necroassembler.statements import Statement, Scope
 
 
 def opcode(*name):
@@ -44,7 +45,8 @@ class LabelData:
     hook = None
     filter = None
 
-    def __init__(self, label, size, bits_size, relative):
+    def __init__(self, scope, label, size, bits_size, relative):
+        self.scope = scope
         self.label = label
         self.size = size
         self.bits_size = bits_size
@@ -67,6 +69,7 @@ class Assembler:
     fill_value = 0
 
     big_endian = False
+    args_splitter = ','
 
     defines = {}
 
@@ -74,9 +77,6 @@ class Assembler:
         self.instructions = {}
         self.directives = {}
         self.assembled_bytes = bytearray()
-        self.labels = {}
-        self.pre_link_passes = []
-        self.post_link_passes = []
         self.current_org = 0x00
         self.current_org_end = 0
         self.org_counter = 0
@@ -88,6 +88,18 @@ class Assembler:
         self.sections = {}
         self.current_section = None
         self.exports = []
+        self.scopes_stack = []
+        self.math_symbols = {'+': (lambda x, y: x + y, 2, 4),
+                             '-': (lambda x, y: x - y, 2, 4),
+                             '*': (lambda x, y: x * y, 2, 5),
+                             '/': (lambda x, y: x // y, 2, 5),
+                             '|': (lambda x, y: x | y, 2, 0),
+                             '&': (lambda x, y: x & y, 2, 2),
+                             '^': (lambda x, y: x ^ y, 2, 1),
+                             '~': (lambda x: ~x, 1, 6),
+                             '**': (lambda x, y: x ** y, 2, 7),
+                             '>>': (lambda x, y: x >> y, 2, 3),
+                             '<<': (lambda x, y: x << y, 2, 3)}
 
         # avoid subclasses to overwrite parent
         # class variables by making a copy
@@ -157,12 +169,6 @@ class Assembler:
                 if hasattr(attr, 'directive'):
                     for symbol in attr.directive:
                         self.register_directive(symbol, attr)
-                if hasattr(attr, 'pre_link'):
-                    if attr.pre_link:
-                        self.pre_link_passes.append(attr)
-                if hasattr(attr, 'post_link'):
-                    if attr.post_link:
-                        self.post_link_passes.append(attr)
 
     def register_instructions(self):
         pass
@@ -181,11 +187,25 @@ class Assembler:
             raise NotInMacroRecordingMode(instr)
         self.macro_recording = None
 
+    def push_scope(self):
+        new_scope = Scope(self)
+        self.scopes_stack.append(new_scope)
+
+    def pop_scope(self):
+        self.scopes_stack.pop()
+
+    def get_current_scope(self):
+        return self.scopes_stack[-1]
+
     def assemble(self, code, context=None):
-        tokenizer = Tokenizer(context=context)
+        tokenizer = Tokenizer(
+            context=context, args_splitter=self.args_splitter)
         tokenizer.parse(code)
 
-        for statement in tokenizer.statements:
+        self.push_scope()
+
+        for line_number, tokens in tokenizer.lines:
+            statement = Statement(tokens, line_number, context)
             current_index = len(self.assembled_bytes)
             statement.assemble(self)
             if self.log:
@@ -268,25 +288,13 @@ class Assembler:
                 print('label "{0}" translated to ({1}) at address {2}'.format(
                     label, ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[address:address+size]]), hex(address)))
 
-
     def link(self, linker=None):
 
         if not linker:
             linker = Dummy()
 
-        for _pass in self.pre_link_passes:
-            if hasattr(_pass, '__self__') and _pass.__self__ == self:
-                _pass()
-            else:
-                _pass(self)
-
+        # TODO move labels resolution to linker
         self._resolve_labels(linker)
-
-        for _pass in self.post_link_passes:
-            if hasattr(_pass, '__self__') and _pass.__self__ == self:
-                _pass()
-            else:
-                _pass(self)
 
         self.assembled_bytes = linker.link(self)
 
@@ -299,7 +307,8 @@ class Assembler:
                               offset=0, alignment=1, bits=None, filter=None,
                               relative=0, hook=None):
         index = len(self.assembled_bytes) + offset
-        label_data = LabelData(label, size, bits_size, relative)
+        label_data = LabelData(self.get_current_scope(),
+                               label, size, bits_size, relative)
         label_data.offset = offset
         label_data.alignment = alignment
         label_data.bits = bits
@@ -307,77 +316,171 @@ class Assembler:
         label_data.filter = filter
         self.labels_addresses[index] = label_data
 
-    def _internal_parse_integer(self, token):
+    def _internal_parse_integer(self, token, base):
         # first check for an ascii char
         if token[0] == '\'' and token[2] == '\'':
-            return ord(token[1:2]), False
+            return ord(token[1:2])
+
+        # then check for base override
+
+        for prefix in self.hex_suffixes:
+            if token.endswith(prefix):
+                token = token[:-len(prefix)]
+                base = 16
+
+        for prefix in self.bin_suffixes:
+            if token.endswith(prefix):
+                token = token[:-len(prefix)]
+                base = 2
+
+        for prefix in self.oct_suffixes:
+            if token.endswith(prefix):
+                token = token[:-len(prefix)]
+                base = 8
+
+        for prefix in self.dec_suffixes:
+            if token.endswith(prefix):
+                token = token[:-len(prefix)]
+                base = 10
 
         for prefix in self.hex_prefixes:
             if token.startswith(prefix):
-                return int(token[len(prefix):], 16), False
+                token = token[len(prefix):]
+                base = 16
 
         for prefix in self.bin_prefixes:
             if token.startswith(prefix):
-                return int(token[len(prefix):], 2), False
+                token = token[len(prefix):]
+                base = 2
 
         for prefix in self.oct_prefixes:
             if token.startswith(prefix):
-                return int(token[len(prefix):], 8), False
+                token = token[len(prefix):]
+                base = 8
 
         for prefix in self.dec_prefixes:
             if token.startswith(prefix):
-                return int(token[len(prefix):], 10), True
-
-        for suffix in self.hex_suffixes:
-            if token.endswith(suffix):
-                if token[:-len(suffix)].isdigit():
-                    return int(token[0:-len(suffix)], 16), False
-
-        for suffix in self.bin_suffixes:
-            if token.endswith(suffix):
-                if token[:-len(suffix)].isdigit():
-                    return int(token[0:-len(suffix)], 2), False
-
-        for suffix in self.oct_suffixes:
-            if token.endswith(suffix):
-                if token[:-len(suffix)].isdigit():
-                    return int(token[0:-len(suffix)], 8), False
-
-        for suffix in self.dec_suffixes:
-            if token.endswith(suffix):
-                if token[:-len(suffix)].isdigit():
-                    return int(token[0:-len(suffix)], 10), True
+                token = token[len(prefix):]
+                base = 10
 
         try:
-            return int(token), True
+            return int(token, base)
         except ValueError:
-            return None, False
-
-    def parse_integer(self, token, number_of_bits, signed):
-        token, pre_formula, post_formula = self._get_math_formula(token)
-        value, decimal = self._internal_parse_integer(token)
-        if value is None:
             return None
-        value = self.apply_math_formula(pre_formula, post_formula, value)
 
-        # check for invalid combos
-        if not decimal and value < 0:
-            raise NegativeSignNotAllowed()
-        # fix negative values
-        if decimal:
-            if not signed:
-                if value < 0:
-                    max_value = pow(2, number_of_bits)
-                    value += max_value
-                    if value < max_value // 2:
-                        raise NotInBitRange(value, number_of_bits)
+    def apply_postfix(self, values):
+        stack = []
+        for item in values:
+            if item in self.math_symbols:
+                op = self.math_symbols[item]
+                args = []
+                for _ in range(0, op[1]):
+                    if not stack:
+                        args.append(0)
+                    else:
+                        args.append(stack.pop())
+                stack.append(op[0](*(args[::-1])))
             else:
-                if not in_bit_range_decimal(value, number_of_bits, signed=True):
-                    raise NotInBitRange(value, number_of_bits)
-                return value
+                stack.append(item)
 
-        if not in_bit_range(value, number_of_bits):
-            raise NotInBitRange(value, number_of_bits)
+        return stack.pop()
+
+    def parse_integer(self, args, number_of_bits, signed):
+        current_base = 10
+        cleaned_args = []
+
+        for arg in args:
+            if arg in self.hex_prefixes:
+                current_base = 16
+                continue
+            if arg in self.oct_prefixes:
+                current_base = 8
+                continue
+            if arg in self.bin_prefixes:
+                current_base = 2
+                continue
+            if arg in self.dec_prefixes:
+                current_base = 10
+                continue
+
+            if arg == '<':
+                if cleaned_args[-1] == '<':
+                    cleaned_args[-1] = '<<'
+                else:
+                    cleaned_args.append(arg)
+                current_base = 10
+                continue
+
+            if arg == '>':
+                if cleaned_args[-1] == '>':
+                    cleaned_args[-1] = '>>'
+                else:
+                    cleaned_args.append(arg)
+                current_base = 10
+                continue
+
+            if arg == '*':
+                if cleaned_args[-1] == '*':
+                    cleaned_args[-1] = '**'
+                else:
+                    cleaned_args.append(arg)
+                current_base = 10
+                continue
+
+            if arg in tuple(self.math_symbols.keys()) + ('(', ')'):
+                cleaned_args.append(arg)
+                current_base = 10
+                continue
+
+            cleaned_args.append([current_base, arg])
+
+        values_and_ops = []
+        postfix_stack = []
+
+        for arg in cleaned_args:
+            if isinstance(arg, list):
+                value = self._internal_parse_integer(arg[1], arg[0])
+                if value is None:
+                    return None
+                values_and_ops.append(value)
+            elif arg == '(':
+                postfix_stack.append(arg)
+            elif arg == ')':
+                # pop and output
+                while postfix_stack and postfix_stack[-1] != '(':
+                    item = postfix_stack.pop()
+                    values_and_ops.append(item)
+                # TODO check for invalid state (not empty and not '(' on top)
+                postfix_stack.pop()
+            else:
+                while postfix_stack and postfix_stack[-1] not in ('(', ')') and self.math_symbols[arg][2] <= self.math_symbols[postfix_stack[-1]][2]:
+                    values_and_ops.append(postfix_stack.pop())
+                postfix_stack.append(arg)
+
+        while postfix_stack:
+            values_and_ops.append(postfix_stack.pop())
+
+        value = self.apply_postfix(values_and_ops)
+
+        orig_value = value
+
+        # disable negative sign
+        if value < 0:
+            value += pow(2, number_of_bits)
+
+        # re-enable it if required
+        if signed:
+            value = two_s_complement(value, number_of_bits)
+            test_value = value
+            if value < 0:
+                test_value = value + pow(2, number_of_bits)
+
+            if not in_bit_range(test_value, number_of_bits):
+                raise NotInBitRange(orig_value, number_of_bits)
+        else:
+            if not in_bit_range(value, number_of_bits):
+                raise NotInBitRange(orig_value, number_of_bits)
+
         return value
 
     def parse_integer_or_label(self, label,
@@ -399,61 +502,6 @@ class Assembler:
                                        filter=filter,
                                        hook=hook)
             return 0
-        return value
-
-    def apply_math_formula(self, pre_formula, post_formula, value):
-        low_counter = 0
-        shifted_value = 0
-        has_shifted_value = False
-
-        for op in pre_formula:
-            if op == '>':
-                value >>= 8
-            elif op == '<':
-                shifted_value |= ((value >> (8 * low_counter))
-                                  & 0xFF) << (8 * low_counter)
-                low_counter += 1
-                has_shifted_value = True
-
-        if has_shifted_value:
-            value = shifted_value
-
-        ops = []
-        current_command = None
-        current_arg = ''
-        for char in post_formula:
-            if char in ('+', '-', '*', '/', '&', '|'):
-                if current_command is not None:
-                    ops.append((current_command, current_arg))
-                current_command = char
-                current_arg = ''
-            else:
-                current_arg += char
-
-        if current_command is not None:
-            ops.append((current_command, current_arg))
-
-        for command, arg in ops:
-            arg_value = 1
-            if arg:
-                arg_value = self.parse_integer(arg, 64, False)
-                if arg_value is None:
-                    arg_value = self.get_label_absolute_address_by_name(arg)
-                    if arg_value is None:
-                        raise UnknownLabel(arg)
-            if command == '+':
-                value += arg_value
-            elif command == '-':
-                value -= arg_value
-            elif command == '*':
-                value *= arg_value
-            elif command == '/':
-                value //= arg_value
-            elif command == '&':
-                value &= arg_value
-            elif command == '|':
-                value |= arg_value
-
         return value
 
     def get_label_absolute_address(self, label):
@@ -506,14 +554,14 @@ class Assembler:
                 raise AddressOverlap()
 
     def directive_org(self, instr):
-        if len(instr.tokens) not in (2, 3):
+        if len(instr.args) not in (1, 2):
             raise InvalidArgumentsForDirective(instr)
-        new_org_start = self.parse_integer(instr.tokens[1], 64, False)
+        new_org_start = self.parse_integer(instr.args[0], 64, False)
         if new_org_start is None:
             raise InvalidArgumentsForDirective(instr)
         new_org_end = 0
-        if len(instr.tokens) == 3:
-            new_org_end = self.parse_integer(instr.tokens[2], 64, False)
+        if len(instr.args) == 2:
+            new_org_end = self.parse_integer(instr.args[1], 64, False)
             if new_org_end is None:
                 raise InvalidArgumentsForDirective(instr)
 
@@ -622,25 +670,25 @@ class Assembler:
         self.append_assembled_bytes(blob)
 
     def directive_upto(self, instr):
-        if len(instr.tokens) not in (2, 3):
+        if len(instr.args) not in (1, 2):
             raise InvalidArgumentsForDirective(instr)
-        offset = self.parse_integer(instr.tokens[1], 64, False)
+        offset = self.parse_integer(instr.args[0], 64, False)
         if offset is None:
             raise InvalidArgumentsForDirective(instr)
         if offset < len(self.assembled_bytes):
             raise AddressOverlap(instr)
         value = self.fill_value
-        if len(instr.tokens) == 3:
-            value = self.parse_integer(instr.tokens[2], 8, False)
+        if len(instr.args) == 2:
+            value = self.parse_integer(instr.args[1], 8, False)
             if value is None:
                 raise InvalidArgumentsForDirective(instr)
         blob = bytes([value] * (offset - (self.pc - self.current_org)))
         self.append_assembled_bytes(blob)
 
     def directive_ram(self, instr):
-        if len(instr.tokens) != 2:
+        if len(instr.args) != 1:
             raise InvalidArgumentsForDirective(instr)
-        size = self.parse_integer(instr.tokens[1], 64, False)
+        size = self.parse_integer(instr.args[0], 64, False)
         if size is None or size < 1:
             raise InvalidArgumentsForDirective(instr)
         self.org_counter += size
@@ -715,19 +763,22 @@ class Assembler:
         return blob
 
     def directive_db(self, instr):
-        for token in instr.tokens[1:]:
-            if token[0] in ('"', '\''):
-                blob = token[1:-1].encode('ascii')
-            else:
+        for arg in instr.args:
+            blob = self.stringify(arg, 'ascii')
+            if blob is None:
                 value = self.parse_integer_or_label(
-                    label=token, bits_size=8, size=1)
+                    label=arg, bits_size=8, size=1)
                 blob = pack_byte(value)
             self.append_assembled_bytes(blob)
 
-    def stringify(self, value):
-        if value[0] in ('"', '\''):
-            value = value[1:-1]
-        return value
+    def stringify(self, args, encoding):
+        whole_string = ''
+        for arg in args:
+            if arg[0] in ('"', '\''):
+                whole_string += arg[1:-1]
+            else:
+                return None
+        return whole_string.encode(encoding)
 
     def directive_include(self, instr):
         if len(instr.tokens) != 2:

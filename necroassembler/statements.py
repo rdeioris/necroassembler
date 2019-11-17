@@ -1,6 +1,21 @@
 from necroassembler.exceptions import (InvalidOpCodeArguments, UnknownInstruction, LabelNotAllowedInMacro,
                                        InvalidInstruction, UnknownDirective, LabelAlreadyDefined, InvalidLabel, AssemblerException)
-from necroassembler.utils import substitute_with_dict, is_valid_name
+from necroassembler.utils import is_valid_label
+
+
+class Scope:
+
+    def __init__(self, assembler):
+        self.assembler = assembler
+        self.labels = {}
+
+    def add_label(self, label):
+        if label in self.labels:
+            raise LabelAlreadyDefined()
+        self.labels[label] = {
+            'base': self.assembler.org_counter,
+            'org': self.assembler.current_org,
+            'section': self.assembler.current_section}
 
 
 class Statement:
@@ -8,11 +23,87 @@ class Statement:
         self.tokens = tokens
         self.line = line
         self.context = context
+        self.arg_index = 1
+        self.cleaned_tokens = []
 
     def __str__(self):
         if self.context is not None:
             return 'at line {1} of {0}: {2}'.format(self.context, self.line, str(self.tokens))
         return 'at line {0}: {1}'.format(self.line, str(self.tokens))
+
+    @property
+    def args(self):
+        return self.cleaned_tokens[1:]
+
+    @property
+    def command(self):
+        return self.cleaned_tokens[0]
+
+    def clean_tokens(self, assembler):
+        self.cleaned_tokens = []
+        for token in self.tokens:
+            new_elements = []
+            for element in token:
+                anti_loop_check = []
+                while element not in anti_loop_check:
+                    if element not in assembler.defines:
+                        break
+                    anti_loop_check.append(element)
+                    element = assembler.defines[element]
+                new_elements.append(element)
+            self.cleaned_tokens.append(new_elements)
+
+    def assemble(self, assembler):
+        # first of all: rebuild using defines
+        self.clean_tokens(assembler)
+
+        # check for labels
+        if self.cleaned_tokens[0][-1] == ':':
+            label = ''.join(self.cleaned_tokens[0][:-1])
+            if is_valid_label(label):
+                assembler.get_current_scope().add_label(label)
+            else:
+                raise InvalidLabel(label)
+            # after a label, directives and instructions are allowed so pop the zero one
+            self.cleaned_tokens.pop(0)
+            # fast exit if no relevant data remain
+            if not self.cleaned_tokens[0]:
+                return
+
+        # now check for directives
+        if self.cleaned_tokens[0][0] == '.':
+            directive = ''.join(self.cleaned_tokens[0][1:])
+            if not assembler.case_sensitive:
+                directive = directive.upper()
+            if not directive in assembler.directives:
+                raise UnknownDirective(self)
+            assembler.directives[directive](self)
+            return
+
+        # finally check for instructions
+        key = ''.join(self.cleaned_tokens[0])
+        if not key in assembler.instructions:
+            raise UnknownInstruction(self)
+        instruction = assembler.instructions[key]
+        if callable(instruction):
+            try:
+                blob = instruction(self)
+                if blob is None:
+                    # do not add 'self' here, will be added in the exception
+                    raise InvalidInstruction()
+            except AssemblerException as exc:
+                # trick for adding more infos to the exception
+                exc.args = (exc.args[0] + ' ' + str(self),)
+                raise exc from None
+            except:
+                # here we have a non-AssemblerException, so we
+                # need to report the whole exceptions chain
+                raise InvalidInstruction(self)
+        else:
+            if len(self.tokens) != 1:
+                raise InvalidOpCodeArguments(self)
+            blob = instruction
+        assembler.append_assembled_bytes(blob)
 
 
 class Instruction(Statement):
@@ -24,8 +115,6 @@ class Instruction(Statement):
             return
 
         # apply defines
-        substitute_with_dict(self.tokens, assembler.defines, 0)
-
         key = self.tokens[0]
         if not assembler.case_sensitive:
             key = key.upper()
@@ -113,10 +202,6 @@ class Label(Statement):
             raise InvalidLabel(self)
         if assembler.parse_integer(key, 64, False) is not None:
             raise InvalidLabel(self)
-        assembler.labels[key] = {
-            'base': assembler.org_counter,
-            'org': assembler.current_org,
-            'section': assembler.current_section}
 
 
 class Directive(Statement):

@@ -6,6 +6,12 @@ class AssemblerException(Exception):
             self.message += ' ' + str(context)
         super().__init__(self.message)
 
+class InvalidLabel(Exception):
+    
+    def __init__(self, tokenizer):
+        super().__init__(
+            'invalid label at line {0}'.format(tokenizer.line))
+
 
 class InvalidOpCodeArguments(AssemblerException):
     message = 'invalid arguments for opcode'

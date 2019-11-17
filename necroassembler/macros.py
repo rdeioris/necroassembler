@@ -1,5 +1,4 @@
 '''Assembler Macro system'''
-from necroassembler.utils import substitute_with_dict
 
 
 class Macro:
@@ -31,7 +30,7 @@ class Macro:
             macro_dict = {}
             for macro_arg_index, macro_arg in enumerate(macro_args):
                 macro_dict[macro_arg] = args[macro_arg_index]
-                
+
             substitute_with_dict(instr.tokens, macro_dict, 0)
 
             instr.assemble(assembler)
