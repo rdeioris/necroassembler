@@ -8,18 +8,22 @@ class Scope:
     def __init__(self, assembler):
         self.assembler = assembler
         self.labels = {}
+        # this gets a meaningful value only after pushing
+        self.parent = None
 
     def add_label(self, label):
         if label in self.labels:
             raise LabelAlreadyDefined()
         self.labels[label] = {
+            'scope': self.assembler.get_current_scope(),
             'base': self.assembler.org_counter,
             'org': self.assembler.current_org,
             'section': self.assembler.current_section}
 
 
 class Statement:
-    def __init__(self, tokens, line, context):
+    def __init__(self, assembler, tokens, line, context):
+        self.assembler = assembler
         self.tokens = tokens
         self.line = line
         self.context = context
@@ -39,29 +43,29 @@ class Statement:
     def command(self):
         return self.cleaned_tokens[0]
 
-    def clean_tokens(self, assembler):
+    def clean_tokens(self):
         self.cleaned_tokens = []
         for token in self.tokens:
             new_elements = []
             for element in token:
                 anti_loop_check = []
                 while element not in anti_loop_check:
-                    if element not in assembler.defines:
+                    if element not in self.assembler.defines:
                         break
                     anti_loop_check.append(element)
-                    element = assembler.defines[element]
+                    element = self.assembler.defines[element]
                 new_elements.append(element)
             self.cleaned_tokens.append(new_elements)
 
-    def assemble(self, assembler):
+    def assemble(self):
         # first of all: rebuild using defines
-        self.clean_tokens(assembler)
+        self.clean_tokens()
 
         # check for labels
         if self.cleaned_tokens[0][-1] == ':':
             label = ''.join(self.cleaned_tokens[0][:-1])
             if is_valid_label(label):
-                assembler.get_current_scope().add_label(label)
+                self.assembler.get_current_scope().add_label(label)
             else:
                 raise InvalidLabel(label)
             # after a label, directives and instructions are allowed so pop the zero one
@@ -73,18 +77,18 @@ class Statement:
         # now check for directives
         if self.cleaned_tokens[0][0] == '.':
             directive = ''.join(self.cleaned_tokens[0][1:])
-            if not assembler.case_sensitive:
+            if not self.assembler.case_sensitive:
                 directive = directive.upper()
-            if not directive in assembler.directives:
+            if not directive in self.assembler.directives:
                 raise UnknownDirective(self)
-            assembler.directives[directive](self)
+            self.assembler.directives[directive](self)
             return
 
         # finally check for instructions
         key = ''.join(self.cleaned_tokens[0])
-        if not key in assembler.instructions:
+        if not key in self.assembler.instructions:
             raise UnknownInstruction(self)
-        instruction = assembler.instructions[key]
+        instruction = self.assembler.instructions[key]
         if callable(instruction):
             try:
                 blob = instruction(self)
@@ -103,7 +107,7 @@ class Statement:
             if len(self.tokens) != 1:
                 raise InvalidOpCodeArguments(self)
             blob = instruction
-        assembler.append_assembled_bytes(blob)
+        self.assembler.append_assembled_bytes(blob)
 
 
 class Instruction(Statement):

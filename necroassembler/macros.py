@@ -1,8 +1,29 @@
 '''Assembler Macro system'''
 
+from necroassembler.exceptions import InvalidArgumentsForDirective
+from necroassembler.statements import Scope
+
+
+class Macro(Scope):
+    '''Represents a user-defined macro'''
+
+    @classmethod
+    def directive_macro(cls, instr):
+        if len(instr.args) < 1:
+            raise InvalidArgumentsForDirective(instr)
+        name, *args = instr.args
+        instr.assembler.push_scope(Macro(instr.assembler, name, *args))
+
+    @classmethod
+    def directive_end_macro(cls, instr):
+        instr.assembler.get_current_scope().end_repeat()
+
+    def __init__(self, assembler, name, *args):
+        super().__init__(assembler)
+        self.lines = []
+
 
 class Macro:
-    '''Represents a user-defined macro'''
 
     def __init__(self, tokens):
         self.name, *self.args = tokens

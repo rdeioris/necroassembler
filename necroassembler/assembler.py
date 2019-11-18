@@ -11,6 +11,7 @@ from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, Not
 from necroassembler.macros import Macro
 from necroassembler.linker import Dummy
 from necroassembler.statements import Statement, Scope
+from necroassembler.directives import Repeat
 
 
 def opcode(*name):
@@ -145,8 +146,8 @@ class Assembler:
         self.register_directive('ram', self.directive_ram)
         self.register_directive('log', self.directive_log)
         self.register_directive('align', self.directive_align)
-        self.register_directive('repeat', self.directive_repeat)
-        self.register_directive('endrepeat', self.directive_end_repeat)
+        self.register_directive('repeat', Repeat.directive_repeat)
+        self.register_directive('endrepeat', Repeat.directive_end_repeat)
         self.register_directive('goto', self.directive_goto)
         self.register_directive('upto', self.directive_upto)
         self.register_directive('section', self.directive_section)
@@ -187,14 +188,17 @@ class Assembler:
             raise NotInMacroRecordingMode(instr)
         self.macro_recording = None
 
-    def push_scope(self):
-        new_scope = Scope(self)
-        self.scopes_stack.append(new_scope)
+    def push_scope(self, scope):
+        scope.parent = self.get_current_scope()
+        self.scopes_stack.append(scope)
+        return scope
 
     def pop_scope(self):
-        self.scopes_stack.pop()
+        return self.scopes_stack.pop()
 
     def get_current_scope(self):
+        if not self.scopes_stack:
+            return None
         return self.scopes_stack[-1]
 
     def assemble(self, code, context=None):
@@ -202,19 +206,22 @@ class Assembler:
             context=context, args_splitter=self.args_splitter)
         tokenizer.parse(code)
 
-        self.push_scope()
+        self.push_scope(Scope(self))
+        self.line_index = 0
 
-        for line_number, tokens in tokenizer.lines:
-            statement = Statement(tokens, line_number, context)
-            current_index = len(self.assembled_bytes)
-            statement.assemble(self)
+        while self.line_index < len(tokenizer.lines):
+            line_number, tokens = tokenizer.lines[self.line_index]
+            statement = Statement(self, tokens, line_number, context)
+            current_offset = len(self.assembled_bytes)
+            statement.assemble()
             if self.log:
-                new_index = len(self.assembled_bytes)
-                if new_index == current_index:
+                new_offset = len(self.assembled_bytes)
+                if new_offset == current_offset:
                     print('not assembled {0}'.format(statement))
                 else:
-                    print('assembled {0} -> ({1}) at 0x{2:x}'.format(statement,
-                                                                     ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_index:]]), current_index))
+                    print('assembled line {0} -> ({1}) at 0x{2:x}'.format(line_number,
+                                                                          ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_offset:]]), current_offset))
+            self.line_index += 1
 
         # check if we need to fill something
         if self.current_org_end > 0:
@@ -241,14 +248,14 @@ class Assembler:
         for address in self.labels_addresses:
             data = self.labels_addresses[address]
             label = data.label
+            scope = data.scope
             is_relative = data.relative != 0
 
-            absolute_address = self.get_label_absolute_address_by_name(label)
+            absolute_address = self.parse_integer(label, 64, False, scope)
             if not is_relative:
                 true_address = absolute_address
             else:
-                true_address = self.get_label_relative_address_by_name(
-                    label, data.relative)
+                true_address = absolute_address - data.relative
 
             if true_address is None:
                 true_address = linker.resolve_unknown_symbol(
@@ -268,7 +275,7 @@ class Assembler:
             if not is_relative and true_address < 0:
                 raise OnlyForwardAddressesAllowed(label, true_address)
 
-            if not in_bit_range_decimal(true_address, total_bits, signed=is_relative):
+            if not in_bit_range(true_address, total_bits):
                 raise NotInBitRange(true_address, total_bits, label)
 
             if data.filter:
@@ -385,7 +392,7 @@ class Assembler:
 
         return stack.pop()
 
-    def parse_integer(self, args, number_of_bits, signed):
+    def parse_integer(self, args, number_of_bits, signed, labels_scope=None):
         current_base = 10
         cleaned_args = []
 
@@ -441,7 +448,11 @@ class Assembler:
             if isinstance(arg, list):
                 value = self._internal_parse_integer(arg[1], arg[0])
                 if value is None:
-                    return None
+                    if labels_scope:
+                        value = self.get_label_absolute_address_by_name(
+                            labels_scope, arg[1])
+                    else:
+                        return None
                 values_and_ops.append(value)
             elif arg == '(':
                 postfix_stack.append(arg)
@@ -507,20 +518,12 @@ class Assembler:
     def get_label_absolute_address(self, label):
         return label['org'] + label['base']
 
-    def get_label_absolute_address_by_name(self, name):
-        name, pre_formula, post_formula = self._get_math_formula(name)
-        if not name in self.labels:
-            return None
-        return self.apply_math_formula(pre_formula, post_formula, self.get_label_absolute_address(self.labels[name]))
-
-    def get_label_relative_address(self, label, start):
-        return self.get_label_absolute_address(label) - start
-
-    def get_label_relative_address_by_name(self, name, start):
-        name, pre_formula, post_formula = self._get_math_formula(name)
-        if not name in self.labels:
-            return None
-        return self.apply_math_formula(pre_formula, post_formula, self.get_label_relative_address(self.labels[name], start))
+    def get_label_absolute_address_by_name(self, scope, name):
+        while scope:
+            if name in scope.labels:
+                return self.get_label_absolute_address(scope.labels[name])
+            scope = scope.parent
+        raise UnknownLabel(name)
 
     def change_org(self, start, end=0):
 
@@ -568,9 +571,10 @@ class Assembler:
         self.change_org(new_org_start, new_org_end)
 
     def directive_define(self, instr):
-        if len(instr.tokens) != 3:
+        # TODO implement matching
+        if len(instr.args) != 1 or len(instr.args[0]) != 2:
             raise InvalidArgumentsForDirective(instr)
-        self.defines[instr.tokens[1]] = instr.tokens[2]
+        self.defines[instr.args[0][0]] = instr.args[0][1]
 
     def append_assembled_bytes(self, blob):
         self.assembled_bytes += blob
@@ -703,27 +707,6 @@ class Assembler:
         mod = (self.current_org + self.org_counter) % size
         if mod != 0:
             blob = bytes([self.fill_value]) * (size - mod)
-            self.append_assembled_bytes(blob)
-
-    def directive_repeat(self, instr):
-        if self.repeat is not None:
-            raise UnsupportedNestedRepeat(instr)
-        if len(instr.tokens) != 2:
-            raise InvalidArgumentsForDirective(instr)
-        size = self.parse_integer(instr.tokens[1], 64, False)
-        if size is None or size <= 0:
-            raise InvalidArgumentsForDirective(instr)
-
-        self.repeat = (size, len(self.assembled_bytes))
-
-    def directive_end_repeat(self, instr):
-        if self.repeat is None:
-            raise NotInRepeatMode(instr)
-
-        size, index = self.repeat
-        self.repeat = None
-        blob = self.assembled_bytes[index:]
-        for i in range(0, size-1):
             self.append_assembled_bytes(blob)
 
     def directive_db_to_ascii(self, instr):

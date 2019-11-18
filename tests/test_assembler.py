@@ -15,12 +15,8 @@ class TestAssembler(unittest.TestCase):
 
         @opcode('LOAD')
         def load(self, instr):
-            arg = instr.tokens[1]
-            value = self.parse_integer(instr.tokens[1], 32, signed=False)
-            # label ?
-            if value is None:
-                self.add_label_translation(label=arg, bits_size=32, size=4)
-                return pack_be32u(0xaabbccdd, 0)
+            value = self.parse_integer_or_label(
+                instr.args[0], bits_size=32, size=4, offset=4)
             return pack_be32u(0xaabbccdd, value)
 
     def setUp(self):
@@ -39,7 +35,8 @@ class TestAssembler(unittest.TestCase):
         self.assertEqual(self.asm.assembled_bytes, b'\x0D')
 
     def test_parse_integer(self):
-        self.asm.assemble('.db $17 + 5 + 0x08 - 08h +%1 - (0b1 << 3), 0x17, 0x22+$30+0x30, 1')
+        self.asm.assemble(
+            '.db $17 + 5 + 0x08 - 08h +%1 - (0b1 << 3), 0x17, 0x22+$30+0x30, 1')
         self.assertEqual(self.asm.assembled_bytes, b'\x15\x17\x82\x01')
 
     def test_assemble(self):
@@ -61,6 +58,23 @@ class TestAssembler(unittest.TestCase):
         dumber = AssemblerDumber()
         dumber.defines = {'foo': 'bar'}
         self.assertFalse('foo' in Assembler.defines)
+
+    def test_repeat_simple(self):
+        self.asm.assemble('.repeat 2\ntest: .db 0x17\n.endrepeat')
+        self.assertEqual(self.asm.assembled_bytes, b'\x17\x17')
+
+    def test_repeat_label(self):
+        self.asm.assemble(
+            '.repeat 2\nLOAD test\ntest: .db 0x17\n.endrepeat')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\xAA\xBB\xCC\xDD\x00\x00\x00\x08\x17\xAA\xBB\xCC\xDD\x00\x00\x00\x11\x17')
+
+    def test_repeat(self):
+        self.asm.assemble(
+            '.repeat 5\ntest: .db 0x17\n.repeat 3\n.db 0x30\n.endrepeat\n .db 0x22\n.endrepeat')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x17\x30\x30\x30\x22\x17\x30\x30\x30\x22\x17\x30\x30\x30\x22\x17\x30\x30\x30\x22\x17\x30\x30\x30\x22')
 
     def test_macro_simple(self):
         self.asm.assemble("""
@@ -187,7 +201,8 @@ class TestAssembler(unittest.TestCase):
         self.assertEqual(self.asm.parse_integer(['0x7FF'], 11, True), -1)
 
     def test_parse_integer_signed_edge_hex_plus(self):
-        self.assertEqual(self.asm.parse_integer(['0x7FE', '+', '1'], 11, True), -1)
+        self.assertEqual(self.asm.parse_integer(
+            ['0x7FE', '+', '1'], 11, True), -1)
 
     def test_parse_integer_negative_hex(self):
         self.assertEqual(self.asm.parse_integer(['0xFF'], 8, True), -1)
@@ -199,9 +214,10 @@ class TestAssembler(unittest.TestCase):
         self.assertEqual(self.asm.parse_integer(['-', '1'], 8, False), 255)
 
     def test_parse_integer_unsigned_edge_hex_plus(self):
-        self.assertEqual(self.asm.parse_integer(['0x7FE', '+', '1'], 11, False), 2047)
+        self.assertEqual(self.asm.parse_integer(
+            ['0x7FE', '+', '1'], 11, False), 2047)
 
-    def test_repeat(self):
+    def test_repeat10(self):
         self.asm.assemble('.repeat 10\n.db 0x17\n.endrepeat')
         self.assertEqual(self.asm.assembled_bytes,
                          b'\x17\x17\x17\x17\x17\x17\x17\x17\x17\x17')
@@ -226,13 +242,13 @@ class TestAssembler(unittest.TestCase):
         self.asm.assemble(
             '.org 1\nstart:\n.org 10\nend:\n.db end-start-2+start+start+1*2')
         self.asm.link()
-        self.assertEqual(self.asm.assembled_bytes, b'\x14')
+        self.assertEqual(self.asm.assembled_bytes, b'\x0b')
 
     def test_complex_math_divide(self):
         self.asm.assemble(
             '.org 1\nstart:\n.org 10\nend:\n.db end-start-2+start+start+1/2')
         self.asm.link()
-        self.assertEqual(self.asm.assembled_bytes, b'\x05')
+        self.assertEqual(self.asm.assembled_bytes, b'\x09')
 
     def test_complex_math_bitmask(self):
         self.asm.assemble(
