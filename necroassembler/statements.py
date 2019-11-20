@@ -1,27 +1,10 @@
-from necroassembler.exceptions import (InvalidOpCodeArguments, UnknownInstruction, LabelNotAllowedInMacro,
-                                       InvalidInstruction, UnknownDirective, LabelAlreadyDefined, InvalidLabel, AssemblerException)
+from necroassembler.exceptions import (InvalidOpCodeArguments, UnknownInstruction,
+                                       InvalidInstruction, UnknownDirective, LabelAlreadyDefined, InvalidLabel, AssemblerException, UnsupportedNestedMacro)
 from necroassembler.utils import is_valid_label
+from necroassembler.macros import Macro
 
 
-class Scope:
-
-    def __init__(self, assembler):
-        self.assembler = assembler
-        self.labels = {}
-        # this gets a meaningful value only after pushing
-        self.parent = None
-
-    def add_label(self, label):
-        if label in self.labels:
-            raise LabelAlreadyDefined()
-        self.labels[label] = {
-            'scope': self.assembler.get_current_scope(),
-            'base': self.assembler.org_counter,
-            'org': self.assembler.current_org,
-            'section': self.assembler.current_section}
-
-
-class Statement:
+class Instruction:
     def __init__(self, assembler, tokens, line, context):
         self.assembler = assembler
         self.tokens = tokens
@@ -43,6 +26,10 @@ class Statement:
     def command(self):
         return self.cleaned_tokens[0]
 
+    @property
+    def command_str(self):
+        return ''.join(self.command)
+
     def clean_tokens(self):
         self.cleaned_tokens = []
         for token in self.tokens:
@@ -50,14 +37,26 @@ class Statement:
             for element in token:
                 anti_loop_check = []
                 while element not in anti_loop_check:
-                    if element not in self.assembler.defines:
+                    found_define = self.assembler.get_define(element)
+                    if not found_define:
                         break
-                    anti_loop_check.append(element)
-                    element = self.assembler.defines[element]
+                    anti_loop_check.append(found_define)
+                    element = found_define
                 new_elements.append(element)
             self.cleaned_tokens.append(new_elements)
 
     def assemble(self):
+
+        # special case for macro recording mode
+        if self.assembler.macro_recording is not None:
+            # check for nested
+            if self.tokens[0][0] == '.' and self.tokens[0][1] == 'macro':
+                raise UnsupportedNestedMacro(self)
+            # check for .endmacro
+            if self.tokens[0][0] == '.' and self.tokens[0][1] == 'endmacro':
+                Macro.directive_endmacro(self)
+            return
+
         # first of all: rebuild using defines
         self.clean_tokens()
 
@@ -84,8 +83,15 @@ class Statement:
             self.assembler.directives[directive](self)
             return
 
+        # get the command key
+        key = self.command_str
+
+        # check for macro
+        if key in self.assembler.macros:
+            self.assembler.macros[key](self)
+            return
+
         # finally check for instructions
-        key = ''.join(self.cleaned_tokens[0])
         if not key in self.assembler.instructions:
             raise UnknownInstruction(self)
         instruction = self.assembler.instructions[key]
@@ -108,113 +114,3 @@ class Statement:
                 raise InvalidOpCodeArguments(self)
             blob = instruction
         self.assembler.append_assembled_bytes(blob)
-
-
-class Instruction(Statement):
-    def assemble(self, assembler):
-        # first check if we are in macro recording mode
-        if assembler.macro_recording is not None:
-            macro = assembler.macro_recording
-            macro.add_instruction(self)
-            return
-
-        # apply defines
-        key = self.tokens[0]
-        if not assembler.case_sensitive:
-            key = key.upper()
-
-        if key in assembler.macros:
-            macro = assembler.macros[key]
-            macro.assemble(assembler, self.tokens)
-            return
-
-        if not key in assembler.instructions:
-            raise UnknownInstruction(self)
-        instruction = assembler.instructions[key]
-        if callable(instruction):
-            try:
-                blob = instruction(self)
-                if blob is None:
-                    # do not add 'self' here, will be added in the exception
-                    raise InvalidInstruction()
-            except AssemblerException as exc:
-                # trick for adding more infos to the exception
-                exc.args = (exc.args[0] + ' ' + str(self),)
-                raise exc from None
-            except:
-                # here we have a non-AssemblerException, so we
-                # need to report the whole exceptions chain
-                raise InvalidInstruction(self)
-        else:
-            if len(self.tokens) != 1:
-                raise InvalidOpCodeArguments(self)
-            blob = instruction
-        assembler.append_assembled_bytes(blob)
-
-    def match(self, *args, start=1):
-        if (len(self.tokens) - start) != len(args):
-            return False
-        for index, pattern in enumerate(args):
-            if pattern is None:
-                continue
-            if callable(pattern):
-                if pattern(self.tokens[index+start]):
-                    continue
-            else:
-                if isinstance(pattern, str):
-                    if self.tokens[index + start].upper() == pattern.upper():
-                        continue
-                if any([self.tokens[index + start].upper() == x.upper() for x in pattern]):
-                    continue
-            return False
-        return True
-
-    def unbound_match(self, *args, start=1):
-        if (len(self.tokens) - start) < len(args):
-            return False, None
-        for index, pattern in enumerate(args):
-            if pattern is None:
-                continue
-            if callable(pattern):
-                if pattern(self.tokens[index+start]):
-                    continue
-            else:
-                if isinstance(pattern, str):
-                    if self.tokens[index + start].upper() == pattern.upper():
-                        continue
-                if any([self.tokens[index + start].upper() == x.upper() for x in pattern]):
-                    continue
-            return False, None
-        return True, start+index+1
-
-    def apply(self, *args, start=1):
-        out = []
-        for index, arg in enumerate(args):
-            if arg is not None:
-                out.append(arg(self.tokens[index + start]))
-        return out
-
-
-class Label(Statement):
-    def assemble(self, assembler):
-        if assembler.macro_recording is not None:
-            raise LabelNotAllowedInMacro(self)
-        key = self.tokens[0]
-        if key in assembler.labels:
-            raise LabelAlreadyDefined(self)
-        if not is_valid_name(key):
-            raise InvalidLabel(self)
-        if assembler.parse_integer(key, 64, False) is not None:
-            raise InvalidLabel(self)
-
-
-class Directive(Statement):
-    def assemble(self, assembler):
-        # skip directive for defines substitution
-        substitute_with_dict(self.tokens, assembler.defines, 1)
-        key = self.tokens[0][1:]
-        if not assembler.case_sensitive:
-            key = key.upper()
-        if not key in assembler.directives:
-            raise UnknownDirective(self)
-        assembler.directives[key](self)

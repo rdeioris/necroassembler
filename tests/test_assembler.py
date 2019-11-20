@@ -1,7 +1,7 @@
 import unittest
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_be32u, pack_bits
-from necroassembler.exceptions import UnsupportedNestedMacro, LabelNotAllowedInMacro, NotInBitRange, UnknownLabel
+from necroassembler.exceptions import UnsupportedNestedMacro, NotInBitRange, UnknownLabel
 
 
 class TestAssembler(unittest.TestCase):
@@ -101,8 +101,8 @@ class TestAssembler(unittest.TestCase):
         LOAD arg2
         .endmacro
         HELLO 1 2 3
-        HELLO 1,2,3
-        HELLO,1,2 3
+        HELLO 1 2           3
+        HELLO 1  2\t3
         """)
         opcode = b'\xAA\xBB\xCC\xDD'
         arg1 = b'\x00\x00\x00\x01'
@@ -122,11 +122,19 @@ class TestAssembler(unittest.TestCase):
 
     def test_macro_with_labels(self):
         code = """
-        .macro HELLO
+        .macro HELLO iterations
         foobar:
+        .repeat iterations
+        .db 1
+        .endrepeat
+        LOAD foobar
         .endmacro
+
+        HELLO 1
+        HELLO 2
         """
-        self.assertRaises(LabelNotAllowedInMacro, self.asm.assemble, code)
+        self.asm.assemble(code)
+        self.assertEqual(self.asm.assembled_bytes, b'\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x00\x01\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x00')
 
     def test_pack_bits(self):
         self.assertEqual(pack_bits(0b00000000000,

@@ -1,58 +1,56 @@
 '''Assembler Macro system'''
 
-from necroassembler.exceptions import InvalidArgumentsForDirective
-from necroassembler.statements import Scope
+from necroassembler.exceptions import (
+    InvalidArgumentsForDirective, UnsupportedNestedMacro, NotInMacroRecordingMode)
+from necroassembler.scope import Scope
+
+
+class MacroTemplate:
+
+    def __init__(self, assembler, name, args):
+        self.assembler = assembler
+        self.name = name
+        self.args = args
+        self.start_line_index = assembler.line_index
+
+    def __call__(self, instr):
+        macro = Macro(self, instr.args)
+        instr.assembler.push_scope(macro)
+        instr.assembler.line_index = self.start_line_index
 
 
 class Macro(Scope):
     '''Represents a user-defined macro'''
 
+    macro_recording = None
+
     @classmethod
     def directive_macro(cls, instr):
-        if len(instr.args) < 1:
-            raise InvalidArgumentsForDirective(instr)
-        name, *args = instr.args
-        instr.assembler.push_scope(Macro(instr.assembler, name, *args))
+        if instr.assembler.macro_recording is not None:
+            raise UnsupportedNestedMacro(instr)
+        key = instr.args[0][0]
+
+        instr.assembler.macro_recording = MacroTemplate(
+            instr.assembler, key, instr.args[0][1:])
+        if not instr.assembler.case_sensitive:
+            key = key.upper()
+        instr.assembler.macros[key] = instr.assembler.macro_recording
 
     @classmethod
-    def directive_end_macro(cls, instr):
-        instr.assembler.get_current_scope().end_repeat()
+    def directive_endmacro(cls, instr):
+        if instr.assembler.macro_recording is None:
+            # check if we are in execution mode
+            if isinstance(instr.assembler.get_current_scope(), Macro):
+                current_macro = instr.assembler.pop_scope()
+                instr.assembler.line_index = current_macro.caller_line_index
+                return
+            raise NotInMacroRecordingMode(instr)
+        instr.assembler.macro_recording = None
 
-    def __init__(self, assembler, name, *args):
-        super().__init__(assembler)
-        self.lines = []
-
-
-class Macro:
-
-    def __init__(self, tokens):
-        self.name, *self.args = tokens
-        self.instructions = []
-
-    def add_instruction(self, instr):
-        """Appends an instruction to a macro
-
-        :param statements.Instruction instr: the Instrction to add, generally built by the Tokenizer
-        """
-        self.instructions.append(instr)
-
-    def assemble(self, assembler, tokens):
-        """Assembles a macro using the specified assembler
-
-        :param assembler.Assembler assembler: the assembler to use
-        :param list tokens: the tokens used to invoke the macro (macro name included)
-        """
-        _, *args = tokens
-        macro_args = self.args
-        for instr in self.instructions:
-            original_tokens = instr.tokens.copy()
-            # check for known macro args:
-            # first build a dictionary of arg: value
-            macro_dict = {}
-            for macro_arg_index, macro_arg in enumerate(macro_args):
-                macro_dict[macro_arg] = args[macro_arg_index]
-
-            substitute_with_dict(instr.tokens, macro_dict, 0)
-
-            instr.assemble(assembler)
-            instr.tokens = original_tokens
+    def __init__(self, template, args):
+        super().__init__(template.assembler)
+        self.template = template
+        self.args = args
+        self.caller_line_index = template.assembler.line_index
+        for index, arg in enumerate(self.template.args):
+            self.defines[arg] = self.args[0][index]

@@ -6,8 +6,9 @@ class AssemblerException(Exception):
             self.message += ' ' + str(context)
         super().__init__(self.message)
 
+
 class InvalidLabel(Exception):
-    
+
     def __init__(self, tokenizer):
         super().__init__(
             'invalid label at line {0}'.format(tokenizer.line))
@@ -19,10 +20,6 @@ class InvalidOpCodeArguments(AssemblerException):
 
 class UnknownInstruction(AssemblerException):
     message = 'unknown instruction'
-
-
-class LabelNotAllowedInMacro(AssemblerException):
-    message = 'label not allowed in macro'
 
 
 class InvalidInstruction(AssemblerException):

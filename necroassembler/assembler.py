@@ -8,9 +8,11 @@ from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, Not
                                        AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed,
                                        InvalidArgumentsForDirective, LabelNotAllowed, InvalidDefine,
                                        SectionAlreadyDefined, SymbolAlreadyExported)
+                                    
+from necroassembler.scope import Scope
 from necroassembler.macros import Macro
 from necroassembler.linker import Dummy
-from necroassembler.statements import Statement, Scope
+from necroassembler.statements import Instruction
 from necroassembler.directives import Repeat
 
 
@@ -84,7 +86,6 @@ class Assembler:
         self.labels_addresses = {}
         self.macros = {}
         self.macro_recording = None
-        self.repeat = None
         self.log = False
         self.sections = {}
         self.current_section = None
@@ -122,8 +123,8 @@ class Assembler:
         self.register_instructions()
 
     def _register_internal_directives(self):
-        self.register_directive('macro', self.macro_start)
-        self.register_directive('endmacro', self.macro_end)
+        self.register_directive('macro', Macro.directive_macro)
+        self.register_directive('endmacro', Macro.directive_endmacro)
         self.register_directive('org', self.directive_org)
         self.register_directive('include', self.directive_include)
         self.register_directive('incbin', self.directive_incbin)
@@ -147,7 +148,7 @@ class Assembler:
         self.register_directive('log', self.directive_log)
         self.register_directive('align', self.directive_align)
         self.register_directive('repeat', Repeat.directive_repeat)
-        self.register_directive('endrepeat', Repeat.directive_end_repeat)
+        self.register_directive('endrepeat', Repeat.directive_endrepeat)
         self.register_directive('goto', self.directive_goto)
         self.register_directive('upto', self.directive_upto)
         self.register_directive('section', self.directive_section)
@@ -174,20 +175,6 @@ class Assembler:
     def register_instructions(self):
         pass
 
-    def macro_start(self, instr):
-        if self.macro_recording is not None:
-            raise UnsupportedNestedMacro(instr)
-        self.macro_recording = Macro(instr.tokens[1:])
-        key = instr.tokens[1]
-        if not self.case_sensitive:
-            key = key.upper()
-        self.macros[key] = self.macro_recording
-
-    def macro_end(self, instr):
-        if self.macro_recording is None:
-            raise NotInMacroRecordingMode(instr)
-        self.macro_recording = None
-
     def push_scope(self, scope):
         scope.parent = self.get_current_scope()
         self.scopes_stack.append(scope)
@@ -211,13 +198,13 @@ class Assembler:
 
         while self.line_index < len(tokenizer.lines):
             line_number, tokens = tokenizer.lines[self.line_index]
-            statement = Statement(self, tokens, line_number, context)
+            instruction = Instruction(self, tokens, line_number, context)
             current_offset = len(self.assembled_bytes)
-            statement.assemble()
+            instruction.assemble()
             if self.log:
                 new_offset = len(self.assembled_bytes)
                 if new_offset == current_offset:
-                    print('not assembled {0}'.format(statement))
+                    print('not assembled {0}'.format(instruction))
                 else:
                     print('assembled line {0} -> ({1}) at 0x{2:x}'.format(line_number,
                                                                           ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_offset:]]), current_offset))
@@ -450,7 +437,7 @@ class Assembler:
                 if value is None:
                     if labels_scope:
                         value = self.get_label_absolute_address_by_name(
-                            labels_scope, arg[1])
+                            arg[1], labels_scope)
                     else:
                         return None
                 values_and_ops.append(value)
@@ -518,7 +505,9 @@ class Assembler:
     def get_label_absolute_address(self, label):
         return label['org'] + label['base']
 
-    def get_label_absolute_address_by_name(self, scope, name):
+    def get_label_absolute_address_by_name(self, name, scope=None):
+        if not scope:
+            scope = self.get_current_scope()
         while scope:
             if name in scope.labels:
                 return self.get_label_absolute_address(scope.labels[name])
@@ -574,7 +563,16 @@ class Assembler:
         # TODO implement matching
         if len(instr.args) != 1 or len(instr.args[0]) != 2:
             raise InvalidArgumentsForDirective(instr)
-        self.defines[instr.args[0][0]] = instr.args[0][1]
+        scope = self.get_current_scope()
+        scope.defines[instr.args[0][0]] = instr.args[0][1]
+
+    def get_define(self, key):
+        scope = self.get_current_scope()
+        while scope:
+            if key in scope.defines:
+                return scope.defines[key]
+            scope = scope.parent
+        return None
 
     def append_assembled_bytes(self, blob):
         self.assembled_bytes += blob
