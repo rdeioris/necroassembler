@@ -134,28 +134,28 @@ class AssemblerMOS6502(Assembler):
 
             if instr.match(IMMEDIATE):
                 return pack_byte(kwargs['immediate'],
-                                 self.parse_integer_or_label(label=instr.tokens[1][1:],
+                                 self.parse_integer_or_label(label=instr.args[0][1:],
                                                              bits_size=8,
                                                              offset=1,
                                                              size=1))
 
             if instr.match(ADDRESS):
-                return self._manage_address(kwargs.get('absolute'), kwargs.get('zero_page'), instr.tokens[1])
+                return self._manage_address(kwargs.get('absolute'), kwargs.get('zero_page'), instr.args[0])
 
             if instr.match(ADDRESS, REG_X):
-                return self._manage_address(kwargs.get('absolute_x'), kwargs.get('zero_page_x'), instr.tokens[1])
+                return self._manage_address(kwargs.get('absolute_x'), kwargs.get('zero_page_x'), instr.args[0])
 
             if instr.match(ADDRESS, REG_Y):
-                return self._manage_address(kwargs.get('absolute_y'), kwargs.get('zero_page_y'), instr.tokens[1])
+                return self._manage_address(kwargs.get('absolute_y'), kwargs.get('zero_page_y'), instr.args[0])
 
             if instr.match('(', ADDRESS, ')'):
-                return self._manage_address(kwargs['indirect'], None, instr.tokens[2])
+                return self._manage_address(kwargs['indirect'], None, instr.args[1])
 
-            if instr.match('(', ADDRESS, REG_X, ')'):
-                return self._manage_address(None, kwargs['indirect_x'], instr.tokens[2])
+            if instr.match(['(', ADDRESS], [REG_X, ')']):
+                return self._manage_address(None, kwargs['indirect_x'], instr.args[1])
 
-            if instr.match('(', ADDRESS, ')', REG_Y):
-                return self._manage_address(None, kwargs['indirect_y'], instr.tokens[2])
+            if instr.match(['(', ADDRESS], [')', REG_Y]):
+                return self._manage_address(None, kwargs['indirect_y'], instr.args[1])
 
         except KeyError:
             raise UnsupportedModeForOpcode()

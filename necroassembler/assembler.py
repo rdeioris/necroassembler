@@ -103,6 +103,8 @@ class Assembler:
                              '>>': (lambda x, y: x >> y, 2, 3),
                              '<<': (lambda x, y: x << y, 2, 3)}
 
+        self.interesting_symbols = ('(', ')', '[', ']', '{', '}', '<', '>')
+
         # avoid subclasses to overwrite parent
         # class variables by making a copy
         self.defines = self.defines.copy()
@@ -189,8 +191,11 @@ class Assembler:
         return self.scopes_stack[-1]
 
     def assemble(self, code, context=None):
+        
         tokenizer = Tokenizer(
-            context=context, args_splitter=self.args_splitter)
+            context=context,
+            interesting_symbols = tuple(self.math_symbols.keys()) + self.interesting_symbols,
+            args_splitter=self.args_splitter)
         tokenizer.parse(code)
 
         self.push_scope(Scope(self))

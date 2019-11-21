@@ -70,7 +70,7 @@ class Instruction:
             # after a label, directives and instructions are allowed so pop the zero one
             self.cleaned_tokens.pop(0)
             # fast exit if no relevant data remain
-            if not self.cleaned_tokens[0]:
+            if not self.cleaned_tokens or not self.cleaned_tokens[0]:
                 return
 
         # now check for directives
@@ -114,3 +114,33 @@ class Instruction:
                 raise InvalidOpCodeArguments(self)
             blob = instruction
         self.assembler.append_assembled_bytes(blob)
+
+    def match_arg(self, index=0, *pattern):
+        if len(self.args[index]) != len(pattern):
+            return False
+        for rule_index, rule in enumerate(pattern):
+            if rule is None:
+                continue
+            if callable(rule):
+                if rule(self.args[index][rule_index]):
+                    continue
+            else:
+                if isinstance(rule, str):
+                    if self.args[index][rule_index].upper() == rule.upper():
+                        continue
+                if any([self.args[index][rule_index].upper() == x.upper() for x in rule]):
+                    continue
+            return False
+        return True
+
+    def match(self, *pattern):
+        if len(self.args) != len(pattern):
+            return False
+        for arg_index, arg_pattern in enumerate(pattern):
+            if isinstance(arg_pattern, str) or callable(arg_pattern):
+                success = self.match_arg(arg_index, *[arg_pattern])
+            else:
+                success = self.match_arg(arg_index, *arg_pattern)
+            if not success:
+                return False
+        return True

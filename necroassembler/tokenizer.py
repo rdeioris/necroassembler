@@ -1,5 +1,4 @@
 '''Exposes the assembly source code tokenization features'''
-import string
 
 
 class Tokenizer:
@@ -7,17 +6,19 @@ class Tokenizer:
 
     spaces = (' ', '\r', '\t', '\n')
 
-    def __init__(self, args_splitter, case_sensitive=False, context=None):
+    def __init__(self, args_splitter, group_pairs, interesting_symbols, case_sensitive=False, context=None):
         self.state = self._state_token
         self.current_token = ''
         self.current_token_index = 0
         self.lines = []
-        self.tokens = [[]]
         self.case_sensitive = case_sensitive
-        self.line = 1
+        self.line = 0 # will be incremented by reset
         self.context = context
         self.args_splitter = args_splitter
+        self.interesting_symbols = interesting_symbols
+        self.group_pairs = group_pairs
         self.initial_index = 0
+        self.elements_stack = []
 
     def step(self, char):
         """Advances the Tokenizer State Machine
@@ -50,6 +51,8 @@ class Tokenizer:
 
     def _state_multi_line_comment_prelude(self, char):
         if char != '*':
+            if self.current_token:
+                self._append()
             self.current_token = '/'
             self._append()
             self.current_token = ''
@@ -70,16 +73,6 @@ class Tokenizer:
             return
         self.current_token += char
 
-    def _state_letter(self, char):
-        if char not in string.ascii_letters + string.digits + '_':
-            if self.current_token:
-                self._append()
-            self.current_token = ''
-            self.state = self._state_token
-            self._state_token(char)
-            return
-        self.current_token += char
-
     def _state_single_line_comment(self, char):
         if char == '\n':
             self.state = self._state_token
@@ -94,55 +87,71 @@ class Tokenizer:
         if char == '*':
             self.state = self._state_multi_line_comment_postlude
 
+    def _state_spaces(self, char):
+        if char not in self.spaces:
+            self.state = self._state_token
+            self.state(char)
+
     def _token_spaces(self, char):
         if self.current_token:
             self._append()
-        self.current_token = ''
-        if self.current_token_index == self.initial_index and self.tokens[self.initial_index]:
-            self._add_arg()
-        if char not in self.spaces:
-            self.state = self._state_token
+        if self.current_token_index == 1:
+            self.elements_stack[-1] = self.elements_stack[-1][0]
+            self._pop_arg()
+            self._push_arg()
+        self.state = self._state_spaces
 
     def _token_string(self):
         if self.current_token:
             self._append()
-        self.current_token = ''
         self.state = self._state_string
 
     def _token_char(self):
         if self.current_token:
             self._append()
-        self.current_token = ''
         self.state = self._state_char
 
     def _token_single_line_comment(self, char):
         if self.current_token:
             self._append()
-        self.current_token = ''
         self.state = self._state_single_line_comment
 
     def _token_letter(self, char):
-        if self.current_token:
-            self._append()
-        self.current_token = char
-        self.state = self._state_letter
+        self.current_token += char
 
     def _token_slash(self, char):
         self.state = self._state_multi_line_comment_prelude
 
-    def _add_arg(self):
+    def _push_arg(self):
         if self.current_token:
             self._append()
-            self.current_token = ''
-        self.tokens.append([])
-        self.current_token_index = len(self.tokens) - 1
+        self.elements_stack.append([])
+
+    def _pop_arg(self):
+        if self.current_token:
+            self._append()
+
+        element = self.elements_stack.pop()
+        if element:
+            self.elements_stack[-1].append(element)
 
     def _append(self):
-        self.tokens[self.current_token_index].append(self.current_token)
+        self.elements_stack[-1].append(self.current_token)
+        self.current_token = ''
+        self.current_token_index += 1
 
     def _state_token(self, char):
-        if char in self.args_splitter:
-            self._add_arg()
+        if self.args_splitter and char in self.args_splitter:
+            self._pop_arg()
+            self._push_arg()
+            return
+
+        if self.group_pairs and char in [_open for _open, _ in self.group_pairs]:
+            self._push_arg()
+            return
+
+        if self.group_pairs and char in [_close for _, _close in self.group_pairs]:
+            self._pop_arg()
             return
 
         if char in self.spaces:
@@ -165,21 +174,19 @@ class Tokenizer:
             self._token_char()
             return
 
-        if char in string.ascii_letters + string.digits + '_':
-            self._token_letter(char)
-            return
-
-        if self.current_token:
-            self._append()
-
-        self.current_token = char
-        self._append()
-        self.current_token = ''
-
         # special case for supporting labels on the same line of instruction and directives
         if self.current_token_index == 0 and char == ':':
-            self._add_arg()
             self.initial_index = 1
+            return
+
+        if char in self.interesting_symbols:
+            if self.current_token:
+                self._append()
+            self.current_token = char
+            self._append()
+            return
+
+        self._token_letter(char)
 
     def _state_comment(self, char):
         if char in ('\n', '\r'):
@@ -188,22 +195,30 @@ class Tokenizer:
     def _reset(self):
         if self.current_token:
             self._append()
-        if self.tokens[0]:
-            self.lines.append((self.line, self.tokens))
-        self.tokens = [[]]
+        while len(self.elements_stack) > 1:
+            self.elements_stack.pop()
+        if self.elements_stack and self.elements_stack[0]:
+            self.lines.append((self.line, self.elements_stack[0]))
         self.current_token = ''
         self.current_token_index = 0
         self.initial_index = 0
         self.line += 1
+        self.elements_stack = []
+        self._push_arg()
+        self._push_arg()
 
     def parse(self, code):
         """Tokenizes a block of code
 
         :param str code: the source code to tokenize
         """
+
+        self._reset()
+
         # hack for avoiding losing the last statement
         code += '\n'
-        for byte in code:
-            if byte == '\n':
+        for char in code:
+            if char == '\n':
+                self._pop_arg()
                 self._reset()
-            self.step(byte)
+            self.step(char)
