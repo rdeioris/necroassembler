@@ -147,6 +147,8 @@ class Instruction:
         for arg_index, arg_pattern in enumerate(pattern):
             if arg_pattern == Ellipsis:
                 return True
+            if arg_pattern is None:
+                continue
             # str
             if isinstance(arg_pattern, str):
                 if arg[arg_index].upper() != arg_pattern.upper():
@@ -193,6 +195,8 @@ class Instruction:
                     return False
             elif arg_pattern == Ellipsis:
                 return True
+            elif arg_pattern is None:
+                continue
             else:
                 if isinstance(arg_pattern, list):
                     if not self._match_arg_internal(self.args[arg_index], arg_pattern):

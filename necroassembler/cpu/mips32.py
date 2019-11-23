@@ -19,17 +19,17 @@ REGS_ALIAS = ('$zero', '$at', '$v0', '$v1', '$a0', '$a1',
 REGS = REGS_BASE + REGS_ALIAS
 
 
-def _is_immediate(token):
-    return token and not token.startswith('$')
+def _is_immediate(tokens):
+    return all([x not in REGS for x in tokens])
 
 
 IMMEDIATE = _is_immediate
 
 
-def _reg(reg):
-    if reg.lower() in REGS_BASE:
-        return int(reg[1:])
-    index = REGS_ALIAS.index(reg.lower())
+def _reg(tokens):
+    if tokens[0].lower() in REGS_BASE:
+        return int(tokens[0][1:])
+    index = REGS_ALIAS.index(tokens[0].lower())
     return int(REGS_BASE[index][1:])
 
 
@@ -40,14 +40,16 @@ class AssemblerMIPS32(Assembler):
 
     big_endian = True
 
-    def _immediate_signed(self, token):
-        return self.parse_integer_or_label(label=token, size=4, bits_size=16, signed=True, bits=(15, 0))
+    special_symbols = ('(', ')')
 
-    def _immediate_unsigned(self, token):
-        return self.parse_integer_or_label(label=token, size=4, bits_size=16, signed=False, bits=(15, 0))
+    def _immediate_signed(self, tokens):
+        return self.parse_integer_or_label(label=tokens, size=4, bits_size=16, signed=True, bits=(15, 0))
 
-    def _offset(self, token):
-        value = self.parse_integer(token, 16, signed=True)
+    def _immediate_unsigned(self, tokens):
+        return self.parse_integer_or_label(label=tokens, size=4, bits_size=16, signed=False, bits=(15, 0))
+
+    def _offset(self, tokens):
+        value = self.parse_integer(tokens, 16, signed=True)
         if value is None:
             raise LabelNotAllowed()
         return value

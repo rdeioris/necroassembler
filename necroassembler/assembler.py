@@ -499,12 +499,15 @@ class Assembler:
         orig_value = value
 
         # disable negative sign
-        if value < 0:
-            if only_positive:
-                raise OnlyPositiveValuesAllowed(orig_value)
-            else:
-                # this will rise exception in case of overflow
-                value = to_two_s_complement(value, number_of_bits)
+        if not signed:
+            if value < 0:
+                if only_positive:
+                    raise OnlyPositiveValuesAllowed(orig_value)
+                else:
+                    # this will rise exception in case of overflow
+                    value = to_two_s_complement(value, number_of_bits)
+        else:
+            value = to_two_s_complement(value, number_of_bits)
 
         # ...re-enable it if required (signed number)
         if signed:

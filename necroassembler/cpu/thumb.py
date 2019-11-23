@@ -11,16 +11,16 @@ PC = ('pc', 'r15')
 SP = ('sp', 'r13')
 
 
-def _immediate(token):
-    return len(token) > 1 and token.startswith('#')
+def _immediate(tokens):
+    return len(tokens) > 1 and tokens[0] == '#'
 
 
-def _label(token):
-    return token and not token.startswith('#')
+def _label(tokens):
+    return len(tokens) > 0 and tokens[0] != '#'
 
 
-def _interrupt(token):
-    return token.isdigit()
+def _interrupt(tokens):
+    return all([x.isdigit() for x in tokens])
 
 
 IMMEDIATE = _immediate
@@ -29,21 +29,21 @@ INTERRUPT = _interrupt
 
 
 def low_reg(reg):
-    if reg.lower() in HIGH_REGS:
+    if reg[0].lower() in HIGH_REGS:
         raise InvalidRegister()
-    if not reg.lower() in LOW_REGS:
+    if not reg[0].lower() in LOW_REGS:
         raise UnknownRegister()
-    return int(reg[1:])
+    return int(reg[0][1:])
 
 
 def high_reg(reg):
-    if reg.lower() in HIGH_REGS_ALIASES:
+    if reg[0].lower() in HIGH_REGS_ALIASES:
         return HIGH_REGS_ALIASES.index(reg.lower()) + 3
-    if reg.lower() in LOW_REGS:
+    if reg[0].lower() in LOW_REGS:
         raise InvalidRegister()
-    if reg.lower() not in HIGH_REGS:
+    if reg[0].lower() not in HIGH_REGS:
         raise UnknownRegister()
-    return int(reg[1:]) - 8
+    return int(reg[0][1:]) - 8
 
 
 class InvalidRList(AssemblerException):
@@ -55,6 +55,11 @@ class AssemblerThumb(Assembler):
     hex_prefixes = ('0x',)
 
     bin_prefixes = ('0b', '0y')
+
+    interesting_symbols = ('#')
+
+    special_symbols = ('[', ']', '{', '}')
+    math_brackets = ('(', ')')
 
     def _offset(self, arg, bits, alignment):
         return self.parse_integer_or_label(label=arg,
@@ -94,14 +99,13 @@ class AssemblerThumb(Assembler):
             return self._build_opcode(0b0100000000000000, ((9, 6), op), ((5, 3), rs), ((2, 0), rd))
 
     def _rlist(self, tokens):
-
         rlist = 0
         for token in tokens:
             if token in LOW_REGS:
-                bit_to_set = low_reg(token)
+                bit_to_set = low_reg([token])
                 rlist = pack_bit(rlist, (bit_to_set, 1))
                 continue
-            if '-' in token:
+            if token == '-':
                 r_start, r_end = token.split('-')
                 if not r_start.lower() in LOW_REGS:
                     raise InvalidRList()
@@ -464,17 +468,15 @@ class AssemblerThumb(Assembler):
 
     @opcode('PUSH')
     def _push(self, instr):
-        if len(instr.tokens) < 4:
-            return None
-
-        if instr.tokens[1] != '{' or instr.tokens[-1] != '}':
-            return None
-
-        lr = 0
-        if instr.tokens[-2].lower() == 'lr':
+        print('OK', instr)
+        if instr.match('{', None, '}'):
+            lr = 0
+        elif instr.match('{', None, 'lr', '}'):
+            print('FOUND')
             lr = 1
-
-        rlist = self._rlist(instr.tokens[2:-(1+lr)])
+        else:
+            return None
+        rlist = self._rlist(instr.args[1])
         return self._build_opcode(0b1011010000000000, ((11, 11), lr), ((7, 0), rlist))
 
 
