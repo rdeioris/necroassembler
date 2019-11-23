@@ -6,20 +6,19 @@ class Tokenizer:
 
     spaces = (' ', '\r', '\t', '\n')
 
-    def __init__(self, args_splitter, group_pairs, interesting_symbols, special_symbols=(), case_sensitive=False, context=None):
+    def __init__(self, args_splitter, interesting_symbols, special_symbols=(), case_sensitive=False, context=None):
         self.state = self._state_token
         self.current_token = ''
-        self.current_token_index = 0
+        self.current_arg = []
         self.statements = []
         self.case_sensitive = case_sensitive
-        self.line = 0  # will be incremented by reset
+        self.line = 1
         self.context = context
         self.args_splitter = args_splitter
         self.interesting_symbols = interesting_symbols
-        self.group_pairs = group_pairs
         self.special_symbols = special_symbols
         self.detected_label = False
-        self.elements_stack = []
+        self.tokens = []
 
     def step(self, char):
         """Advances the Tokenizer State Machine
@@ -96,21 +95,8 @@ class Tokenizer:
     def _token_spaces(self, char):
         if self.current_token:
             self._append()
-        if self.detected_label and self.elements_stack[-1]:
-            self._fix_label()
 
         self.state = self._state_spaces
-
-    def _fix_label(self):
-        self.detected_label = False
-        additional = ''
-        if len(self.elements_stack[-1]) > 1:
-            additional = self.elements_stack[-1][1]
-        self._pop_arg()
-        self._push_arg()
-        self.current_token = additional
-        if self.current_token:
-            self._append()
 
     def _token_string(self):
         if self.current_token:
@@ -133,45 +119,29 @@ class Tokenizer:
     def _token_slash(self, char):
         self.state = self._state_multi_line_comment_prelude
 
-    def _push_arg(self):
-        if self.current_token:
-            self._append()
-        self.elements_stack.append([])
-
-    def _pop_arg(self):
-        if self.current_token:
-            self._append()
-
-        element = self.elements_stack.pop()
-        if element:
-            self.elements_stack[-1].append(element)
-
     def _append(self):
-        self.elements_stack[-1].append(self.current_token)
+        self.current_arg.append(self.current_token)
         self.current_token = ''
-        self.current_token_index += 1
 
     def _state_token(self, char):
         if self.args_splitter and char in self.args_splitter:
-            self._pop_arg()
-            self._push_arg()
+            if self.current_token:
+                self._append()
+            if self.current_arg:
+                self.tokens.append(self.current_arg)
+            self.current_arg = []
             return
 
         if self.special_symbols and char in self.special_symbols:
-            self._pop_arg()
-            self._push_arg()
+            if self.current_token:
+                self._append()
+            if self.current_arg:
+                self.tokens.append(self.current_arg)
+            self.current_arg = []
             self.current_token = char
             self._append()
-            self._pop_arg()
-            self._push_arg()
-            return
-
-        if self.group_pairs and char in [_open for _open, _ in self.group_pairs]:
-            self._push_arg()
-            return
-
-        if self.group_pairs and char in [_close for _, _close in self.group_pairs]:
-            self._pop_arg()
+            self.tokens.append(self.current_arg)
+            self.current_arg = []
             return
 
         if char in self.spaces:
@@ -194,13 +164,6 @@ class Tokenizer:
             self._token_char()
             return
 
-        # special case for supporting labels on the same line of instruction and directives
-        if self.current_token_index == 0 and char == ':':
-            self.current_token += char
-            self._append()
-            self.detected_label = True
-            return
-
         if char in self.interesting_symbols:
             if self.current_token:
                 self._append()
@@ -217,33 +180,36 @@ class Tokenizer:
     def _reset(self):
         if self.current_token:
             self._append()
-        # hack for spaceless label
-        if self.detected_label and self.elements_stack[-1]:
-            additional = self.elements_stack[-1][0][1]
-            del(self.elements_stack[-1][0][1])
-            self.elements_stack[-1].insert(1, [additional])
-        while len(self.elements_stack) > 1:
-            self.elements_stack.pop()
-        if self.elements_stack and self.elements_stack[0]:
-            tokens = self.elements_stack[0]
-            if tokens[0][0]:
-                # special case, label followed by instruction
-                if tokens[0][0].endswith(':') and len(tokens) > 1:
-                    self.statements.append((self.line, [tokens[0][0]]))
-                    del(tokens[0])
-                tokens.insert(0, tokens[0][0])
+        if self.current_arg:
+            self.tokens.append(self.current_arg)
+        # now extract command (and label eventually)
+        if self.tokens and self.tokens[0]:
+            if self.tokens[0][0]:
+                self.tokens.insert(0, self.tokens[0][0])
+                del(self.tokens[1][0])
+                if not self.tokens[1]:
+                    del(self.tokens[1])
+            # command ends with ':' ?
+            if self.tokens[0].endswith(':'):
+                if len(self.tokens) > 1 and self.tokens[1] and self.tokens[1][0]:
+                    self.statements.append((self.line, [self.tokens[0]]))
+                    self.tokens[0] = self.tokens[1][0]
+                    del(self.tokens[1][0])
+                    if not self.tokens[1]:
+                        del(self.tokens[1])
+            # command contains ':'
+            elif ':' in self.tokens[0]:
+                label, command = self.tokens[0].split(':', 1)
+                self.statements.append((self.line, [label + ':']))
+                self.tokens[0] = command
 
-                del(tokens[1][0])
-                if not tokens[1]:
-                    del(tokens[1])
-                self.statements.append((self.line, tokens))
+            if self.tokens:
+                self.statements.append((self.line, self.tokens))
+            
+        self.current_arg = []
         self.current_token = ''
-        self.current_token_index = 0
+        self.tokens = []
         self.line += 1
-        self.elements_stack = []
-        self.detected_label = False
-        self._push_arg()
-        self._push_arg()
 
     def parse(self, code):
         """Tokenizes a block of code
@@ -251,12 +217,9 @@ class Tokenizer:
         :param str code: the source code to tokenize
         """
 
-        self._reset()
-
         # hack for avoiding losing the last statement
         code += '\n'
         for char in code:
             if char == '\n':
-                self._pop_arg()
                 self._reset()
             self.step(char)

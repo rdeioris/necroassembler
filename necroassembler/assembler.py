@@ -93,7 +93,6 @@ class Assembler:
     math_brackets = ('(', ')')
 
     interesting_symbols = ()
-    group_pairs = ()
     special_symbols = ()
 
     def __init__(self):
@@ -125,7 +124,6 @@ class Assembler:
         self.dec_suffixes = tuple(self.dec_suffixes)
         self.math_symbols = self.math_symbols.copy()
         self.interesting_symbols = tuple(self.interesting_symbols)
-        self.group_pairs = tuple(self.group_pairs)
         self.special_symbols = tuple(self.special_symbols)
 
         self._register_internal_directives()
@@ -207,7 +205,6 @@ class Assembler:
             context=context,
             interesting_symbols=tuple(
                 set(''.join(self.math_symbols.keys()))) + self.math_brackets + self.interesting_symbols,
-            group_pairs=self.group_pairs,
             special_symbols=self.special_symbols,
             args_splitter=self.args_splitter)
         tokenizer.parse(code)

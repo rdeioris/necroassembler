@@ -7,7 +7,6 @@ class TestTokenizer(unittest.TestCase):
     def setUp(self):
         self.tokenizer = Tokenizer(
             args_splitter=',',
-            group_pairs=[('(', ')')],
             interesting_symbols=('+', '-', '>', '<', '*', '/', '[', ']'))
 
     def test_parser_comment(self):
@@ -34,7 +33,7 @@ class TestTokenizer(unittest.TestCase):
         self.tokenizer.group_pairs = [('[', ']')]
         self.tokenizer.parse('one two + [three >> 8] + 5, foo + 2')
         self.assertEqual(self.tokenizer.statements[0], (1, [
-                         'one', ['two', '+', ['three', '>', '>', '8'], '+', '5'], ['foo', '+', '2']]))
+                         'one', ['two', '+', '[', 'three', '>', '>', '8', ']', '+', '5'], ['foo', '+', '2']]))
 
     def test_parser_multi_line_comment_inline(self):
         self.tokenizer.parse('  .db 0x17 /* nothing  */, 2 ,3')
@@ -79,14 +78,16 @@ class TestTokenizer(unittest.TestCase):
                          'FOO', ['$hello$world'], ['1', '2', '$foo!bar'], ['hello', 'world']]))
 
     def test_parser_6502_ind_x(self):
+        self.tokenizer.special_symbols = ('(', ')')
         self.tokenizer.parse('LDA ($44, X)')
         self.assertEqual(
-            self.tokenizer.statements[0], (1, ['LDA', [['$44'], ['X']]]))
+            self.tokenizer.statements[0], (1, ['LDA', ['('], ['$44'], ['X'], [')']]))
 
     def test_parser_6502_ind_y(self):
+        self.tokenizer.special_symbols = ('(', ')')
         self.tokenizer.parse('LDA ($44), Y')
         self.assertEqual(
-            self.tokenizer.statements[0], (1, ['LDA', [['$44']], ['Y']]))
+            self.tokenizer.statements[0], (1, ['LDA', ['('], ['$44'], [')'], ['Y']]))
 
     def test_parser_6502_zp_x(self):
         self.tokenizer.parse('LDA $44, X')
@@ -94,11 +95,13 @@ class TestTokenizer(unittest.TestCase):
             self.tokenizer.statements[0], (1, ['LDA', ['$44'], ['X']]))
 
     def test_parser_m68k_pre_dec(self):
+        self.tokenizer.special_symbols = ('(', ')')
         self.tokenizer.parse('MOVE.b d0, -(a0)')
         self.assertEqual(
-            self.tokenizer.statements[0], (1, ['MOVE.b', ['d0'], ['-', ['a0']]]))
+            self.tokenizer.statements[0], (1, ['MOVE.b', ['d0'], ['-'], ['('], ['a0'], [')']]))
 
     def test_parser_m68k_indirect_disp(self):
-        self.tokenizer.parse('MOVE.b d0, (1+( 2+3)*(10/(2* 3)), a0)')
+        self.tokenizer.special_symbols = ('(', ')')
+        self.tokenizer.parse('MOVE.b d0, (1+[ 2+3]*[10/[2* 3]], a0)')
         self.assertEqual(
-            self.tokenizer.statements[0], (1, ['MOVE.b', ['d0'], [['1', '+', ['2', '+', '3'], '*', ['10', '/', ['2', '*', '3']]], ['a0']]]))
+            self.tokenizer.statements[0], (1, ['MOVE.b', ['d0'], ['('], ['1', '+', '[', '2', '+', '3', ']', '*', '[', '10', '/', '[', '2', '*', '3', ']', ']'], ['a0'], [')']]))
