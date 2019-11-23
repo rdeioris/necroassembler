@@ -11,12 +11,12 @@ class MacroTemplate:
         self.assembler = assembler
         self.name = name
         self.args = args
-        self.start_line_index = assembler.line_index
+        self.start_statement_index = assembler.statement_index
 
     def __call__(self, instr):
         macro = Macro(self, instr.args)
         instr.assembler.push_scope(macro)
-        instr.assembler.line_index = self.start_line_index
+        instr.assembler.statement_index = self.start_statement_index
 
 
 class Macro(Scope):
@@ -42,7 +42,7 @@ class Macro(Scope):
             # check if we are in execution mode
             if isinstance(instr.assembler.get_current_scope(), Macro):
                 current_macro = instr.assembler.pop_scope()
-                instr.assembler.line_index = current_macro.caller_line_index
+                instr.assembler.statement_index = current_macro.caller_statement_index
                 return
             raise NotInMacroRecordingMode(instr)
         instr.assembler.macro_recording = None
@@ -51,6 +51,6 @@ class Macro(Scope):
         super().__init__(template.assembler)
         self.template = template
         self.args = args
-        self.caller_line_index = template.assembler.line_index
+        self.caller_statement_index = template.assembler.statement_index
         for index, arg in enumerate(self.template.args):
             self.defines[arg] = self.args[0][index]

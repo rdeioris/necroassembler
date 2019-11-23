@@ -16,12 +16,12 @@ class UnsupportedModeForOpcode(AssemblerException):
     message = 'unsupported opcode mode'
 
 
-def _check_immediate(token):
-    return len(token) > 1 and token.startswith('#')
+def _check_immediate(tokens):
+    return len(tokens) > 1 and tokens[0] == '#'
 
 
-def _check_address(token):
-    return token and not token.startswith('#')
+def _check_address(tokens):
+    return len(tokens) > 0 and not tokens[0] == '#'
 
 
 IMMEDIATE = _check_immediate
@@ -48,6 +48,12 @@ class AssemblerMOS6502(Assembler):
     bin_prefixes = ('%',)
 
     oct_prefixes = ('@',)
+
+    interesting_symbols = ('#',)
+
+    special_symbols = ('(', ')')
+
+    math_brackets = ('[', ']')
 
     def register_instructions(self):
 
@@ -92,7 +98,7 @@ class AssemblerMOS6502(Assembler):
 
     def _manage_address(self, absolute, zero_page, arg):
 
-        address = self.parse_integer(arg, 16, signed=False)
+        address = self.parse_integer(arg, 16, signed=False, only_positive=True)
 
         # numeric address ?
         if address is not None:
@@ -106,12 +112,11 @@ class AssemblerMOS6502(Assembler):
         # label management
 
         # check for already defined label (zero page optimization)
-        address = self.get_label_absolute_address_by_name(arg)
+        address = self.parse_integer_or_label(
+            label=arg, size=2, bits_size=16, offset=1)
         if address is None:
             if absolute is None:
                 raise AbsoluteAddressNotAllowed()
-            self.add_label_translation(
-                label=arg, size=2, bits_size=16, offset=1)
             return pack('<BH', absolute, 0)
 
         if zero_page is not None and is_zero_page(address):
@@ -120,8 +125,7 @@ class AssemblerMOS6502(Assembler):
         # normal labeling (postpone to linking phase)
         if absolute is None:
             raise AbsoluteAddressNotAllowed()
-        self.add_label_translation(label=arg, size=2, offset=1, bits_size=16)
-        return pack('<BH', absolute, 0)
+        return pack('<BH', absolute, address)
 
     def _manage_mode(self, instr, **kwargs):
 
@@ -151,10 +155,10 @@ class AssemblerMOS6502(Assembler):
             if instr.match('(', ADDRESS, ')'):
                 return self._manage_address(kwargs['indirect'], None, instr.args[1])
 
-            if instr.match(['(', ADDRESS], [REG_X, ')']):
+            if instr.match('(', ADDRESS, REG_X, ')'):
                 return self._manage_address(None, kwargs['indirect_x'], instr.args[1])
 
-            if instr.match(['(', ADDRESS], [')', REG_Y]):
+            if instr.match('(', ADDRESS, ')', REG_Y):
                 return self._manage_address(None, kwargs['indirect_y'], instr.args[1])
 
         except KeyError:

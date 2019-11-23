@@ -1,14 +1,14 @@
 from necroassembler.tokenizer import Tokenizer
 from necroassembler.utils import (pack_byte, pack_le32u, pack_le16u,
-                                  pack_be32u, pack_be16u, in_bit_range,
-                                  in_bit_range, two_s_complement, pack_bits)
+                                  pack_be32u, pack_be16u,
+                                  in_bit_range, two_s_complement, pack_bits, to_two_s_complement)
 from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode,
                                        AddressOverlap, NegativeSignNotAllowed, NotInRepeatMode,
                                        UnsupportedNestedRepeat,
                                        AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed,
                                        InvalidArgumentsForDirective, LabelNotAllowed, InvalidDefine,
-                                       SectionAlreadyDefined, SymbolAlreadyExported)
-                                    
+                                       SectionAlreadyDefined, SymbolAlreadyExported, OnlyPositiveValuesAllowed)
+
 from necroassembler.scope import Scope
 from necroassembler.macros import Macro
 from necroassembler.linker import Dummy
@@ -76,6 +76,26 @@ class Assembler:
 
     defines = {}
 
+    math_symbols = {'+': (lambda x, y: x + y, 2, 4),
+                    '++': (lambda x: x + 1, 1, 4),
+                    '-': (lambda x, y: x - y, 2, 4),
+                    '--': (lambda x: x - 1, 1, 4),
+                    '*': (lambda x, y: x * y, 2, 5),
+                    '/': (lambda x, y: x // y, 2, 5),
+                    '|': (lambda x, y: x | y, 2, 0),
+                    '&': (lambda x, y: x & y, 2, 2),
+                    '^': (lambda x, y: x ^ y, 2, 1),
+                    '~': (lambda x: ~x, 1, 6),
+                    '**': (lambda x, y: x ** y, 2, 7),
+                    '>>': (lambda x, y: x >> y, 2, 3),
+                    '<<': (lambda x, y: x << y, 2, 3)}
+
+    math_brackets = ('(', ')')
+
+    interesting_symbols = ()
+    group_pairs = ()
+    special_symbols = ()
+
     def __init__(self):
         self.instructions = {}
         self.directives = {}
@@ -91,19 +111,6 @@ class Assembler:
         self.current_section = None
         self.exports = []
         self.scopes_stack = []
-        self.math_symbols = {'+': (lambda x, y: x + y, 2, 4),
-                             '-': (lambda x, y: x - y, 2, 4),
-                             '*': (lambda x, y: x * y, 2, 5),
-                             '/': (lambda x, y: x // y, 2, 5),
-                             '|': (lambda x, y: x | y, 2, 0),
-                             '&': (lambda x, y: x & y, 2, 2),
-                             '^': (lambda x, y: x ^ y, 2, 1),
-                             '~': (lambda x: ~x, 1, 6),
-                             '**': (lambda x, y: x ** y, 2, 7),
-                             '>>': (lambda x, y: x >> y, 2, 3),
-                             '<<': (lambda x, y: x << y, 2, 3)}
-
-        self.interesting_symbols = ('(', ')', '[', ']', '{', '}', '<', '>')
 
         # avoid subclasses to overwrite parent
         # class variables by making a copy
@@ -116,6 +123,10 @@ class Assembler:
         self.oct_suffixes = tuple(self.oct_suffixes)
         self.dec_prefixes = tuple(self.dec_prefixes)
         self.dec_suffixes = tuple(self.dec_suffixes)
+        self.math_symbols = self.math_symbols.copy()
+        self.interesting_symbols = tuple(self.interesting_symbols)
+        self.group_pairs = tuple(self.group_pairs)
+        self.special_symbols = tuple(self.special_symbols)
 
         self._register_internal_directives()
         self._discover()
@@ -191,18 +202,21 @@ class Assembler:
         return self.scopes_stack[-1]
 
     def assemble(self, code, context=None):
-        
+
         tokenizer = Tokenizer(
             context=context,
-            interesting_symbols = tuple(self.math_symbols.keys()) + self.interesting_symbols,
+            interesting_symbols=tuple(
+                set(''.join(self.math_symbols.keys()))) + self.math_brackets + self.interesting_symbols,
+            group_pairs=self.group_pairs,
+            special_symbols=self.special_symbols,
             args_splitter=self.args_splitter)
         tokenizer.parse(code)
 
         self.push_scope(Scope(self))
-        self.line_index = 0
+        self.statement_index = 0
 
-        while self.line_index < len(tokenizer.lines):
-            line_number, tokens = tokenizer.lines[self.line_index]
+        while self.statement_index < len(tokenizer.statements):
+            line_number, tokens = tokenizer.statements[self.statement_index]
             instruction = Instruction(self, tokens, line_number, context)
             current_offset = len(self.assembled_bytes)
             instruction.assemble()
@@ -213,7 +227,7 @@ class Assembler:
                 else:
                     print('assembled line {0} -> ({1}) at 0x{2:x}'.format(line_number,
                                                                           ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_offset:]]), current_offset))
-            self.line_index += 1
+            self.statement_index += 1
 
         # check if we need to fill something
         if self.current_org_end > 0:
@@ -243,7 +257,8 @@ class Assembler:
             scope = data.scope
             is_relative = data.relative != 0
 
-            absolute_address = self.parse_integer(label, 64, False, scope)
+            absolute_address = self.parse_integer(
+                label, 64, False, False, scope)
             if not is_relative:
                 true_address = absolute_address
             else:
@@ -266,6 +281,9 @@ class Assembler:
 
             if not is_relative and true_address < 0:
                 raise OnlyForwardAddressesAllowed(label, true_address)
+
+            if is_relative:
+                true_address = to_two_s_complement(true_address, total_bits)
 
             if not in_bit_range(true_address, total_bits):
                 raise NotInBitRange(true_address, total_bits, label)
@@ -384,7 +402,7 @@ class Assembler:
 
         return stack.pop()
 
-    def parse_integer(self, args, number_of_bits, signed, labels_scope=None):
+    def parse_integer(self, args, number_of_bits, signed, only_positive=False, labels_scope=None):
         current_base = 10
         cleaned_args = []
 
@@ -403,7 +421,7 @@ class Assembler:
                 continue
 
             if arg == '<':
-                if cleaned_args[-1] == '<':
+                if cleaned_args and cleaned_args[-1] == '<':
                     cleaned_args[-1] = '<<'
                 else:
                     cleaned_args.append(arg)
@@ -411,7 +429,7 @@ class Assembler:
                 continue
 
             if arg == '>':
-                if cleaned_args[-1] == '>':
+                if cleaned_args and cleaned_args[-1] == '>':
                     cleaned_args[-1] = '>>'
                 else:
                     cleaned_args.append(arg)
@@ -419,14 +437,30 @@ class Assembler:
                 continue
 
             if arg == '*':
-                if cleaned_args[-1] == '*':
+                if cleaned_args and cleaned_args[-1] == '*':
                     cleaned_args[-1] = '**'
                 else:
                     cleaned_args.append(arg)
                 current_base = 10
                 continue
 
-            if arg in tuple(self.math_symbols.keys()) + ('(', ')'):
+            if arg == '+':
+                if cleaned_args and cleaned_args[-1] == '+':
+                    cleaned_args[-1] = '++'
+                else:
+                    cleaned_args.append(arg)
+                current_base = 10
+                continue
+
+            if arg == '-':
+                if cleaned_args and cleaned_args[-1] == '-':
+                    cleaned_args[-1] = '--'
+                else:
+                    cleaned_args.append(arg)
+                current_base = 10
+                continue
+
+            if arg in tuple(self.math_symbols.keys()) + self.math_brackets:
                 cleaned_args.append(arg)
                 current_base = 10
                 continue
@@ -446,17 +480,17 @@ class Assembler:
                     else:
                         return None
                 values_and_ops.append(value)
-            elif arg == '(':
+            elif self.math_brackets and arg == self.math_brackets[0]:
                 postfix_stack.append(arg)
-            elif arg == ')':
+            elif self.math_brackets and arg == self.math_brackets[1]:
                 # pop and output
-                while postfix_stack and postfix_stack[-1] != '(':
+                while postfix_stack and postfix_stack[-1] != self.math_brackets[0]:
                     item = postfix_stack.pop()
                     values_and_ops.append(item)
                 # TODO check for invalid state (not empty and not '(' on top)
                 postfix_stack.pop()
             else:
-                while postfix_stack and postfix_stack[-1] not in ('(', ')') and self.math_symbols[arg][2] <= self.math_symbols[postfix_stack[-1]][2]:
+                while postfix_stack and (self.math_brackets and postfix_stack[-1] not in self.math_brackets) and self.math_symbols[arg][2] <= self.math_symbols[postfix_stack[-1]][2]:
                     values_and_ops.append(postfix_stack.pop())
                 postfix_stack.append(arg)
 
@@ -469,17 +503,16 @@ class Assembler:
 
         # disable negative sign
         if value < 0:
-            value += pow(2, number_of_bits)
+            if only_positive:
+                raise OnlyPositiveValuesAllowed(orig_value)
+            else:
+                # this will rise exception in case of overflow
+                value = to_two_s_complement(value, number_of_bits)
 
-        # re-enable it if required
+        # ...re-enable it if required (signed number)
         if signed:
+            # this will rise exception in case of overflow
             value = two_s_complement(value, number_of_bits)
-            test_value = value
-            if value < 0:
-                test_value = value + pow(2, number_of_bits)
-
-            if not in_bit_range(test_value, number_of_bits):
-                raise NotInBitRange(orig_value, number_of_bits)
         else:
             if not in_bit_range(value, number_of_bits):
                 raise NotInBitRange(orig_value, number_of_bits)
@@ -865,34 +898,6 @@ class Assembler:
                 blob += bytes((item,))
 
         self.append_assembled_bytes(blob)
-
-    def _get_math_formula(self, token):
-        pre_formula = ''
-        post_formula = ''
-        for char in token:
-            if char in ('<', '>'):
-                pre_formula += char
-            else:
-                break
-
-        in_math = False
-        valid_chars = 0
-        for char in token[len(pre_formula):]:
-            if not in_math:
-                if char in ('+', '-', '*', '/', '&', '|'):
-                    if valid_chars < 1:
-                        break
-                    in_math = True
-                    post_formula += char
-                else:
-                    valid_chars += 1
-            else:
-                post_formula += char
-
-        if len(post_formula) > 0:
-            return token[len(pre_formula):len(token)-len(post_formula)], pre_formula, post_formula
-
-        return token[len(pre_formula):], pre_formula, post_formula
 
     def register_instruction(self, code, logic):
         key = code

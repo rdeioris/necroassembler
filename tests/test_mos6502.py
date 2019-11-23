@@ -1,6 +1,7 @@
 import unittest
 from necroassembler.cpu.mos6502 import AssemblerMOS6502, InvalidMode, UnsupportedModeForOpcode
-from necroassembler.exceptions import InvalidOpCodeArguments, NotInBitRange
+from necroassembler.exceptions import (
+    InvalidOpCodeArguments, NotInBitRange, OnlyForwardAddressesAllowed, OnlyPositiveValuesAllowed)
 
 
 class TestMOS6502(unittest.TestCase):
@@ -26,35 +27,35 @@ class TestMOS6502(unittest.TestCase):
 
     def test_lda_immediate_label(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #<test')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #test & $ff')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x05)))
 
     def test_lda_immediate_label_plus_one(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #<test+')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #[[test++] &$FF]')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x06)))
 
     def test_lda_immediate_label_plus_three(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #>test+++')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #[[test+3] & $ff]')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
-            (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x13)))
+            (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x08)))
 
     def test_lda_immediate_label_plus_dash(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #<test+-+-')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #[test+1-1+1-1] & $ff')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x05)))
 
     def test_lda_immediate_label_shift(self):
         self.asm.assemble(
-            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #>test')
+            '.org $1000\n.db 1,2,3,4,5\ntest: .db 6,7,8\nLDA #test>>8')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, bytes(
             (1, 2, 3, 4, 5, 6, 7, 8, 0xA9, 0x10)))
@@ -98,7 +99,7 @@ class TestMOS6502(unittest.TestCase):
                           self.asm.assemble, 'BIT #$17')
 
     def test_beq(self):
-        self.asm.assemble('loop:\nNOP\nBEQ loop')
+        self.asm.assemble('loop:NOP\nBEQ loop')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, b'\xEA\xF0\xFD')
 
@@ -106,6 +107,10 @@ class TestMOS6502(unittest.TestCase):
         self.asm.assemble('BEQ -3')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, b'\xF0\xFD')
+
+    def test_jmp_backward(self):
+        self.assertRaises(OnlyPositiveValuesAllowed,
+                          self.asm.assemble, 'JMP -3')
 
     def test_branch(self):
         self.asm.assemble(
@@ -348,6 +353,9 @@ class TestMOS6502(unittest.TestCase):
 
     def test_lda_wrong_negative(self):
         self.assertRaises(NotInBitRange, self.asm.assemble, 'LDA #-129')
+
+    def test_lda_wrong_positive(self):
+        self.assertRaises(NotInBitRange, self.asm.assemble, 'LDA #256')
 
     def test_lda_last_negative(self):
         self.asm.assemble('LDA #-128')

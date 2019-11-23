@@ -6,18 +6,19 @@ class Tokenizer:
 
     spaces = (' ', '\r', '\t', '\n')
 
-    def __init__(self, args_splitter, group_pairs, interesting_symbols, case_sensitive=False, context=None):
+    def __init__(self, args_splitter, group_pairs, interesting_symbols, special_symbols=(), case_sensitive=False, context=None):
         self.state = self._state_token
         self.current_token = ''
         self.current_token_index = 0
-        self.lines = []
+        self.statements = []
         self.case_sensitive = case_sensitive
-        self.line = 0 # will be incremented by reset
+        self.line = 0  # will be incremented by reset
         self.context = context
         self.args_splitter = args_splitter
         self.interesting_symbols = interesting_symbols
         self.group_pairs = group_pairs
-        self.initial_index = 0
+        self.special_symbols = special_symbols
+        self.detected_label = False
         self.elements_stack = []
 
     def step(self, char):
@@ -95,11 +96,21 @@ class Tokenizer:
     def _token_spaces(self, char):
         if self.current_token:
             self._append()
-        if self.current_token_index == 1:
-            self.elements_stack[-1] = self.elements_stack[-1][0]
-            self._pop_arg()
-            self._push_arg()
+        if self.detected_label and self.elements_stack[-1]:
+            self._fix_label()
+
         self.state = self._state_spaces
+
+    def _fix_label(self):
+        self.detected_label = False
+        additional = ''
+        if len(self.elements_stack[-1]) > 1:
+            additional = self.elements_stack[-1][1]
+        self._pop_arg()
+        self._push_arg()
+        self.current_token = additional
+        if self.current_token:
+            self._append()
 
     def _token_string(self):
         if self.current_token:
@@ -146,6 +157,15 @@ class Tokenizer:
             self._push_arg()
             return
 
+        if self.special_symbols and char in self.special_symbols:
+            self._pop_arg()
+            self._push_arg()
+            self.current_token = char
+            self._append()
+            self._pop_arg()
+            self._push_arg()
+            return
+
         if self.group_pairs and char in [_open for _open, _ in self.group_pairs]:
             self._push_arg()
             return
@@ -176,7 +196,9 @@ class Tokenizer:
 
         # special case for supporting labels on the same line of instruction and directives
         if self.current_token_index == 0 and char == ':':
-            self.initial_index = 1
+            self.current_token += char
+            self._append()
+            self.detected_label = True
             return
 
         if char in self.interesting_symbols:
@@ -195,15 +217,31 @@ class Tokenizer:
     def _reset(self):
         if self.current_token:
             self._append()
+        # hack for spaceless label
+        if self.detected_label and self.elements_stack[-1]:
+            additional = self.elements_stack[-1][0][1]
+            del(self.elements_stack[-1][0][1])
+            self.elements_stack[-1].insert(1, [additional])
         while len(self.elements_stack) > 1:
             self.elements_stack.pop()
         if self.elements_stack and self.elements_stack[0]:
-            self.lines.append((self.line, self.elements_stack[0]))
+            tokens = self.elements_stack[0]
+            if tokens[0][0]:
+                # special case, label followed by instruction
+                if tokens[0][0].endswith(':') and len(tokens) > 1:
+                    self.statements.append((self.line, [tokens[0][0]]))
+                    del(tokens[0])
+                tokens.insert(0, tokens[0][0])
+
+                del(tokens[1][0])
+                if not tokens[1]:
+                    del(tokens[1])
+                self.statements.append((self.line, tokens))
         self.current_token = ''
         self.current_token_index = 0
-        self.initial_index = 0
         self.line += 1
         self.elements_stack = []
+        self.detected_label = False
         self._push_arg()
         self._push_arg()
 

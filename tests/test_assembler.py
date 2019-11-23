@@ -2,6 +2,7 @@ import unittest
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_be32u, pack_bits
 from necroassembler.exceptions import UnsupportedNestedMacro, NotInBitRange, UnknownLabel
+from necroassembler.statements import Instruction
 
 
 class TestAssembler(unittest.TestCase):
@@ -12,6 +13,7 @@ class TestAssembler(unittest.TestCase):
         bin_prefixes = ('%', '0b')
 
         big_endian = True
+        math_brackets = ('(', ')')
 
         @opcode('LOAD')
         def load(self, instr):
@@ -135,6 +137,24 @@ class TestAssembler(unittest.TestCase):
         """
         self.asm.assemble(code)
         self.assertEqual(self.asm.assembled_bytes, b'\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x00\x01\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x00')
+
+    def test_macro_with_labels_and_link(self):
+        code = """
+        .macro HELLO iterations
+        .db 2
+        foobar:
+        .repeat iterations
+        .db 1
+        .endrepeat
+        LOAD foobar
+        .endmacro
+
+        HELLO 1
+        HELLO 2
+        """
+        self.asm.assemble(code)
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x02\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x01\x02\x01\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x0B')
 
     def test_pack_bits(self):
         self.assertEqual(pack_bits(0b00000000000,
@@ -276,3 +296,8 @@ class TestAssembler(unittest.TestCase):
     def test_upto_after_goto(self):
         self.asm.assemble('.org 1\n.db 0\n.org 10\n.upto 100')
         self.assertEqual(len(self.asm.assembled_bytes), 101)
+
+    def test_instruction_match(self):
+        statement = Instruction(self.asm, ['LOAD', ['X'], [[['Y', 'Z']]]], 1, None)
+        statement.assemble()
+        self.assertTrue(statement.match('X', [[['Y', 'Z']]]))

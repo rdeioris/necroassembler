@@ -63,6 +63,12 @@ class OnlyForwardAddressesAllowed(AssemblerException):
         super().__init__()
 
 
+class OnlyPositiveValuesAllowed(AssemblerException):
+    def __init__(self, value):
+        self.message = 'value {0} is not positive or zero'.format(value)
+        super().__init__()
+
+
 class UnknownDirective(AssemblerException):
     message = 'unknown directive'
 

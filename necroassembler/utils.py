@@ -110,13 +110,29 @@ def pack_bits_be16u(base, *args):
 
 
 def in_bit_range(value, number_of_bits):
-    max_value = pow(2, number_of_bits) - 1
-    return value & max_value == value
+    max_value = (1 << number_of_bits) - 1
+    return (value & max_value) == value
+
 
 def two_s_complement(value, number_of_bits):
+    if not in_bit_range(value, number_of_bits):
+        raise NotInBitRange(value, number_of_bits)
     # negative number ?
     if value & (1 << (number_of_bits-1)) != 0:
         value -= 1 << number_of_bits
+    return value
+
+
+def to_two_s_complement(value, number_of_bits):
+    min_value = -(1 << number_of_bits-1)
+    max_value = (1 << (number_of_bits-1)) - 1
+
+    if value < min_value or value > max_value:
+        raise NotInBitRange(value, number_of_bits)
+
+    if value < 0:
+        value &= (max_value << 1) + 1
+
     return value
 
 
