@@ -149,10 +149,15 @@ def is_valid_label(name):
 
 
 def match(iterable, *args):
-    if len(iterable) != len(args):
+    skip_size = False
+    if args and args[-1] == Ellipsis:
+        if len(iterable) < len(args):
+            return False
+        skip_size = True
+    if not skip_size and len(iterable) != len(args):
         return False
     for index, pattern in enumerate(args):
-        if pattern is None:
+        if pattern in (None, Ellipsis):
             continue
 
         if isinstance(pattern, str):

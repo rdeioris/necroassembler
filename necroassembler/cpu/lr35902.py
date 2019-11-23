@@ -1,27 +1,22 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_byte, pack_le16u, pack_8s
+from necroassembler.utils import pack_byte, pack_le16u, pack_8s, match
 from necroassembler.exceptions import InvalidOpCodeArguments
 
 REGS8 = ('A', 'F', 'B', 'C', 'D', 'E', 'H', 'L')
-REGS16 = ('AF', 'BC', 'DE', 'HL', 'HL+', 'HL-', 'SP')
+REGS16 = ('AF', 'BC', 'DE', 'HL', 'SP')
 CONDITIONS = ('Z', 'C', 'NZ', 'NC')
 
 
-def _is_value(token):
-    return token.upper() not in REGS8 + REGS16 + CONDITIONS + ('(', ')', '[', ']')
+def _is_value(tokens):
+    return not any([x in REGS8 + REGS16 + CONDITIONS + ('(', ')', '[', ']') for x in tokens])
 
 
-def _is_number(token):
-    return token.isdigit()
-
-
-def _is_ldh(token):
-    return token.startswith('$FF00+') and token != '$FF00+C'
+def _is_number(tokens):
+    return all([x.isdigit() for x in tokens])
 
 
 VALUE = _is_value
 NUMBER = _is_number
-LDH = _is_ldh
 
 
 class AssemblerLR35902(Assembler):
@@ -31,6 +26,9 @@ class AssemblerLR35902(Assembler):
     bin_prefixes = ('%',)
 
     oct_prefixes = ('@',)
+
+    special_symbols = ('(', ')', '[', ']')
+    math_brackets = ('{', '}')
 
     def register_instructions(self):
         self.register_instruction('NOP', b'\x00')
@@ -66,7 +64,7 @@ class AssemblerLR35902(Assembler):
         return pack_le16u(value)
 
     def _reg_name(self, reg):
-        return reg.lower().replace('+', '_plus').replace('-', '_minus')
+        return reg[0].lower()
 
     def _build_cb_opcode(self, instr, **kwargs):
         try:
@@ -77,10 +75,10 @@ class AssemblerLR35902(Assembler):
             if instr.match('(', 'HL', ')') or instr.match('[', 'HL', ']'):
                 return pack_byte(0xCB, kwargs['ind_hl'])
             if instr.match(NUMBER, REGS8):
-                value, reg8 = instr.apply(str, self._reg_name)
+                value, reg8 = instr.apply(''.join, self._reg_name)
                 return pack_byte(0xCB, kwargs['b' + value + '_' + reg8])
             if instr.match(NUMBER, '(', 'HL', ')') or instr.match(NUMBER, '[', 'HL', ']'):
-                value = instr.tokens[1]
+                value = ''.join(instr.args[0])
                 return pack_byte(0xCB, kwargs['b' + value + '_ind_hl'])
 
         except KeyError:
@@ -100,15 +98,15 @@ class AssemblerLR35902(Assembler):
                 condition, = instr.apply(self._reg_name)
                 return pack_byte(kwargs[condition])
 
-            if instr.match('(', '$FF00+C', ')', 'A') or instr.match('[', '$FF00+C', ']', 'A'):
+            if instr.match('(', '$FF00', '+', 'C', ')', 'A') or instr.match('[', '$FF00', '+', 'C', ']', 'A'):
                 return pack_byte(kwargs['ind_c_a'])
 
-            if instr.match('(', LDH, ')', 'A') or instr.match('[', LDH, ']', 'A'):
-                value = self._data8(instr.tokens[2][6:])
+            if instr.match('(', '$FF00', '+', None, ')', 'A') or instr.match('[', '$FF00', '+', None, ']', 'A'):
+                value = self._data8(instr.args[3])
                 return pack_byte(kwargs['ind_a8_a']) + value
 
-            if instr.match('A', '(', LDH, ')') or instr.match('A', '[', LDH, ']'):
-                value = self._data8(instr.tokens[3][6:])
+            if instr.match('A', '(', '$FF00', '+', None, ')') or instr.match('A', '[', '$FF00', '+', None, ']'):
+                value = self._data8(instr.args[4])
                 return pack_byte(kwargs['a_ind_a8']) + value
 
             if instr.match(REGS8, REGS8):
@@ -131,6 +129,12 @@ class AssemblerLR35902(Assembler):
                     None, self._reg_name, None, self._reg_name)
                 return pack_byte(kwargs['ind_' + reg16 + '_' + reg8])
 
+            if instr.match('(', ['HL', '+'], ')', REGS8) or instr.match('[', ['HL', '+'], ']', REGS8):
+                return pack_byte(kwargs['ind_hl_plus_' + self._reg_name(instr.args[3])])
+
+            if instr.match('(', ['HL', '-'], ')', REGS8) or instr.match('[', ['HL', '-'], ']', REGS8):
+                return pack_byte(kwargs['ind_hl_minus_' + self._reg_name(instr.args[3])])
+
             if instr.match(REGS8):
                 reg8, = instr.apply(self._reg_name)
                 return pack_byte(kwargs[reg8])
@@ -147,6 +151,12 @@ class AssemblerLR35902(Assembler):
                 reg8, reg16 = instr.apply(
                     self._reg_name, None, self._reg_name, None)
                 return pack_byte(kwargs[reg8 + '_ind_' + reg16])
+
+            if instr.match(REGS8, '(', ['HL', '+'], ')') or instr.match(REGS8, '[', ['HL', '+'], ']'):
+                return pack_byte(kwargs[self._reg_name(instr.args[0]) + '_ind_hl_plus'])
+
+            if instr.match(REGS8, '(', ['HL', '-'], ')') or instr.match(REGS8, '[', ['HL', '-'], ']'):
+                return pack_byte(kwargs[self._reg_name(instr.args[0]) + '_ind_hl_minus'])
 
             if instr.match(REGS8, '(', REGS8, ')') or instr.match(REGS8, '[', REGS8, ']'):
                 reg8, reg8_2 = instr.apply(
@@ -178,6 +188,11 @@ class AssemblerLR35902(Assembler):
                     None, self._reg_name, None, self._data8)
                 return pack_byte(kwargs['ind_' + reg16 + '_d8']) + value
 
+            if instr.match('(', REGS8, ')', REGS8) or instr.match('[', REGS8, ']', REGS8):
+                reg8_ind, reg8 = instr.apply(
+                    None, self._reg_name, None, self._reg_name)
+                return pack_byte(kwargs['ind_' + reg8_ind + '_' + reg8])
+
             if instr.match(VALUE):
                 if 'r8' in kwargs:
                     value, = instr.apply(self._rel8)
@@ -206,14 +221,8 @@ class AssemblerLR35902(Assembler):
 
     @opcode('LD')
     def _ld(self, instr):
-        if len(instr.tokens) > 2:
-            value = None
-            if instr.tokens[2].startswith('SP+'):
-                value = self._rel8(instr.tokens[2][3:])
-            elif instr.tokens[2].startswith('SP-'):
-                value = self._rel8(instr.tokens[2][2:])
-            if value is not None:
-                return pack_byte(0xF8) + value
+        if instr.match('HL', ['SP', ('+', '-'), ...]):
+            return pack_byte(0xF8) + self._rel8(instr.args[1][1:])
         return self._build_opcode(instr,
                                   bc_d16=0x01,
                                   ind_bc_a=0x02,
@@ -819,8 +828,8 @@ class AssemblerLR35902(Assembler):
     def _rst(self, instr):
         vectors_table = {'00H': 0xC7, '08H': 0xCF, '10H': 0xD7,
                          '18H': 0xDf, '20H': 0xE7, '28H': 0xEF, '30H': 0xF7, '38H': 0xFF}
-        if instr.match(vectors_table.keys()):
-            return pack_byte(vectors_table[instr.tokens[1].upper()])
+        if instr.match(tuple(vectors_table.keys())):
+            return pack_byte(vectors_table[instr.args[0][0].upper()])
 
 
 if __name__ == '__main__':

@@ -16,7 +16,7 @@ def _build_modrm(assembler, modrm):
 
     if modrm.get('displacement') is not None:
         blob += pack_le16s(assembler.parse_integer_or_label(
-            modrm['displacement'].lstrip('+'),
+            modrm['displacement'],
             size=2,
             bits_size=16,
             offset=1,
@@ -26,81 +26,79 @@ def _build_modrm(assembler, modrm):
 
 def _get_modrm_mod(arg):
     if match(arg, 'BX', '+', 'SI'):
-        return 0b00, 0b000, 3, None
+        return 0b00, 0b000, None
     if match(arg, 'BX', '+', 'DI'):
-        return 0b00, 0b001, 3, None
+        return 0b00, 0b001, None
     if match(arg, 'BP', '+', 'SI'):
-        return 0b00, 0b010, 3, None
+        return 0b00, 0b010, None
     if match(arg, 'BP', '+', 'DI'):
-        return 0b00, 0b011, 3, None
+        return 0b00, 0b011, None
     if match(arg, 'SI'):
-        return 0b00, 0b100, 1, None
+        return 0b00, 0b100, None
     if match(arg, 'DI'):
-        return 0b00, 0b101, 1, None
+        return 0b00, 0b101, None
     if match(arg, 'BP'):
-        return 0b00, 0b110, 1, None
+        return 0b00, 0b110, None
     if match(arg, 'BX'):
-        return 0b00, 0b111, 1, None
+        return 0b00, 0b111, None
     # displacement (16 bit only)
-    if match(arg, 'BX', '+', 'SI', ('+', '-'), None):
-        return 0b10, 0b000, 5, arg[3] + arg[4]
-    if match(arg, 'BX', '+', 'DI', ('+', '-'), None):
-        return 0b10, 0b001, 5, arg[3] + arg[4]
-    if match(arg, 'BP', '+', 'SI', ('+', '-'), None):
-        return 0b10, 0b010, 5, arg[3] + arg[4]
-    if match(arg, 'BP', '+', 'DI', ('+', '-'), None):
-        return 0b10, 0b011, 5, arg[3] + arg[4]
-    if match(arg, 'SI', ('+', '-'), None):
-        return 0b10, 0b100, 3, arg[1] + arg[2]
-    if match(arg, 'DI', ('+', '-'), None):
-        return 0b10, 0b101, 3, arg[1] + arg[2]
-    if match(arg, 'BP', ('+', '-'), None):
-        return 0b10, 0b110, 3, arg[1] + arg[2]
-    if match(arg, 'BX', ('+', '-'), None):
-        return 0b10, 0b111, 3, arg[1] + arg[2]
+    if match(arg, 'BX', '+', 'SI', ('+', '-'), ...):
+        return 0b10, 0b000, arg[3:]
+    if match(arg, 'BX', '+', 'DI', ('+', '-'), ...):
+        return 0b10, 0b001, arg[3:]
+    if match(arg, 'BP', '+', 'SI', ('+', '-'), ...):
+        return 0b10, 0b010, arg[3:]
+    if match(arg, 'BP', '+', 'DI', ('+', '-'), ...):
+        return 0b10, 0b011, arg[3:]
+    if match(arg, 'SI', ('+', '-'), ...):
+        return 0b10, 0b100, arg[1:]
+    if match(arg, 'DI', ('+', '-'), ...):
+        return 0b10, 0b101, arg[1:]
+    if match(arg, 'BP', ('+', '-'), ...):
+        return 0b10, 0b110, arg[1:]
+    if match(arg, 'BX', ('+', '-'), ...):
+        return 0b10, 0b111, arg[1:]
     raise InvalidOpCodeArguments()
 
 
 def _Gb(instr, assembler, index, modrm):
-    reg = instr.tokens[index].upper()
-    if reg in REGS8:
-        modrm['reg'] = REGS8.index(reg)
-        if index > 1:
+    if instr.match_arg(index, REGS8):
+        modrm['reg'] = REGS8.index(instr.args[index][0])
+        if index > 0:
             return 1, _build_modrm(assembler, modrm)
         return 1, b''
 
 
 def _Gv(instr, assembler, index, modrm):
-    reg = instr.tokens[index].upper()
-    if reg in REGS16:
-        modrm['reg'] = REGS16.index(reg)
-        if index > 1:
+    if instr.match_arg(index, REGS16):
+        modrm['reg'] = REGS16.index(instr.args[index][0])
+        if index > 0:
             return 1, _build_modrm(assembler, modrm)
         return 1, b''
 
 
 def _AL(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'AL':
+    if instr.match_arg(index, 'AL'):
         return 1, b''
 
 
 def _BL(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'BL':
+    if instr.match_arg(index, 'BL'):
         return 1, b''
 
 
 def _CL(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'CL':
+    if instr.match_arg(index, 'CL'):
         return 1, b''
 
 
 def _DL(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'DL':
+    if instr.match_arg(index, 'DL'):
         return 1, b''
 
 
 def _AH(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'AH':
+    if instr.match_arg(index, 'AH'):
         return 1, b''
 
 
@@ -110,93 +108,92 @@ def _BH(instr, assembler, index, modrm):
 
 
 def _CH(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'CH':
+    if instr.match_arg(index, 'CH'):
         return 1, b''
 
 
 def _DH(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'DH':
+    if instr.match_arg(index, 'DH'):
         return 1, b''
 
 
 def _eAX(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'AX':
+    if instr.match_arg(index, 'AX'):
         return 1, b''
 
 
 def _eBX(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'BX':
+    if instr.match_arg(index, 'BX'):
         return 1, b''
 
 
 def _eCX(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'CX':
+    if instr.match_arg(index, 'CX'):
         return 1, b''
 
 
 def _eDX(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'DX':
+    if instr.match_arg(index, 'DX'):
         return 1, b''
 
 
 def _eSP(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'SP':
+    if instr.match_arg(index, 'SP'):
         return 1, b''
 
 
 def _eBP(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'BP':
+    if instr.match_arg(index, 'BP'):
         return 1, b''
 
 
 def _eDI(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'DI':
+    if instr.match_arg(index, 'DI'):
         return 1, b''
 
 
 def _eSI(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'SI':
+    if instr.match_arg(index, 'SI'):
         return 1, b''
 
 
 def _ES(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'ES':
+    if instr.match_arg(index, 'ES'):
         return 1, b''
 
 
 def _CS(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'CS':
+    if instr.match_arg(index, 'CS'):
         return 1, b''
 
 
 def _DS(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'DS':
+    if instr.match_arg(index, 'DS'):
         return 1, b''
 
 
 def _SS(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() == 'SS':
+    if instr.match_arg(index, 'SS'):
         return 1, b''
 
 
 def _Ib(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS + ('[', ']'):
+    if not instr.match_arg(index, REGS8 + REGS16 + SEGMENTS + ('[', ']')):
         return 1, pack_byte(assembler.parse_integer_or_label(
-            instr.tokens[index], size=1, bits_size=8, offset=1))
+            instr.args[index], size=1, bits_size=8, offset=1))
 
 
 def _Iv(instr, assembler, index, modrm):
-    if instr.tokens[index].upper() not in REGS8 + REGS16 + SEGMENTS + ('[', ']'):
+    if not instr.match_arg(index, REGS8 + REGS16 + SEGMENTS + ('[', ']')):
         return 1, pack_le16u(assembler.parse_integer_or_label(
-            instr.tokens[index], size=2, bits_size=16, offset=1))
+            instr.args[index], size=2, bits_size=16, offset=1))
 
 
 def _Jb(instr, assembler, index, modrm):
-    arg = instr.tokens[index]
-    if ':' not in arg and arg.upper() not in REGS8 + REGS16 + SEGMENTS:
+    if not instr.match_arg(index, REGS8 + REGS16 + SEGMENTS + ('[', ']')):
         return 1, pack_8s(
             assembler.parse_integer_or_label(
-                arg,
+                instr.args[index],
                 size=1,
                 bits_size=8,
                 offset=1,
@@ -204,65 +201,60 @@ def _Jb(instr, assembler, index, modrm):
 
 
 def _Ob(instr, assembler, index, modrm):
-    if match(instr.tokens[index:index+3], '[', None, ']'):
-        if instr.tokens[index+1].upper() not in REGS8 + REGS16 + SEGMENTS:
+    if instr.match_arg(index, '[') and instr.match_arg(index+2, ']'):
+        try:
             return 3, pack_le16u(assembler.parse_integer_or_label(
-                instr.tokens[index+1], size=1, bits_size=8, offset=1))
+                instr.args[index+1], size=1, bits_size=8, offset=1))
+        except InvalidOpCodeArguments:
+            return None
 
 
 def _Ov(instr, assembler, index, modrm):
-    if match(instr.tokens[index:index+3], '[', None, ']'):
-        if instr.tokens[index+1].upper() not in REGS8 + REGS16 + SEGMENTS:
+    if instr.match_arg(index, '[') and instr.match_arg(index+2, ']'):
+        try:
             return 3, pack_le16u(assembler.parse_integer_or_label(
-                instr.tokens[index+1], size=2, bits_size=16, offset=1))
+                instr.args[index+1], size=2, bits_size=16, offset=1))
+
+        except InvalidOpCodeArguments:
+            return None
 
 
 def _Eb(instr, assembler, index, modrm):
-    arg = instr.tokens[index].upper()
-    if arg in REGS8:
+    if instr.match_arg(index, REGS8):
         modrm['mod'] = 3
-        modrm['rm'] = REGS8.index(arg)
+        modrm['rm'] = REGS8.index(instr.args[index][0])
         return 1, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
 
-    if arg == '[':
+    if instr.match_arg(index, '[') and instr.match_arg(index+2, ']'):
         try:
-            end_index = instr.tokens.index(']', index+1)
-        except ValueError:
-            raise InvalidOpCodeArguments(instr)
-        try:
-            modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
-                tuple(instr.tokens[index+1:end_index]))
-            return 2 + delta, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
+            modrm['mod'], modrm['rm'], modrm['displacement'] = _get_modrm_mod(
+                tuple(instr.args[index+1]))
+            return 3, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
         except InvalidOpCodeArguments:
             return None
 
 
 def _Ev(instr, assembler, index, modrm):
-    arg = instr.tokens[index].upper()
-    if arg in REGS16:
+    if instr.match_arg(index, REGS16):
         modrm['mod'] = 3
-        modrm['rm'] = REGS16.index(arg)
+        modrm['rm'] = REGS16.index(instr.args[index][0])
         return 1, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
 
-    if arg == '[':
+    if instr.match_arg(index, '[') and instr.match_arg(index+2, ']'):
         try:
-            end_index = instr.tokens.index(']', index+1)
-        except ValueError:
-            raise InvalidOpCodeArguments(instr)
-        try:
-            modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
-                tuple(instr.tokens[index+1:end_index]))
-            return 2 + delta, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
+            modrm['mod'], modrm['rm'], modrm['displacement'] = _get_modrm_mod(
+                tuple(instr.args[index+1]))
+            return 3, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
         except InvalidOpCodeArguments:
             return None
 
 
 def _I0(instr, assembler, index, modrm):
-    if len(instr.tokens) == 1:
+    if len(instr.args) == 0:
         return 1, b''
-    if len(instr.tokens) == 2:
+    if len(instr.args) == 1:
         value = assembler.parse_integer(
-            instr.tokens[index], 8, False)
+            instr.args[index], 8, False)
         if value is None:
             return None
         if value == 0xA:
@@ -271,35 +263,32 @@ def _I0(instr, assembler, index, modrm):
 
 
 def _Sw(instr, assembler, index, modrm):
-    reg = instr.tokens[index].upper()
-    if reg in SEGMENTS:
-        modrm['reg'] = SEGMENTS.index(reg)
+    if instr.match_arg(index, SEGMENTS):
+        modrm['reg'] = SEGMENTS.index(instr.args[index][0])
         if index > 1:
             return 1, _build_modrm(assembler, modrm)
         return 1, b''
 
 
 def _M(instr, assembler, index, modrm):
-    if instr.tokens[index] == '[':
+    if instr.match_arg(index, '[') and instr.match_arg(index+2, ']'):
         try:
-            end_index = instr.tokens.index(']', index+1)
-        except ValueError:
-            raise InvalidOpCodeArguments(instr)
-        try:
-            modrm['mod'], modrm['rm'], delta, modrm['displacement'] = _get_modrm_mod(
-                tuple(instr.tokens[index+1:end_index]))
-            return 2 + delta, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
+            modrm['mod'], modrm['rm'], modrm['displacement'] = _get_modrm_mod(
+                tuple(instr.args[index+1]))
+            return 3, b'' if 'reg' not in modrm else _build_modrm(assembler, modrm)
         except InvalidOpCodeArguments:
             return None
 
 
 def _Mp(instr, assembler, index, modrm):
-    if match(instr.tokens[index:index+3], '[', None, ']'):
-        if instr.tokens[index+1].upper() not in REGS8 + REGS16 + SEGMENTS:
+    if instr.match_arg(index, '[') and instr.match_arg(index+2, ']'):
+        try:
             modrm['mod'] = 0
             modrm['rm'] = 6
             return 3, _build_modrm(assembler, modrm) + pack_le16u(assembler.parse_integer_or_label(
-                instr.tokens[index+1], size=2, bits_size=16, offset=1))
+                instr.args[index+1], size=2, bits_size=16, offset=1))
+        except InvalidOpCodeArguments:
+            return None
 
 
 def _Ap(instr, assembler, index, modrm):
@@ -313,21 +302,20 @@ def _Ap(instr, assembler, index, modrm):
 
 
 def _3(instr, assembler, index, modrm):
-    if instr.tokens[index] == '3':
+    if instr.match_arg(index, '3'):
         return 1, b''
 
 
 def _1(instr, assembler, index, modrm):
-    if instr.tokens[index] == '1':
+    if instr.match_arg(index, '1'):
         return 1, b''
 
 
 def _Jv(instr, assembler, index, modrm):
-    arg = instr.tokens[index]
-    if ':' not in arg and arg.upper() not in REGS8 + REGS16 + SEGMENTS:
+    if not instr.match_arg(index, REGS8 + REGS16 + SEGMENTS + ('[', ']')):
         return 1, pack_le16u(
             assembler.parse_integer_or_label(
-                arg,
+                instr.args[index],
                 size=2,
                 bits_size=16,
                 offset=1,
@@ -568,18 +556,19 @@ class Intel8086OpCode:
         self.conditions.append((base, args))
 
     def __call__(self, instr):
+        print(instr)
         for base, args in self.conditions:
             modrm = {}
             if base > 0xFF:
                 modrm['reg'] = base & 0xFF
                 base = base >> 8
             if not args:
-                if len(instr.tokens) == 1:
+                if len(instr.args) == 0:
                     return pack_byte(base)
                 raise InvalidOpCodeArguments(instr)
-            if len(instr.tokens) < 2:
+            if len(instr.args) < 1:
                 continue
-            index = 1
+            index = 0
             skip = False
             full_blob = b''
             for arg in args:
@@ -607,6 +596,9 @@ class AssemblerIntel8086(Assembler):
 
     oct_prefixes = ('0o', '0q')
     oct_suffixes = ('o', 'q')
+
+    special_symbols = ('[', ']')
+    math_brackets = ('(', ')')
 
     def register_instructions(self):
         for item in OPCODES_TABLE:

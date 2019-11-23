@@ -115,13 +115,17 @@ class Instruction:
         self.assembler.append_assembled_bytes(blob)
 
     def match_arg(self, index, *pattern):
+        if index >= len(self.args):
+            return False
         arg = self.args[index]
         if isinstance(pattern, str) or callable(pattern):
             return self._match_arg_simple(arg, pattern)
-        return self._match_arg_internal(arg, *pattern)
+        if isinstance(pattern, list):
+            return self._match_arg_internal(arg, pattern)
+        return self._match_arg_internal(arg, [pattern])
 
     def _match_arg_simple(self, arg, rule):
-         # str
+        # str
         if isinstance(rule, str):
             if len(arg) == 1 and arg[0].upper() == rule.upper():
                 return True
@@ -130,11 +134,19 @@ class Instruction:
                 return True
         return False
 
-    def _match_arg_internal(self, arg, *pattern):
-        if len(arg) != len(pattern):
+    def _match_arg_internal(self, arg, pattern):
+        skip_size = False
+        if pattern and pattern[-1] == Ellipsis:
+            if len(arg) < len(pattern):
+                return False
+            skip_size = True
+
+        if not skip_size and len(arg) != len(pattern):
             return False
 
         for arg_index, arg_pattern in enumerate(pattern):
+            if arg_pattern == Ellipsis:
+                return True
             # str
             if isinstance(arg_pattern, str):
                 if arg[arg_index].upper() != arg_pattern.upper():
@@ -145,13 +157,13 @@ class Instruction:
             if isinstance(arg_pattern, list):
                 if not isinstance(arg[arg_index], list):
                     return False
-                if not self._match_arg_internal(arg[arg_index], *arg_pattern):
+                if not self._match_arg_internal(arg[arg_index], arg_pattern):
                     return False
                 continue
 
             # multiple choices
             if isinstance(arg_pattern, tuple):
-                if not any([len(arg[arg_index]) == 1 and arg[arg_index][0].upper() == x.upper() for x in arg_pattern]):
+                if not any([arg[arg_index].upper() == x.upper() for x in arg_pattern]):
                     return False
                 continue
 
@@ -161,17 +173,43 @@ class Instruction:
                     return False
                 continue
 
+            return False
+
         return True
 
     def match(self, *pattern):
         # first check if the number of arguments matches
-        if len(self.args) != len(pattern):
+        skip_size = False
+        if pattern and pattern[-1] == Ellipsis:
+            if len(self.args) < len(pattern):
+                return False
+            skip_size = True
+
+        if not skip_size and len(self.args) != len(pattern):
             return False
         for arg_index, arg_pattern in enumerate(pattern):
             if isinstance(arg_pattern, str) or callable(arg_pattern):
                 if not self._match_arg_simple(self.args[arg_index], arg_pattern):
                     return False
+            elif arg_pattern == Ellipsis:
+                return True
             else:
-                if not self.match_arg(arg_index, *arg_pattern):
-                    return False
+                if isinstance(arg_pattern, list):
+                    if not self._match_arg_internal(self.args[arg_index], arg_pattern):
+                        return False
+                else:
+                    if not self._match_arg_internal(self.args[arg_index], [arg_pattern]):
+                        return False
         return True
+
+    def apply(self, *filters):
+        if len(self.args) != len(filters):
+            raise InvalidOpCodeArguments(self)
+
+        values = []
+        for index, _filter in enumerate(filters):
+            if _filter is None:
+                continue
+            values.append(_filter(self.args[index]))
+
+        return tuple(values)

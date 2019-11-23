@@ -404,16 +404,16 @@ class Assembler:
         cleaned_args = []
 
         for arg in args:
-            if arg in self.hex_prefixes:
+            if arg in self.hex_prefixes+self.hex_suffixes:
                 current_base = 16
                 continue
-            if arg in self.oct_prefixes:
+            if arg in self.oct_prefixes+self.oct_suffixes:
                 current_base = 8
                 continue
-            if arg in self.bin_prefixes:
+            if arg in self.bin_prefixes+self.bin_suffixes:
                 current_base = 2
                 continue
-            if arg in self.dec_prefixes:
+            if arg in self.dec_prefixes+self.dec_suffixes:
                 current_base = 10
                 continue
 

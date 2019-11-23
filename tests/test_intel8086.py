@@ -44,6 +44,14 @@ class TestIntel8086(unittest.TestCase):
         self.asm.assemble('LDS AX, [0x17]')
         self.assertEqual(self.asm.assembled_bytes, b'\xC5\x06\x17\x00')
 
+    def test_lds_suffix(self):
+        self.asm.assemble('LDS AX, [17h+5h]')
+        self.assertEqual(self.asm.assembled_bytes, b'\xC5\x06\x1C\x00')
+
+    def test_lds_binary(self):
+        self.asm.assemble('LDS AX, [(((1b+0b1)))<< 2]')
+        self.assertEqual(self.asm.assembled_bytes, b'\xC5\x06\x08\x00')
+
     def test_al_ob(self):
         self.asm.assemble('MOV AL, [0x17]')
         self.assertEqual(self.asm.assembled_bytes, b'\xA0\x17\x00')
@@ -135,3 +143,7 @@ class TestIntel8086(unittest.TestCase):
     def test_lea(self):
         self.asm.assemble('LEA AX, [ DI + 0x1000]')
         self.assertEqual(self.asm.assembled_bytes, b'\x8D\x85\x00\x10')
+
+    def test_lea_math(self):
+        self.asm.assemble('LEA AX, [DI+0x1000+(2<<1)]')
+        self.assertEqual(self.asm.assembled_bytes, b'\x8D\x85\x04\x10')
