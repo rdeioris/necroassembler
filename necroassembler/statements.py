@@ -120,9 +120,8 @@ class Instruction:
         arg = self.args[index]
         if isinstance(pattern, str) or callable(pattern):
             return self._match_arg_simple(arg, pattern)
-        if isinstance(pattern, list):
-            return self._match_arg_internal(arg, pattern)
-        return self._match_arg_internal(arg, [pattern])
+        
+        return self._match_arg_internal(arg, pattern)
 
     def _match_arg_simple(self, arg, rule):
         # str
@@ -205,6 +204,26 @@ class Instruction:
                     if not self._match_arg_internal(self.args[arg_index], [arg_pattern]):
                         return False
         return True
+
+    def unbound_match(self, start, *pattern):
+        # first check if the number of arguments matches
+        if (len(self.args) - start) < len(pattern):
+            return False, -1
+        for arg_index, arg_pattern in enumerate(pattern):
+            arg_index += start
+            if isinstance(arg_pattern, str) or callable(arg_pattern):
+                if not self._match_arg_simple(self.args[arg_index], arg_pattern):
+                    return False, -1
+            elif arg_pattern is None:
+                continue
+            else:
+                if isinstance(arg_pattern, list):
+                    if not self._match_arg_internal(self.args[arg_index], arg_pattern):
+                        return False, -1
+                else:
+                    if not self._match_arg_internal(self.args[arg_index], [arg_pattern]):
+                        return False, -1
+        return True, len(pattern)
 
     def apply(self, *filters):
         if len(self.args) != len(filters):

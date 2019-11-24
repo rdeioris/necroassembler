@@ -1,6 +1,6 @@
 import string
 import struct
-from necroassembler.exceptions import NotInBitRange, InvalidBitRange
+from necroassembler.exceptions import NotInBitRange, InvalidBitRange, NotInSignedBitRange
 
 
 def neg_fix(value, bits):
@@ -116,7 +116,7 @@ def in_bit_range(value, number_of_bits):
 
 def two_s_complement(value, number_of_bits):
     if not in_bit_range(value, number_of_bits):
-        raise NotInBitRange(value, number_of_bits)
+        raise NotInSignedBitRange(value, number_of_bits)
     # negative number ?
     if value & (1 << (number_of_bits-1)) != 0:
         value -= 1 << number_of_bits
@@ -128,7 +128,7 @@ def to_two_s_complement(value, number_of_bits):
     max_value = (1 << (number_of_bits-1)) - 1
 
     if value < min_value or value > max_value:
-        raise NotInBitRange(value, number_of_bits)
+        raise NotInSignedBitRange(value, number_of_bits)
 
     if value < 0:
         value &= (max_value << 1) + 1

@@ -1,7 +1,7 @@
 import unittest
 from necroassembler.cpu.mos6502 import AssemblerMOS6502, InvalidMode, UnsupportedModeForOpcode
 from necroassembler.exceptions import (
-    InvalidOpCodeArguments, NotInBitRange, OnlyForwardAddressesAllowed, OnlyPositiveValuesAllowed)
+    InvalidOpCodeArguments, NotInBitRange, NotInSignedBitRange, OnlyForwardAddressesAllowed, OnlyPositiveValuesAllowed)
 
 
 class TestMOS6502(unittest.TestCase):
@@ -352,7 +352,7 @@ class TestMOS6502(unittest.TestCase):
         self.assertRaises(NotInBitRange, self.asm.assemble, 'LDA #1234')
 
     def test_lda_wrong_negative(self):
-        self.assertRaises(NotInBitRange, self.asm.assemble, 'LDA #-129')
+        self.assertRaises(NotInSignedBitRange, self.asm.assemble, 'LDA #-129')
 
     def test_lda_wrong_positive(self):
         self.assertRaises(NotInBitRange, self.asm.assemble, 'LDA #256')

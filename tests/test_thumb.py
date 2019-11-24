@@ -1,6 +1,6 @@
 import unittest
 from necroassembler.cpu.thumb import AssemblerThumb
-from necroassembler.exceptions import AlignmentError, NotInBitRange
+from necroassembler.exceptions import AlignmentError, NotInBitRange, NotInSignedBitRange
 
 
 class TestThumb(unittest.TestCase):
@@ -57,19 +57,19 @@ class TestThumb(unittest.TestCase):
         self.assertRaises(AlignmentError, self.asm.link)
 
     def test_b_aligned_far_forward_unaligned_increment(self):
-        self.asm.assemble('b loop+\n.org 1024\nloop:')
+        self.asm.assemble('b loop++\n.org 1024\nloop:')
         self.assertRaises(AlignmentError, self.asm.link)
 
     def test_b_aligned_too_far_forward(self):
         self.asm.assemble('b loop\n.org 4096\nloop:')
-        self.assertRaises(NotInBitRange, self.asm.link)
+        self.assertRaises(NotInSignedBitRange, self.asm.link)
 
     def test_b_aligned_too_far_backword(self):
         self.asm.assemble('loop:\n.org 4096\nb loop\n')
-        self.assertRaises(NotInBitRange, self.asm.link)
+        self.assertRaises(NotInSignedBitRange, self.asm.link)
 
     def test_b_unaligned(self):
-        self.asm.assemble('loop: b loop+')
+        self.asm.assemble('loop: b loop++')
         self.assertRaises(AlignmentError, self.asm.link)
 
     def test_b_add_rd_hs(self):
@@ -85,7 +85,7 @@ class TestThumb(unittest.TestCase):
         self.assertEqual(self.asm.assembled_bytes, b'\x00\xF2\x00\xF8')
 
     def test_bl_num_too_far(self):
-        self.assertRaises(NotInBitRange, self.asm.assemble, 'BL 0x1500000')
+        self.assertRaises(NotInSignedBitRange, self.asm.assemble, 'BL 0x1500000')
 
     def test_bl(self):
         self.asm.assemble('BL far\n.org 0x200000\nfar:')
@@ -94,7 +94,7 @@ class TestThumb(unittest.TestCase):
 
     def test_bl_too_far(self):
         self.asm.assemble('BL far\n.org 0x1000000\nfar:')
-        self.assertRaises(NotInBitRange, self.asm.link)
+        self.assertRaises(NotInSignedBitRange, self.asm.link)
 
     def test_push_rlist(self):
         self.asm.assemble('PUSH {r0,r1,r2, r3-r6}')

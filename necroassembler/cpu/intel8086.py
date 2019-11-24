@@ -556,7 +556,6 @@ class Intel8086OpCode:
         self.conditions.append((base, args))
 
     def __call__(self, instr):
-        print(instr)
         for base, args in self.conditions:
             modrm = {}
             if base > 0xFF:

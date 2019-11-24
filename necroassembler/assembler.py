@@ -5,7 +5,7 @@ from necroassembler.utils import (pack_byte, pack_le32u, pack_le16u,
 from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, NotInMacroRecordingMode,
                                        AddressOverlap, NegativeSignNotAllowed, NotInRepeatMode,
                                        UnsupportedNestedRepeat,
-                                       AlignmentError, NotInBitRange, OnlyForwardAddressesAllowed,
+                                       AlignmentError, NotInBitRange, NotInSignedBitRange, OnlyForwardAddressesAllowed,
                                        InvalidArgumentsForDirective, LabelNotAllowed, InvalidDefine,
                                        SectionAlreadyDefined, SymbolAlreadyExported, OnlyPositiveValuesAllowed)
 
@@ -498,7 +498,7 @@ class Assembler:
 
         orig_value = value
 
-        # disable negative sign
+        # disable negative sign for unsigned numbers
         if not signed:
             if value < 0:
                 if only_positive:
@@ -506,16 +506,21 @@ class Assembler:
                 else:
                     # this will rise exception in case of overflow
                     value = to_two_s_complement(value, number_of_bits)
-        else:
-            value = to_two_s_complement(value, number_of_bits)
 
-        # ...re-enable it if required (signed number)
-        if signed:
-            # this will rise exception in case of overflow
-            value = two_s_complement(value, number_of_bits)
-        else:
             if not in_bit_range(value, number_of_bits):
                 raise NotInBitRange(orig_value, number_of_bits)
+
+        else:
+            min_value = -(1 << number_of_bits-1)
+            max_value = (1 << (number_of_bits-1)) - 1
+
+            if value < min_value:
+                raise NotInSignedBitRange(value, number_of_bits)
+
+            if value > max_value:
+                two_s_complement_value = to_two_s_complement(
+                    value, number_of_bits+1)
+                value = two_s_complement(two_s_complement_value, number_of_bits)
 
         return value
 

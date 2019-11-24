@@ -1,7 +1,7 @@
 import unittest
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_be32u, pack_bits
-from necroassembler.exceptions import UnsupportedNestedMacro, NotInBitRange, UnknownLabel
+from necroassembler.exceptions import UnsupportedNestedMacro, NotInBitRange, UnknownLabel, NotInSignedBitRange
 from necroassembler.statements import Instruction
 
 
@@ -199,7 +199,7 @@ class TestAssembler(unittest.TestCase):
 
     def test_parse_integer_signed_red(self):
         self.assertRaises(
-            NotInBitRange, self.asm.parse_integer, ['33'], 5, True)
+            NotInSignedBitRange, self.asm.parse_integer, ['33'], 5, True)
 
     def test_parse_integer_unsigned(self):
         self.assertEqual(self.asm.parse_integer(['17'], 5, False), 17)
@@ -215,15 +215,15 @@ class TestAssembler(unittest.TestCase):
 
     def test_parse_integer_signed_too_low(self):
         self.assertRaises(
-            NotInBitRange, self.asm.parse_integer, ['-', '2049'], 11, True)
+            NotInSignedBitRange, self.asm.parse_integer, ['-', '2049'], 11, True)
 
     def test_parse_integer_signed_too_high(self):
         self.assertRaises(
-            NotInBitRange, self.asm.parse_integer, ['2048'], 11, True)
+            NotInSignedBitRange, self.asm.parse_integer, ['2048'], 11, True)
 
     def test_parse_integer_signed_too_high_hex(self):
         self.assertRaises(
-            NotInBitRange, self.asm.parse_integer, ['0x800'], 11, True)
+            NotInSignedBitRange, self.asm.parse_integer, ['0x800'], 11, True)
 
     def test_parse_integer_signed_edge_hex(self):
         self.assertEqual(self.asm.parse_integer(['0x7FF'], 11, True), -1)

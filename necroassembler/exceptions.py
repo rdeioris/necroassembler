@@ -44,11 +44,21 @@ class AlignmentError(AssemblerException):
 
 class NotInBitRange(AssemblerException):
     def __init__(self, value, max_bits, label=None):
-        self.message = 'value {0} is not in the {1} bit range'.format(
-            value, max_bits)
+        self.message = 'value {0} is not in the {1} bit range (0, {2})'.format(
+            value, max_bits, (1 << max_bits) - 1)
         if label is not None:
-            self.message = 'label "{2}" with value {0} is not in the {1} bit range'.format(
-                value, max_bits, label)
+            self.message = 'label "{2}" with value {0} is not in the {1} bit range (0, {2})'.format(
+                value, max_bits, label, (1 << max_bits) - 1)
+        super().__init__()
+
+
+class NotInSignedBitRange(AssemblerException):
+    def __init__(self, value, max_bits, label=None):
+        self.message = 'value {0} is not in the {1} bit range ({2}, {3})'.format(
+            value, max_bits, - (1 << (max_bits-1)),  (1 << (max_bits-1))-1)
+        if label is not None:
+            self.message = 'label "{2}" with value {0} is not in the {1} bit range ({2}, {3})'.format(
+                value, max_bits, label, (1 << (max_bits-1))-1)
         super().__init__()
 
 

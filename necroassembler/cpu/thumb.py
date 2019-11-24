@@ -1,5 +1,5 @@
 from necroassembler import Assembler, opcode
-from necroassembler.utils import pack_bits_le16u, pack_le16u, pack_bit
+from necroassembler.utils import pack_bits_le16u, pack_le16u, pack_bit, match
 from necroassembler.exceptions import (
     AssemblerException, InvalidRegister, UnknownRegister, InvalideImmediateValue, NotInBitRange)
 
@@ -100,20 +100,18 @@ class AssemblerThumb(Assembler):
 
     def _rlist(self, tokens):
         rlist = 0
+        lr_pc = 0
         for token in tokens:
-            if token in LOW_REGS:
-                bit_to_set = low_reg([token])
+            if match(token, ('lr', 'pc')):
+                lr_pc = 1
+                continue
+            if match(token, LOW_REGS):
+                bit_to_set = low_reg(token)
                 rlist = pack_bit(rlist, (bit_to_set, 1))
                 continue
-            if token == '-':
-                r_start, r_end = token.split('-')
-                if not r_start.lower() in LOW_REGS:
-                    raise InvalidRList()
-                if not r_end.lower() in LOW_REGS:
-                    raise InvalidRList()
-
-                first = low_reg(r_start)
-                last = low_reg(r_end)
+            elif match(token, LOW_REGS, '-', LOW_REGS):
+                first = low_reg([token[0]])
+                last = low_reg([token[2]])
                 if first > last:
                     raise InvalidRList()
                 for reg in range(first, last+1):
@@ -121,7 +119,7 @@ class AssemblerThumb(Assembler):
                 continue
             raise InvalidRList()
 
-        return rlist
+        return rlist, lr_pc
 
     def _build_opcode(self, value, *args):
         return pack_bits_le16u(value, *args)
@@ -468,16 +466,9 @@ class AssemblerThumb(Assembler):
 
     @opcode('PUSH')
     def _push(self, instr):
-        print('OK', instr)
-        if instr.match('{', None, '}'):
-            lr = 0
-        elif instr.match('{', None, 'lr', '}'):
-            print('FOUND')
-            lr = 1
-        else:
-            return None
-        rlist = self._rlist(instr.args[1])
-        return self._build_opcode(0b1011010000000000, ((11, 11), lr), ((7, 0), rlist))
+        if instr.match_arg(0, '{') and instr.match_arg(-1, '}'):
+            rlist, lr = self._rlist(instr.args[1:-1])
+            return self._build_opcode(0b1011010000000000, ((11, 11), lr), ((7, 0), rlist))
 
 
 if __name__ == '__main__':

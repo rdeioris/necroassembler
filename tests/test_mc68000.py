@@ -1,6 +1,6 @@
 import unittest
 from necroassembler.cpu.mc68000 import AssemblerMC68000
-from necroassembler.exceptions import NotInBitRange
+from necroassembler.exceptions import NotInBitRange, NotInSignedBitRange
 
 
 class TestMC68000(unittest.TestCase):
@@ -47,7 +47,7 @@ class TestMC68000(unittest.TestCase):
         self.assertEqual(self.asm.assembled_bytes, b'\x32\x7A\xFF\xFE')
 
     def test_move_too_far_backward_pc_a1(self):
-        self.assertRaises(NotInBitRange, self.asm.assemble,
+        self.assertRaises(NotInSignedBitRange, self.asm.assemble,
                           'movea (-32769, PC), a1')
 
     def test_move_far_backward_pc_a1(self):
