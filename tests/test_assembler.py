@@ -128,7 +128,8 @@ class TestAssembler(unittest.TestCase):
         .endmacro
         HELLO foobar
         """
-        self.assertRaises(BadOptionalArgumentsForMacro, self.asm.assemble, code)
+        self.assertRaises(BadOptionalArgumentsForMacro,
+                          self.asm.assemble, code)
 
     def test_macro_optional_args(self):
         code = """
@@ -140,7 +141,8 @@ class TestAssembler(unittest.TestCase):
         HELLO 4, 5, 6
         """
         self.asm.assemble(code)
-        self.assertEqual(self.asm.assembled_bytes, b'\x01\x01\x02\x01\x02\x02\x04\x05\x06')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x01\x01\x02\x01\x02\x02\x04\x05\x06')
 
     def test_macro_nested(self):
         code = """
@@ -161,6 +163,42 @@ class TestAssembler(unittest.TestCase):
         """
         self.asm.assemble(code)
         self.assertEqual(self.asm.assembled_bytes, b'\x01\x02\x03\x05')
+
+    def test_macro_math_word(self):
+        code = """
+        .macro TEST value0 value1
+        .dw 1, 2
+        .dw value0, value1
+        .endmacro
+        TEST 1*3, 1+2+(4/2)
+        """
+        self.asm.assemble(code)
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x00\x01\x00\x02\x00\x03\x00\x05')
+
+    def test_macro_math_word_chr(self):
+        code = """
+        .macro TEST value0 value1
+        .dw "ϨϨϨϨ", 'Ϩ', 2
+        .dw value0, value1
+        .endmacro
+        TEST 1*3, 1+2+(4/2)
+        """
+        self.asm.assemble(code)
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x03\xe8\x03\xe8\x03\xe8\x03\xe8\x03\xe8\x00\x02\x00\x03\x00\x05')
+
+    def test_macro_math_long(self):
+        code = """
+        .macro TEST value0 value1
+        .dd 1, 2
+        .dl value0, value1
+        .endmacro
+        TEST 1*3, 1+2+(4/2)
+        """
+        self.asm.assemble(code)
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x05')
 
     def test_macro_with_labels(self):
         code = """

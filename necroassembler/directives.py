@@ -1,5 +1,6 @@
 from necroassembler.scope import Scope
 from necroassembler.exceptions import InvalidArgumentsForDirective
+from necroassembler.utils import pack_byte, pack_be16u, pack_be32u, pack_le16u, pack_le32u
 
 
 class Repeat(Scope):
@@ -32,3 +33,44 @@ class Repeat(Scope):
         next_repeat.start_statement_index = self.start_statement_index
         self.assembler.push_scope(next_repeat)
 
+
+class Data:
+
+    @staticmethod
+    def directive_db(instr):
+        assembler = instr.assembler
+        for arg in instr.args:
+            blob = assembler.stringify(arg, 'ascii')
+            if blob is None:
+                value = assembler.parse_integer_or_label(
+                    label=arg, bits_size=8, size=1)
+                blob = pack_byte(value)
+            assembler.append_assembled_bytes(blob)
+
+    @staticmethod
+    def directive_dw(instr):
+        assembler = instr.assembler
+        for arg in instr.args:
+            blob = assembler.stringify(arg, 'utf-16-be' if assembler.big_endian else 'utf-16-le')
+            if blob is None:
+                value = assembler.parse_integer_or_label(
+                    label=arg, bits_size=16, size=2)
+                if assembler.big_endian:
+                    blob = pack_be16u(value)
+                else:
+                    blob = pack_le16u(value)
+            assembler.append_assembled_bytes(blob)
+
+    @staticmethod
+    def directive_dd(instr):
+        assembler = instr.assembler
+        for arg in instr.args:
+            blob = assembler.stringify(arg, 'utf-32-be' if assembler.big_endian else 'utf-32-le')
+            if blob is None:
+                value = assembler.parse_integer_or_label(
+                    label=arg, bits_size=32, size=4)
+                if assembler.big_endian:
+                    blob = pack_be32u(value)
+                else:
+                    blob = pack_le32u(value)
+            assembler.append_assembled_bytes(blob)

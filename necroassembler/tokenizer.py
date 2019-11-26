@@ -68,7 +68,7 @@ class Tokenizer:
         if char == '\'':
             if self.current_token:
                 self.current_token = '\'{0}\''.format(self.current_token)
-            self.current_token = ''
+                self._append()
             self.state = self._state_token
             return
         self.current_token += char

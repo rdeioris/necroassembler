@@ -13,7 +13,7 @@ from necroassembler.scope import Scope
 from necroassembler.macros import Macro
 from necroassembler.linker import Dummy
 from necroassembler.statements import Instruction
-from necroassembler.directives import Repeat
+from necroassembler.directives import Repeat, Data
 
 
 def opcode(*name):
@@ -143,13 +143,13 @@ class Assembler:
         self.register_directive('inccsv_le16', self.directive_inccsv_le16)
         self.register_directive('incjson', self.directive_incjson)
         self.register_directive('define', self.directive_define)
-        self.register_directive('db', self.directive_db)
-        self.register_directive('byte', self.directive_db)
-        self.register_directive('dw', self.directive_dw)
-        self.register_directive('word', self.directive_dw)
-        self.register_directive('dd', self.directive_dd)
-        self.register_directive('dl', self.directive_dd)
-        self.register_directive('dword', self.directive_dd)
+        self.register_directive('db', Data.directive_db)
+        self.register_directive('byte', Data.directive_db)
+        self.register_directive('dw', Data.directive_dw)
+        self.register_directive('word', Data.directive_dw)
+        self.register_directive('dd', Data.directive_dd)
+        self.register_directive('dl', Data.directive_dd)
+        self.register_directive('dword', Data.directive_dd)
         self.register_directive('db_to_ascii', self.directive_db_to_ascii)
         self.register_directive('dw_to_ascii', self.directive_dw_to_ascii)
         self.register_directive('db_to_asciiz', self.directive_db_to_asciiz)
@@ -520,7 +520,8 @@ class Assembler:
             if value > max_value:
                 two_s_complement_value = to_two_s_complement(
                     value, number_of_bits+1)
-                value = two_s_complement(two_s_complement_value, number_of_bits)
+                value = two_s_complement(
+                    two_s_complement_value, number_of_bits)
 
         return value
 
@@ -620,34 +621,6 @@ class Assembler:
     def append_assembled_bytes(self, blob):
         self.assembled_bytes += blob
         self.org_counter += len(blob)
-
-    def directive_dw(self, instr):
-        for token in instr.tokens[1:]:
-            blob = b''
-            if token[0] in ('"', '\''):
-                blob = token[1:-1].encode('utf16')
-            else:
-                value = self.parse_integer_or_label(
-                    label=token, bits_size=16, size=2)
-                if self.big_endian:
-                    blob = pack_be16u(value)
-                else:
-                    blob = pack_le16u(value)
-            self.append_assembled_bytes(blob)
-
-    def directive_dd(self, instr):
-        for token in instr.tokens[1:]:
-            blob = b''
-            if token[0] in ('"', '\''):
-                blob = token[1:-1].encode('utf32')
-            else:
-                value = self.parse_integer_or_label(
-                    label=token, bits_size=32, size=4)
-                if self.big_endian:
-                    blob = pack_be32u(value)
-                else:
-                    blob = pack_le32u(value)
-            self.append_assembled_bytes(blob)
 
     def directive_dw_to_ascii(self, instr):
         def dw_to_str(address, true_address):
@@ -785,15 +758,6 @@ class Assembler:
                     raise LabelNotAllowed()
                 blob += pack_byte(value)
         return blob
-
-    def directive_db(self, instr):
-        for arg in instr.args:
-            blob = self.stringify(arg, 'ascii')
-            if blob is None:
-                value = self.parse_integer_or_label(
-                    label=arg, bits_size=8, size=1)
-                blob = pack_byte(value)
-            self.append_assembled_bytes(blob)
 
     def stringify(self, args, encoding):
         whole_string = ''
