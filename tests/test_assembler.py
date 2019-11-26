@@ -1,7 +1,8 @@
 import unittest
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_be32u, pack_bits
-from necroassembler.exceptions import UnsupportedNestedMacro, NotInBitRange, UnknownLabel, NotInSignedBitRange
+from necroassembler.exceptions import (
+    UnsupportedNestedMacro, NotInBitRange, UnknownLabel, NotInSignedBitRange, NotEnoughArgumentsForMacro, BadOptionalArgumentsForMacro)
 from necroassembler.statements import Instruction
 
 
@@ -102,9 +103,9 @@ class TestAssembler(unittest.TestCase):
         LOAD arg1
         LOAD arg2
         .endmacro
-        HELLO 1 2 3
-        HELLO 1 2           3
-        HELLO 1  2\t3
+        HELLO 1,2,3
+        HELLO 1,2      ,    3
+        HELLO 1,   2\t,3
         """)
         opcode = b'\xAA\xBB\xCC\xDD'
         arg1 = b'\x00\x00\x00\x01'
@@ -112,6 +113,34 @@ class TestAssembler(unittest.TestCase):
         arg3 = b'\x00\x00\x00\x03'
         self.assertEqual(self.asm.assembled_bytes,
                          (opcode+arg1+opcode+arg2+opcode+arg3) * 3)
+
+    def test_macro_wrong_args(self):
+        code = """
+        .macro HELLO arg0 arg1 arg2
+        .endmacro
+        HELLO foobar
+        """
+        self.assertRaises(NotEnoughArgumentsForMacro, self.asm.assemble, code)
+
+    def test_macro_wrong_optional_args(self):
+        code = """
+        .macro HELLO arg0=1 arg1 arg2
+        .endmacro
+        HELLO foobar
+        """
+        self.assertRaises(BadOptionalArgumentsForMacro, self.asm.assemble, code)
+
+    def test_macro_optional_args(self):
+        code = """
+        .macro HELLO arg0 arg1=1 arg2=2
+        .db arg0, arg1, arg2
+        .endmacro
+        HELLO 1
+        HELLO 1, 2
+        HELLO 4, 5, 6
+        """
+        self.asm.assemble(code)
+        self.assertEqual(self.asm.assembled_bytes, b'\x01\x01\x02\x01\x02\x02\x04\x05\x06')
 
     def test_macro_nested(self):
         code = """
@@ -121,6 +150,17 @@ class TestAssembler(unittest.TestCase):
         .endmacro
         """
         self.assertRaises(UnsupportedNestedMacro, self.asm.assemble, code)
+
+    def test_macro_math(self):
+        code = """
+        .macro TEST value0 value1
+        .db 1, 2
+        .db value0, value1
+        .endmacro
+        TEST 1*3, 1+2+(4/2)
+        """
+        self.asm.assemble(code)
+        self.assertEqual(self.asm.assembled_bytes, b'\x01\x02\x03\x05')
 
     def test_macro_with_labels(self):
         code = """
@@ -136,7 +176,8 @@ class TestAssembler(unittest.TestCase):
         HELLO 2
         """
         self.asm.assemble(code)
-        self.assertEqual(self.asm.assembled_bytes, b'\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x00\x01\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x00')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x00\x01\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x00')
 
     def test_macro_with_labels_and_link(self):
         code = """
@@ -154,7 +195,8 @@ class TestAssembler(unittest.TestCase):
         """
         self.asm.assemble(code)
         self.asm.link()
-        self.assertEqual(self.asm.assembled_bytes, b'\x02\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x01\x02\x01\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x0B')
+        self.assertEqual(self.asm.assembled_bytes,
+                         b'\x02\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x01\x02\x01\x01\xAA\xBB\xCC\xDD\x00\x00\x00\x0B')
 
     def test_pack_bits(self):
         self.assertEqual(pack_bits(0b00000000000,
@@ -298,6 +340,7 @@ class TestAssembler(unittest.TestCase):
         self.assertEqual(len(self.asm.assembled_bytes), 101)
 
     def test_instruction_match(self):
-        statement = Instruction(self.asm, ['LOAD', ['X'], [[['Y', 'Z']]]], 1, None)
+        statement = Instruction(
+            self.asm, ['LOAD', ['X'], [[['Y', 'Z']]]], 1, None)
         statement.assemble()
         self.assertTrue(statement.match('X', [[['Y', 'Z']]]))

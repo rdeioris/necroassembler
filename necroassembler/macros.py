@@ -1,7 +1,8 @@
 '''Assembler Macro system'''
 
 from necroassembler.exceptions import (
-    InvalidArgumentsForDirective, UnsupportedNestedMacro, NotInMacroRecordingMode)
+    InvalidArgumentsForDirective, UnsupportedNestedMacro,
+    NotInMacroRecordingMode, NotEnoughArgumentsForMacro, BadOptionalArgumentsForMacro)
 from necroassembler.scope import Scope
 
 
@@ -10,6 +11,15 @@ class MacroTemplate:
     def __init__(self, assembler, name, args):
         self.assembler = assembler
         self.name = name
+        # sanitize optional args
+        optional = False
+        for arg in args:
+            if optional:
+                if not '=' in arg:
+                    raise BadOptionalArgumentsForMacro()
+            else:
+                if '=' in arg:
+                    optional = True
         self.args = args
         self.start_statement_index = assembler.statement_index
 
@@ -52,5 +62,17 @@ class Macro(Scope):
         self.template = template
         self.args = args
         self.caller_statement_index = template.assembler.statement_index
+
+        # check for optional arguments
+        if len(self.args) < len(self.template.args):
+            for index in range(len(self.args), len(self.template.args)):
+                if '=' in self.template.args[index]:
+                    _, value = self.template.args[index].split('=', 1)
+                    self.args.append([value])
+
+        if len(self.args) != len(self.template.args):
+            raise NotEnoughArgumentsForMacro()
         for index, arg in enumerate(self.template.args):
-            self.defines[arg] = self.args[0][index]
+            if '=' in arg:
+                arg, _ = arg.split('=', 1)
+            self.defines[arg] = self.args[index]

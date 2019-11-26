@@ -37,7 +37,14 @@ class Instruction:
                     break
                 anti_loop_check.append(found_define)
                 element = found_define
-            container[index] = element
+            if isinstance(element, list):
+                del(container[index])
+                for additional_index, item in enumerate(element):
+                    container.insert(index+additional_index, item)
+                # hack for not losing the first element after substitution
+                self._recursive_apply_define(container, index)
+            else:
+                container[index] = element
             return
 
         for sub_index, _ in enumerate(container[index]):

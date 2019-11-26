@@ -87,6 +87,13 @@ class UnsupportedNestedMacro(AssemblerException):
     message = 'nested macros are not supported'
 
 
+class NotEnoughArgumentsForMacro(AssemblerException):
+    message = 'not enough arguments for macro'
+
+class BadOptionalArgumentsForMacro(AssemblerException):
+    message = 'optional arguments cannot be followed by non optional'
+
+
 class UnsupportedNestedRepeat(AssemblerException):
     message = 'nested repeats are not supported'
 
