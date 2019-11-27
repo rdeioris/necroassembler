@@ -1,20 +1,82 @@
-from necroassembler.utils import pack
-from necroassembler.exceptions import UnknownLabel, AssemblerException
+from necroassembler.utils import pack, in_bit_range, to_two_s_complement, pack_bits
+from necroassembler.exceptions import (
+    UnknownLabel, AssemblerException, AlignmentError, OnlyForwardAddressesAllowed, NotInBitRange)
 
 
 class RelocationNotImplemented(AssemblerException):
     message = 'please subclass the ELF class and implement the \'relocate\' method'
 
 
-class Dummy:
+class Linker:
+
+    def _resolve_labels(self, assembler):
+
+        for address in assembler.labels_addresses:
+            data = assembler.labels_addresses[address]
+            label = data.label
+            scope = data.scope
+            is_relative = data.relative != 0
+
+            absolute_address = assembler.parse_integer(
+                label, 64, False, False, scope)
+            if not is_relative:
+                true_address = absolute_address
+            else:
+                true_address = absolute_address - data.relative
+
+            if true_address is None:
+                true_address = self.resolve_unknown_symbol(
+                    assembler, address, data)
+                absolute_address = true_address
+
+            if data.hook:
+                data.hook(address, true_address)
+                continue
+
+            if absolute_address % data.alignment != 0:
+                raise AlignmentError(label)
+
+            size = data.size
+            total_bits = data.bits_size
+
+            if not is_relative and true_address < 0:
+                raise OnlyForwardAddressesAllowed(label, true_address)
+
+            if is_relative:
+                true_address = to_two_s_complement(true_address, total_bits)
+
+            if not in_bit_range(true_address, total_bits):
+                raise NotInBitRange(true_address, total_bits, label)
+
+            if data.filter:
+                true_address = data.filter(true_address)
+
+            if data.bits:
+                true_address = pack_bits(0, (data.bits, true_address))
+
+            for i in range(0, size):
+                value = (true_address >> (8 * i)) & 0xFF
+                if assembler.big_endian:
+                    assembler.assembled_bytes[address +
+                                              ((size-1) - i)] |= value
+                else:
+                    assembler.assembled_bytes[address + i] |= value
+
+            if assembler.log:
+                print('label "{0}" translated to ({1}) at address {2}'.format(
+                    label, ','.join(['0x{0:02x}'.format(x) for x in assembler.assembled_bytes[address:address+size]]), hex(address)))
+
     def resolve_unknown_symbol(self, assembler, address, symbol_data):
         raise UnknownLabel(symbol_data.label)
+        # make pylint happy ;)
+        return 0
 
     def link(self, assembler):
+        self._resolve_labels(assembler)
         return assembler.assembled_bytes
 
 
-class ELF:
+class ELF(Linker):
 
     def __init__(self, bits, big_endian, e_type, machine, alignment=0):
         self.header = b'\x7fELF' + \

@@ -11,7 +11,7 @@ from necroassembler.exceptions import (UnknownLabel, UnsupportedNestedMacro, Not
 
 from necroassembler.scope import Scope
 from necroassembler.macros import Macro
-from necroassembler.linker import Dummy
+from necroassembler.linker import Linker
 from necroassembler.statements import Instruction
 from necroassembler.directives import Repeat, Data
 
@@ -247,69 +247,9 @@ class Assembler:
         with open(filename, 'wb') as handle:
             handle.write(self.assembled_bytes)
 
-    def _resolve_labels(self, linker):
-        for address in self.labels_addresses:
-            data = self.labels_addresses[address]
-            label = data.label
-            scope = data.scope
-            is_relative = data.relative != 0
-
-            absolute_address = self.parse_integer(
-                label, 64, False, False, scope)
-            if not is_relative:
-                true_address = absolute_address
-            else:
-                true_address = absolute_address - data.relative
-
-            if true_address is None:
-                true_address = linker.resolve_unknown_symbol(
-                    self, address, data)
-                absolute_address = true_address
-
-            if data.hook:
-                data.hook(address, true_address)
-                continue
-
-            if absolute_address % data.alignment != 0:
-                raise AlignmentError(label)
-
-            size = data.size
-            total_bits = data.bits_size
-
-            if not is_relative and true_address < 0:
-                raise OnlyForwardAddressesAllowed(label, true_address)
-
-            if is_relative:
-                true_address = to_two_s_complement(true_address, total_bits)
-
-            if not in_bit_range(true_address, total_bits):
-                raise NotInBitRange(true_address, total_bits, label)
-
-            if data.filter:
-                true_address = data.filter(true_address)
-
-            if data.bits:
-                true_address = pack_bits(0, (data.bits, true_address))
-
-            for i in range(0, size):
-                value = (true_address >> (8 * i)) & 0xFF
-                if self.big_endian:
-                    self.assembled_bytes[address + ((size-1) - i)] |= value
-                else:
-                    self.assembled_bytes[address + i] |= value
-
-            if self.log:
-                print('label "{0}" translated to ({1}) at address {2}'.format(
-                    label, ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[address:address+size]]), hex(address)))
-
     def link(self, linker=None):
-
         if not linker:
-            linker = Dummy()
-
-        # TODO move labels resolution to linker
-        self._resolve_labels(linker)
-
+            linker = Linker()
         self.assembled_bytes = linker.link(self)
 
     @property
@@ -886,7 +826,7 @@ class Assembler:
         self.defines[name] = value
 
     @classmethod
-    def main(cls, pre_link_passes=[], post_link_passes=[], linker=None):
+    def main(cls, linker=None):
         import sys
         import os
         try:
@@ -896,8 +836,6 @@ class Assembler:
                 os.path.basename(sys.argv[0])))
             return
         asm = cls()
-        asm.pre_link_passes += pre_link_passes
-        asm.post_link_passes += post_link_passes
         for source in sources:
             asm.assemble_file(source)
         asm.link(linker=linker)
