@@ -164,6 +164,10 @@ necro_gb.exe necro.S necro.gb
 
 ## Labels and Directives
 
+## The Macro system
+
+## Image support
+
 ## Linkers
 
 ## Building your own assembler
