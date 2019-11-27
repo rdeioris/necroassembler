@@ -11,7 +11,7 @@ OPCODES_TABLE = (
     ([0x05], 'DEC', 'B'),
     ([0x06], 'LD', 'B', 'n'),
     ([0x07], 'RLCA'),
-    ([0x08], 'EX', 'AF', 'AF\''),
+    ([0x08], 'EX', 'AF', ['AF', '\'']),
     ([0x09], 'ADD', 'HL', 'BC'),
     ([0x0A], 'LD', 'A', '(', 'BC', ')'),
     ([0x0B], 'DEC', 'BC'),
@@ -559,70 +559,70 @@ OPCODES_TABLE = (
     ([0xDDBC], 'CP', 'IXH'),
     ([0xDDBD], 'CP', 'IXL'),
     ([0xDDBE], 'CP', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x00], 'LD', 'B', 'RLC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x01], 'LD', 'C', 'RLC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x02], 'LD', 'D', 'RLC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x03], 'LD', 'E', 'RLC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x04], 'LD', 'H', 'RLC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x05], 'LD', 'L', 'RLC ', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x00], 'LD', 'B', 'RLC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x01], 'LD', 'C', 'RLC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x02], 'LD', 'D', 'RLC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x03], 'LD', 'E', 'RLC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x04], 'LD', 'H', 'RLC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x05], 'LD', 'L', 'RLC', '(', 'IX+d', ')'),
     ([0xDDCB, 0x06], 'RLC', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x07], 'LD', 'A', 'RLC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x08], 'LD', 'B', 'RRC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x09], 'LD', 'C', 'RRC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x0A], 'LD', 'D', 'RRC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x0B], 'LD', 'E', 'RRC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x0C], 'LD', 'H', 'RRC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x0D], 'LD', 'L', 'RRC ', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x07], 'LD', 'A', 'RLC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x08], 'LD', 'B', 'RRC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x09], 'LD', 'C', 'RRC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x0A], 'LD', 'D', 'RRC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x0B], 'LD', 'E', 'RRC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x0C], 'LD', 'H', 'RRC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x0D], 'LD', 'L', 'RRC', '(', 'IX+d', ')'),
     ([0xDDCB, 0x0E], 'RRC', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x0F], 'LD', 'A', 'RRC ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x10], 'LD', 'B', 'RL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x11], 'LD', 'C', 'RL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x12], 'LD', 'D', 'RL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x13], 'LD', 'E', 'RL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x14], 'LD', 'H', 'RL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x15], 'LD', 'L', 'RL ', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x0F], 'LD', 'A', 'RRC', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x10], 'LD', 'B', 'RL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x11], 'LD', 'C', 'RL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x12], 'LD', 'D', 'RL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x13], 'LD', 'E', 'RL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x14], 'LD', 'H', 'RL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x15], 'LD', 'L', 'RL', '(', 'IX+d', ')'),
     ([0xDDCB, 0x16], 'RL', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x17], 'LD', 'A', 'RL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x18], 'LD', 'B', 'RR ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x19], 'LD', 'C', 'RR ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x1A], 'LD', 'D', 'RR ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x1B], 'LD', 'E', 'RR ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x1C], 'LD', 'H', 'RR ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x1D], 'LD', 'L', 'RR ', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x17], 'LD', 'A', 'RL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x18], 'LD', 'B', 'RR', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x19], 'LD', 'C', 'RR', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x1A], 'LD', 'D', 'RR', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x1B], 'LD', 'E', 'RR', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x1C], 'LD', 'H', 'RR', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x1D], 'LD', 'L', 'RR', '(', 'IX+d', ')'),
     ([0xDDCB, 0x1E], 'RR', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x1F], 'LD', 'A', 'RR ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x20], 'LD', 'B', 'SLA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x21], 'LD', 'C', 'SLA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x22], 'LD', 'D', 'SLA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x23], 'LD', 'E', 'SLA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x24], 'LD', 'H', 'SLA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x25], 'LD', 'L', 'SLA ', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x1F], 'LD', 'A', 'RR', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x20], 'LD', 'B', 'SLA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x21], 'LD', 'C', 'SLA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x22], 'LD', 'D', 'SLA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x23], 'LD', 'E', 'SLA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x24], 'LD', 'H', 'SLA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x25], 'LD', 'L', 'SLA', '(', 'IX+d', ')'),
     ([0xDDCB, 0x26], 'SLA', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x27], 'LD', 'A', 'SLA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x28], 'LD', 'B', 'SRA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x29], 'LD', 'C', 'SRA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x2A], 'LD', 'D', 'SRA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x2B], 'LD', 'E', 'SRA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x2C], 'LD', 'H', 'SRA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x2D], 'LD', 'L', 'SRA ', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x27], 'LD', 'A', 'SLA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x28], 'LD', 'B', 'SRA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x29], 'LD', 'C', 'SRA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x2A], 'LD', 'D', 'SRA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x2B], 'LD', 'E', 'SRA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x2C], 'LD', 'H', 'SRA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x2D], 'LD', 'L', 'SRA', '(', 'IX+d', ')'),
     ([0xDDCB, 0x2E], 'SRA', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x2F], 'LD', 'A', 'SRA ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x30], 'LD', 'B', 'SLL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x31], 'LD', 'C', 'SLL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x32], 'LD', 'D', 'SLL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x33], 'LD', 'E', 'SLL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x34], 'LD', 'H', 'SLL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x35], 'LD', 'L', 'SLL ', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x2F], 'LD', 'A', 'SRA', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x30], 'LD', 'B', 'SLL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x31], 'LD', 'C', 'SLL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x32], 'LD', 'D', 'SLL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x33], 'LD', 'E', 'SLL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x34], 'LD', 'H', 'SLL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x35], 'LD', 'L', 'SLL', '(', 'IX+d', ')'),
     ([0xDDCB, 0x36], 'SLL', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x37], 'LD', 'A', 'SLL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x38], 'LD', 'B', 'SRL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x39], 'LD', 'C', 'SRL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x3A], 'LD', 'D', 'SRL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x3B], 'LD', 'E', 'SRL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x3C], 'LD', 'H', 'SRL ', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x3D], 'LD', 'L', 'SRL ', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x37], 'LD', 'A', 'SLL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x38], 'LD', 'B', 'SRL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x39], 'LD', 'C', 'SRL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x3A], 'LD', 'D', 'SRL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x3B], 'LD', 'E', 'SRL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x3C], 'LD', 'H', 'SRL', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x3D], 'LD', 'L', 'SRL', '(', 'IX+d', ')'),
     ([0xDDCB, 0x3E], 'SRL', '(', 'IX+d', ')'),
-    ([0xDDCB, 0x3F], 'LD', 'A', 'SRL ', '(', 'IX+d', ')'),
+    ([0xDDCB, 0x3F], 'LD', 'A', 'SRL', '(', 'IX+d', ')'),
     ([0xDDCB, 0x40], 'BIT', '0', '(', 'IX+d', ')'),
     ([0xDDCB, 0x41], 'BIT', '0', '(', 'IX+d', ')'),
     ([0xDDCB, 0x42], 'BIT', '0', '(', 'IX+d', ')'),
@@ -883,7 +883,8 @@ OPCODES_TABLE = (
     ([0xED6D], 'RETN'),
     ([0xED6E], 'IM', '0/1'),
     ([0xED6F], 'RLD'),
-    ([0xED70], 'IN', 'F', '(', 'C', ')', '* / IN ', '(', 'C', ')'),
+    ([0xED70], 'IN', 'F', '(', 'C', ')'),
+    ([0xED70], 'IN', '(', 'C', ')'),
     ([0xED71], 'OUT', '(', 'C', ')', '0'),
     ([0xED72], 'SBC', 'HL', 'SP'),
     ([0xED73], 'LD', '(', 'nn', ')', 'SP'),
@@ -1008,70 +1009,70 @@ OPCODES_TABLE = (
     ([0xFDBC], 'CP', 'IYH'),
     ([0xFDBD], 'CP', 'IYL'),
     ([0xFDBE], 'CP', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x00], 'LD', 'B', 'RLC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x01], 'LD', 'C', 'RLC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x02], 'LD', 'D', 'RLC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x03], 'LD', 'E', 'RLC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x04], 'LD', 'H', 'RLC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x05], 'LD', 'L', 'RLC ', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x00], 'LD', 'B', 'RLC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x01], 'LD', 'C', 'RLC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x02], 'LD', 'D', 'RLC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x03], 'LD', 'E', 'RLC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x04], 'LD', 'H', 'RLC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x05], 'LD', 'L', 'RLC', '(', 'IY+d', ')'),
     ([0xFDCB, 0x06], 'RLC', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x07], 'LD', 'A', 'RLC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x08], 'LD', 'B', 'RRC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x09], 'LD', 'C', 'RRC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x0A], 'LD', 'D', 'RRC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x0B], 'LD', 'E', 'RRC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x0C], 'LD', 'H', 'RRC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x0D], 'LD', 'L', 'RRC ', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x07], 'LD', 'A', 'RLC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x08], 'LD', 'B', 'RRC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x09], 'LD', 'C', 'RRC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x0A], 'LD', 'D', 'RRC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x0B], 'LD', 'E', 'RRC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x0C], 'LD', 'H', 'RRC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x0D], 'LD', 'L', 'RRC', '(', 'IY+d', ')'),
     ([0xFDCB, 0x0E], 'RRC', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x0F], 'LD', 'A', 'RRC ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x10], 'LD', 'B', 'RL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x11], 'LD', 'C', 'RL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x12], 'LD', 'D', 'RL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x13], 'LD', 'E', 'RL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x14], 'LD', 'H', 'RL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x15], 'LD', 'L', 'RL ', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x0F], 'LD', 'A', 'RRC', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x10], 'LD', 'B', 'RL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x11], 'LD', 'C', 'RL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x12], 'LD', 'D', 'RL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x13], 'LD', 'E', 'RL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x14], 'LD', 'H', 'RL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x15], 'LD', 'L', 'RL', '(', 'IY+d', ')'),
     ([0xFDCB, 0x16], 'RL', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x17], 'LD', 'A', 'RL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x18], 'LD', 'B', 'RR ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x19], 'LD', 'C', 'RR ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x1A], 'LD', 'D', 'RR ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x1B], 'LD', 'E', 'RR ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x1C], 'LD', 'H', 'RR ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x1D], 'LD', 'L', 'RR ', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x17], 'LD', 'A', 'RL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x18], 'LD', 'B', 'RR', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x19], 'LD', 'C', 'RR', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x1A], 'LD', 'D', 'RR', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x1B], 'LD', 'E', 'RR', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x1C], 'LD', 'H', 'RR', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x1D], 'LD', 'L', 'RR', '(', 'IY+d', ')'),
     ([0xFDCB, 0x1E], 'RR', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x1F], 'LD', 'A', 'RR ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x20], 'LD', 'B', 'SLA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x21], 'LD', 'C', 'SLA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x22], 'LD', 'D', 'SLA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x23], 'LD', 'E', 'SLA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x24], 'LD', 'H', 'SLA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x25], 'LD', 'L', 'SLA ', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x1F], 'LD', 'A', 'RR', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x20], 'LD', 'B', 'SLA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x21], 'LD', 'C', 'SLA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x22], 'LD', 'D', 'SLA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x23], 'LD', 'E', 'SLA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x24], 'LD', 'H', 'SLA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x25], 'LD', 'L', 'SLA', '(', 'IY+d', ')'),
     ([0xFDCB, 0x26], 'SLA', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x27], 'LD', 'A', 'SLA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x28], 'LD', 'B', 'SRA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x29], 'LD', 'C', 'SRA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x2A], 'LD', 'D', 'SRA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x2B], 'LD', 'E', 'SRA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x2C], 'LD', 'H', 'SRA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x2D], 'LD', 'L', 'SRA ', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x27], 'LD', 'A', 'SLA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x28], 'LD', 'B', 'SRA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x29], 'LD', 'C', 'SRA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x2A], 'LD', 'D', 'SRA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x2B], 'LD', 'E', 'SRA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x2C], 'LD', 'H', 'SRA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x2D], 'LD', 'L', 'SRA', '(', 'IY+d', ')'),
     ([0xFDCB, 0x2E], 'SRA', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x2F], 'LD', 'A', 'SRA ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x30], 'LD', 'B', 'SLL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x31], 'LD', 'C', 'SLL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x32], 'LD', 'D', 'SLL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x33], 'LD', 'E', 'SLL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x34], 'LD', 'H', 'SLL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x35], 'LD', 'L', 'SLL ', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x2F], 'LD', 'A', 'SRA', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x30], 'LD', 'B', 'SLL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x31], 'LD', 'C', 'SLL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x32], 'LD', 'D', 'SLL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x33], 'LD', 'E', 'SLL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x34], 'LD', 'H', 'SLL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x35], 'LD', 'L', 'SLL', '(', 'IY+d', ')'),
     ([0xFDCB, 0x36], 'SLL', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x37], 'LD', 'A', 'SLL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x38], 'LD', 'B', 'SRL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x39], 'LD', 'C', 'SRL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x3A], 'LD', 'D', 'SRL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x3B], 'LD', 'E', 'SRL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x3C], 'LD', 'H', 'SRL ', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x3D], 'LD', 'L', 'SRL ', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x37], 'LD', 'A', 'SLL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x38], 'LD', 'B', 'SRL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x39], 'LD', 'C', 'SRL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x3A], 'LD', 'D', 'SRL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x3B], 'LD', 'E', 'SRL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x3C], 'LD', 'H', 'SRL', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x3D], 'LD', 'L', 'SRL', '(', 'IY+d', ')'),
     ([0xFDCB, 0x3E], 'SRL', '(', 'IY+d', ')'),
-    ([0xFDCB, 0x3F], 'LD', 'A', 'SRL ', '(', 'IY+d', ')'),
+    ([0xFDCB, 0x3F], 'LD', 'A', 'SRL', '(', 'IY+d', ')'),
     ([0xFDCB, 0x40], 'BIT', '0', '(', 'IY+d', ')'),
     ([0xFDCB, 0x41], 'BIT', '0', '(', 'IY+d', ')'),
     ([0xFDCB, 0x42], 'BIT', '0', '(', 'IY+d', ')'),
@@ -1287,18 +1288,19 @@ class Z80OpCode:
         self.variants = []
         self.add_variant(code, args)
 
-    def _is_value(self, arg):
-        return arg.upper() not in REGS8+REGS16
+    def _is_value(self, tokens):
+        return tokens[0].upper() not in REGS8+REGS16
 
-    def _is_index_x(self, arg):
-        return (
-            arg.upper().startswith('IX+') or
-            arg.upper().startswith('IX-'))
+    def _is_zero_or_one(self, tokens):
+        # unknown
+        # return len(tokens) == 1 and tokens[0] in ('0', '1')
+        return False
 
-    def _is_index_y(self, arg):
-        return (
-            arg.upper().startswith('IY+') or
-            arg.upper().startswith('IY-'))
+    def _is_index_x(self, tokens):
+        return match(tokens, 'IX', ('+', '-'), self._is_value)
+
+    def _is_index_y(self, tokens):
+        return match(tokens, 'IY', ('+', '-'), self._is_value)
 
     def _build_nn(self, base, value):
         return pack_le16u(self.assembler.parse_integer_or_label(
@@ -1335,17 +1337,17 @@ class Z80OpCode:
         ))
 
     def _build_index(self, base, value):
-        if value[2] == '+':
-            arg = value[3:]
-        elif value[2] == '-':
-            arg = value[2:]
         return pack_8s(self.assembler.parse_integer_or_label(
-            label=arg,
+            label=value[1:],
             size=1,
             bits_size=8,
             offset=len(base),
             signed=True
         ))
+
+    def _build_zero_or_one(self, base, value):
+        # useless/unknown
+        return b''
 
     def add_variant(self, code, args):
         sanitized_args = []
@@ -1369,6 +1371,11 @@ class Z80OpCode:
             elif arg == 'IY+d':
                 sanitized_args.append(self._is_index_y)
                 hook = self._build_index, index
+            elif arg == '0/1':
+                sanitized_args.append(self._is_zero_or_one)
+                hook = self._build_zero_or_one, index
+            elif ' ' in arg:
+                sanitized_args.append(arg.split())
             else:
                 sanitized_args.append(arg)
 
@@ -1376,7 +1383,7 @@ class Z80OpCode:
 
     def __call__(self, instr):
         for variant in self.variants:
-            if match(instr.tokens[1:], *variant[1]):
+            if instr.match(*variant[1]):
                 code = variant[0][0]
                 base = b''
                 if code <= 0xFF:
@@ -1386,7 +1393,7 @@ class Z80OpCode:
                     base += pack_byte(code & 0xFF)
                 if variant[2] is not None:
                     hook, index = variant[2]
-                    base += hook(base, instr.tokens[index+1])
+                    base += hook(base, instr.args[index])
                 for suffix in variant[0][1:]:
                     base += pack_byte(suffix)
                 return base
@@ -1396,6 +1403,8 @@ class AssemblerZ80(Assembler):
 
     hex_prefixes = ('$',)
     bin_prefixes = ('%',)
+    special_symbols = ('(', ')')
+    math_brackets = ('{', '}')
 
     def register_instructions(self):
         for line in OPCODES_TABLE:

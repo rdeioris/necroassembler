@@ -35,7 +35,9 @@ class Tokenizer:
         if char == '"':
             if self.current_token:
                 self.current_token = '"{0}"'.format(self.current_token)
-                self._append()
+            else:
+                self.current_token = '"'
+            self._append()
             self.current_token = ''
             self.state = self._state_token
             return
@@ -68,7 +70,9 @@ class Tokenizer:
         if char == '\'':
             if self.current_token:
                 self.current_token = '\'{0}\''.format(self.current_token)
-                self._append()
+            else:
+                self.current_token == '\''
+            self._append()
             self.state = self._state_token
             return
         self.current_token += char
@@ -178,6 +182,13 @@ class Tokenizer:
             self.state = self._state_token
 
     def _reset(self):
+
+        # manage uncompleted string
+        if self.state  == self._state_char:
+            self.current_token += '\''
+        elif self.state  == self._state_string:
+            self.current_token += '"'
+
         if self.current_token:
             self._append()
         if self.current_arg:
