@@ -41,6 +41,7 @@ class AssemblerMIPS32(Assembler):
     big_endian = True
 
     special_symbols = ('(', ')')
+    math_brackets = ('{', '}')
 
     def _immediate_signed(self, tokens):
         return self.parse_integer_or_label(label=tokens, size=4, bits_size=16, signed=True, bits=(15, 0))

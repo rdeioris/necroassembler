@@ -335,6 +335,11 @@ class TestAssembler(unittest.TestCase):
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, b'\x07')
 
+    def test_complex_math_hex(self):
+        self.asm.assemble('.org 1\nstart:\n.org 10\nend:\n.db (end-start) & 0xFF')
+        self.asm.link()
+        self.assertEqual(self.asm.assembled_bytes, b'\x09')
+
     def test_complex_math_triple(self):
         self.asm.assemble(
             '.org 1\nstart:\n.org 10\nend:\n.db end-start-2+start+start+1')

@@ -216,14 +216,15 @@ class Assembler:
             line_number, tokens = tokenizer.statements[self.statement_index]
             instruction = Instruction(self, tokens, line_number, context)
             current_offset = len(self.assembled_bytes)
+            current_pc = self.pc
             instruction.assemble()
             if self.log:
                 new_offset = len(self.assembled_bytes)
                 if new_offset == current_offset:
                     print('not assembled {0}'.format(instruction))
                 else:
-                    print('assembled line {0} -> ({1}) at 0x{2:x}'.format(line_number,
-                                                                          ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_offset:]]), current_offset))
+                    print('assembled line {0} -> ({1}) at 0x{2:x}/0x{3:x}'.format(line_number,
+                                                                          ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_offset:]]), current_offset, current_pc))
             self.statement_index += 1
 
         # check if we need to fill something
