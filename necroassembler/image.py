@@ -14,6 +14,7 @@ def directive_incimg(instr):
     bits_r = 0
     bits_g = 0
     bits_b = 0
+    bits_base = 0
 
     for arg in instr.args[0][1:]:
         key, *value = arg.split('=', 1)
@@ -23,6 +24,8 @@ def directive_incimg(instr):
             palette = int(value[0])
         elif key == 'bits':
             bits = int(value[0])
+        elif key == 'bits_base':
+            bits_base = int(value[0])
         elif key == 'bits_r':
             bits_r = tuple(map(int, value[0].split('_', 1)))
         elif key == 'bits_g':
@@ -36,9 +39,8 @@ def directive_incimg(instr):
         32: pack_be32u if instr.assembler.big_endian else pack_le32u
     }
 
-    print(instr.args[0][0])
     filename = instr.assembler.stringify_path([instr.args[0][0]])
-    print(filename)
+
     from PIL import Image
     image = Image.open(filename)
     if mode is None:
@@ -50,7 +52,6 @@ def directive_incimg(instr):
     if image.mode != mode:
         image = image.convert(mode, palette=palette, colors=colors)
 
-    print(image.size)
     if palette == 0:
         blob = b''
         for r, g, b in image.getdata():
@@ -58,8 +59,8 @@ def directive_incimg(instr):
                 r = int(((1 << (bits_r[0] - bits_r[1] + 1)) - 1) * (r/255))
                 g = int(((1 << (bits_g[0] - bits_g[1] + 1)) - 1) * (g/255))
                 b = int(((1 << (bits_b[0] - bits_b[1] + 1)) - 1) * (b/255))
-                blob += pack_map[bits](pack_bits(0, (bits_r, r),
-                                       (bits_g, g), (bits_b, b)))
+                blob += pack_map[bits](pack_bits(bits_base, (bits_r, r),
+                                                 (bits_g, g), (bits_b, b)))
             else:
                 blob += bytes((r, g, b))
         instr.assembler.append_assembled_bytes(blob)

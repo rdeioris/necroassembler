@@ -15,6 +15,7 @@ from necroassembler.linker import Linker
 from necroassembler.statements import Instruction
 from necroassembler.directives import Repeat, Data
 import necroassembler.image
+import necroassembler.audio
 import sys
 
 
@@ -168,6 +169,8 @@ class Assembler:
         self.register_directive('export', self.directive_export)
         self.register_directive(
             'incimg', necroassembler.image.directive_incimg)
+        self.register_directive(
+            'incwav', necroassembler.audio.directive_incwav)
 
     def register_directives(self):
         pass
