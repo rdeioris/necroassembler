@@ -14,6 +14,8 @@ from necroassembler.macros import Macro
 from necroassembler.linker import Linker
 from necroassembler.statements import Instruction
 from necroassembler.directives import Repeat, Data
+import necroassembler.image
+import sys
 
 
 def opcode(*name):
@@ -164,6 +166,8 @@ class Assembler:
         self.register_directive('upto', self.directive_upto)
         self.register_directive('section', self.directive_section)
         self.register_directive('export', self.directive_export)
+        self.register_directive(
+            'incimg', necroassembler.image.directive_incimg)
 
     def register_directives(self):
         pass
@@ -224,7 +228,7 @@ class Assembler:
                     print('not assembled {0}'.format(instruction))
                 else:
                     print('assembled line {0} -> ({1}) at 0x{2:x}/0x{3:x}'.format(line_number,
-                                                                          ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_offset:]]), current_offset, current_pc))
+                                                                                  ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_offset:]]), current_offset, current_pc))
             self.statement_index += 1
 
         # check if we need to fill something
@@ -530,6 +534,9 @@ class Assembler:
             else:
                 raise AddressOverlap()
 
+    def get_filesystem_encoding(self):
+        return sys.getfilesystemencoding()
+
     def directive_org(self, instr):
         if len(instr.args) not in (1, 2):
             raise InvalidArgumentsForDirective(instr)
@@ -708,6 +715,9 @@ class Assembler:
             else:
                 return None
         return whole_string.encode(encoding)
+
+    def stringify_path(self, args):
+        return self.stringify(args, self.get_filesystem_encoding())
 
     def directive_include(self, instr):
         if len(instr.tokens) != 2:
