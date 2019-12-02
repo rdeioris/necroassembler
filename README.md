@@ -3,7 +3,7 @@ A Python framework for building assemblers, includes ready-to-use modules for
 
 * 6502 (nes, commodore64, atari2600)
 * 8086 (.com and MZ .exe)
-* mips32 (psx, nintendo64)
+* mips32 (psx, nintendo64, psp, ps2)
 * LR35902 (gameboy)
 * ARM Thumb (gameboy advance)
 * 68000 (sega genesis/megadrive, amiga)
