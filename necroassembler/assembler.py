@@ -206,6 +206,11 @@ class Assembler:
             return None
         return self.scopes_stack[-1]
 
+    def get_root_scope(self):
+        if not self.scopes_stack:
+            return None
+        return self.scopes_stack[0]
+
     def assemble(self, code, context=None):
 
         tokenizer = Tokenizer(
@@ -230,8 +235,8 @@ class Assembler:
                 if new_offset == current_offset:
                     print('not assembled {0}'.format(instruction))
                 else:
-                    print('assembled line {0} -> ({1}) at 0x{2:x}/0x{3:x}'.format(line_number,
-                                                                                  ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_offset:]]), current_offset, current_pc))
+                    print('assembled to ({0}) offset/address 0x{1:x}/0x{2:x} {3}'.format(
+                        ','.join(['0x{0:02x}'.format(x) for x in self.assembled_bytes[current_offset:]]), current_offset, current_pc, instruction))
             self.statement_index += 1
 
         # check if we need to fill something
@@ -738,16 +743,17 @@ class Assembler:
             self.append_assembled_bytes(blob)
 
     def directive_section(self, instr):
-        if len(instr.tokens) not in (3, 4):
+        if len(instr.args[0]) not in (2, 3):
             raise InvalidArgumentsForDirective(instr)
-        name = self.stringify(instr.tokens[1])
+
+        name = self.stringify([instr.args[0][0]], 'ascii')
         if name in self.sections:
             raise SectionAlreadyDefined(instr)
-        permissions = instr.tokens[2]
+        permissions = instr.args[0][1]
         if not all([True if letter in 'RWXE' else False for letter in permissions]):
             raise InvalidArgumentsForDirective(instr)
-        if len(instr.tokens) == 4:
-            new_org_start = self.parse_integer(instr.tokens[3], 64, False)
+        if len(instr.args[0]) == 3:
+            new_org_start = self.parse_integer([instr.args[0][2]], 64, False)
             if new_org_start is None:
                 raise InvalidArgumentsForDirective(instr)
             self.change_org(new_org_start, 0)
@@ -760,9 +766,9 @@ class Assembler:
             'start': self.pc, 'offset': len(self.assembled_bytes), 'permissions': permissions}
 
     def directive_export(self, instr):
-        if len(instr.tokens) != 2:
+        if len(instr.args) != 1:
             raise InvalidArgumentsForDirective(instr)
-        name = self.stringify(instr.tokens[1])
+        name = instr.args[0][0]
         if name in self.exports:
             raise SymbolAlreadyExported(instr)
         self.exports.append(name)

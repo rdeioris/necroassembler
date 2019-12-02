@@ -85,14 +85,16 @@ class ELF(Linker):
         self.endianess_prefix = '>' if big_endian else '<'
         self.header += bytes(8)
         self.header += pack(self.endianess_prefix + 'HHI', e_type, machine, 1)
-        self.entry_point = 0
+        self.entry_point = 0x00100000
         if self.bits == 32:
             self.section_pack_format = self.endianess_prefix + 'IIIIIIIIII'
             self.section_header_size = 40
+            self.program_header_size = 32
             self.header_size = 52
         elif self.bits == 64:
             self.section_pack_format = self.endianess_prefix + 'IIQQQQIIQQ'
             self.section_header_size = 64
+            self.program_header_size = 56
             self.header_size = 64
         self.alignment = alignment
         self.relocations = {}
@@ -132,11 +134,14 @@ class ELF(Linker):
 
     def link(self, assembler):
 
+        self._resolve_labels(assembler)
+
         # first prepare the .shstrtab section
         sh_string_table = b'\x00'
         for section_name, section_data in assembler.sections.items():
+            print(section_name, section_data)
             section_data['elf_string_offset'] = len(sh_string_table)
-            sh_string_table += section_name.encode() + b'\0'
+            sh_string_table += section_name + b'\0'
 
         sh_string_table_name_offset = len(sh_string_table)
 
@@ -144,7 +149,7 @@ class ELF(Linker):
 
         # then build the symbols names table
         string_table = b'\x00'
-        for symbol_name, symbol_data in assembler.labels.items():
+        for symbol_name, symbol_data in assembler.get_root_scope().labels.items():
             if symbol_name not in assembler.exports:
                 continue
             symbol_data['elf_string_offset'] = len(string_table)
@@ -166,7 +171,7 @@ class ELF(Linker):
             sections += self._build_section(section_data)
 
         symtab = b''
-        for symbol_name, symbol_data in assembler.labels.items():
+        for symbol_name, symbol_data in assembler.get_root_scope().labels.items():
             if symbol_name not in assembler.exports:
                 continue
             if self.bits == 32:
@@ -179,6 +184,7 @@ class ELF(Linker):
                                assembler.sections[symbol_data['section']]['elf_section_index'] + 1, symbol_data['base'], 0)
 
         code_size = len(assembler.assembled_bytes)
+        print(code_size)
 
         sections += self._build_string_section(
             sh_string_table_name_offset, self.file_base + code_size, sh_string_table)
@@ -189,13 +195,18 @@ class ELF(Linker):
         sections += self._build_symtab_section(
             symtab_name_offset, self.file_base + code_size + len(sh_string_table) + len(string_table), symtab, len(assembler.sections) + 2)
 
+        blob = sections + assembler.assembled_bytes + sh_string_table + string_table + symtab
+        program_header_offset = self.header_size + len(blob)
+
         if self.bits == 32:
+            program_header = pack(self.endianess_prefix + 'IIIIIIII', 1, 0xfc, 0x00100000, 0x00100000, 0x5C, 0x5C, 0x05, 0x1000)
             self.header += pack(self.endianess_prefix + 'IIIIHHHHHH', self.entry_point,
-                                0, self.header_size, 0, self.header_size, 0, 0, self.section_header_size,
+                                program_header_offset, self.header_size, 0, self.header_size, self.program_header_size, 1, self.section_header_size,
                                 len(assembler.sections) + 4, len(assembler.sections) + 1)
         elif self.bits == 64:
+            program_header = pack(self.endianess_prefix + 'IIQQQQQQ', 1, 0x05, 0, 0x400000, 0x400000, 0x190, 0x190, 0x400000)
             self.header += pack(self.endianess_prefix + 'QQQIHHHHHH', self.entry_point,
-                                0, self.header_size, 0, self.header_size, 0, 0, self.section_header_size,
+                                program_header_offset, self.header_size, 0, self.header_size, self.program_header_size, 1, self.section_header_size,
                                 len(assembler.sections) + 4, len(assembler.sections) + 1)
 
-        return self.header + sections + assembler.assembled_bytes + sh_string_table + string_table + symtab
+        return self.header + blob + program_header
