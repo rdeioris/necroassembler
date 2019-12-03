@@ -7,21 +7,28 @@ class Repeat(Scope):
 
     @classmethod
     def directive_repeat(cls, instr):
-        if len(instr.args) != 1:
+        if len(instr.args) != 1 and len(instr.args[0]) not in (1, 2):
             raise InvalidArgumentsForDirective(instr)
-        iterations = instr.assembler.parse_integer(instr.args[0], 64, False)
+        iterations = instr.assembler.parse_integer([instr.args[0][0]], 64, False)
         if iterations is None or iterations <= 0:
             raise InvalidArgumentsForDirective(instr)
-        instr.assembler.push_scope(Repeat(instr.assembler, iterations))
+        i_variable = None
+        if len(instr.args[0]) == 2:
+            i_variable = instr.args[0][1]
+        instr.assembler.push_scope(Repeat(instr.assembler, iterations, 0, i_variable))
 
     @classmethod
     def directive_endrepeat(cls, instr):
         instr.assembler.get_current_scope().end_repeat()
 
-    def __init__(self, assembler, iterations):
+    def __init__(self, assembler, iterations, current_i, i_variable=None):
         super().__init__(assembler)
         self.iterations = iterations
         self.start_statement_index = assembler.statement_index
+        self.current_i = current_i
+        self.i_variable = i_variable
+        if self.i_variable:
+            self.defines[self.i_variable] = str(self.current_i)
 
     def end_repeat(self):
         self.iterations -= 1
@@ -29,7 +36,7 @@ class Repeat(Scope):
         if self.iterations == 0:
             return
         self.assembler.statement_index = self.start_statement_index
-        next_repeat = Repeat(self.assembler, self.iterations)
+        next_repeat = Repeat(self.assembler, self.iterations, self.current_i + 1, self.i_variable)
         next_repeat.start_statement_index = self.start_statement_index
         self.assembler.push_scope(next_repeat)
 
