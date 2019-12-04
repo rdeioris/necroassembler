@@ -35,6 +35,10 @@ def conditions(base):
         yield base + condition, {'cond': CONDITIONS.index(condition)}
 
 
+def set_condition(base):
+    yield base + 'S', {'condition_set': True}
+
+
 class ARM32Opcode:
 
     def __init__(self, name, func):
@@ -96,6 +100,11 @@ class ARM32Opcode:
                                                              bits=(23, 0))
         return pack_bits(0x0f000000, ((31, 28), self.cond), ((23, 0), comment))
 
+    def _mov(self, instr):
+        op = 0b1101
+        if instr.match(REGS, REGS):
+            return pack_bits(0, ((31, 28), self.cond), ((24, 21), op), ((15, 12), self.reg(instr.args[0])), ((3, 0), self.reg(instr.args[1])))
+
 
 OPCODES = (
     ('BX', (conditions, ), ARM32Opcode._bx),
@@ -103,6 +112,7 @@ OPCODES = (
     ('BL', (conditions, ), ARM32Opcode._bl),
     ('SWI', (conditions, ), ARM32Opcode._swi),
     ('SVC', (conditions, ), ARM32Opcode._swi),
+    ('MOV', (set_condition, conditions), ARM32Opcode._mov),
 )
 
 
@@ -131,7 +141,7 @@ class AssemblerARM32(Assembler):
                 base, 0, variants, instructions)
             for name, data in instructions:
                 arm32_opcode = ARM32Opcode(name.upper(), func)
-                arm32_opcode.cond = data.get('cond', 0xE)
+                arm32_opcode.cond = data.get('cond', arm32_opcode.cond)
                 self.register_instruction(arm32_opcode.name, arm32_opcode)
 
 
