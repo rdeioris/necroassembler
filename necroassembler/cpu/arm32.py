@@ -84,15 +84,37 @@ class ARM32Opcode:
             offset = self._offset(instr.assembler, instr.args[0], (23, 0), 4)
             return pack_bits(0x0b000000, ((31, 28), self.cond), ((23, 0), offset))
 
+    def _swi(self, instr):
+        comment = 0
+        if instr.args:
+            arg = instr.args
+            if arg[0] == '#':
+                arg = arg[1:]
+            comment = instr.assembler.parse_integer_or_label(label=arg,
+                                                             size=4,
+                                                             bits_size=24,
+                                                             bits=(23, 0))
+        return pack_bits(0x0f000000, ((31, 28), self.cond), ((23, 0), comment))
+
 
 OPCODES = (
     ('BX', (conditions, ), ARM32Opcode._bx),
     ('B', (conditions, ), ARM32Opcode._b),
     ('BL', (conditions, ), ARM32Opcode._bl),
+    ('SWI', (conditions, ), ARM32Opcode._swi),
 )
 
 
 class AssemblerARM32(Assembler):
+
+    hex_prefixes = ('0x',)
+
+    bin_prefixes = ('0b', '0y')
+
+    interesting_symbols = ('#',)
+
+    special_symbols = ('[', ']', '{', '}')
+    math_brackets = ('(', ')')
 
     def _apply_recursive_variant(self, base, index, callbacks, values):
         for new_value in callbacks[index](base):

@@ -56,7 +56,7 @@ class AssemblerThumb(Assembler):
 
     bin_prefixes = ('0b', '0y')
 
-    interesting_symbols = ('#')
+    interesting_symbols = ('#',)
 
     special_symbols = ('[', ']', '{', '}')
     math_brackets = ('(', ')')

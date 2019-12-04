@@ -179,7 +179,6 @@ class Assembler:
         pass
 
     def _discover(self):
-
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
             if callable(attr):
