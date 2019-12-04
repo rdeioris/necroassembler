@@ -38,10 +38,10 @@ class Macro(Scope):
     def directive_macro(cls, instr):
         if instr.assembler.macro_recording is not None:
             raise UnsupportedNestedMacro(instr)
-        key = instr.args[0][0]
+        key = instr.directive_args[0]
 
         instr.assembler.macro_recording = MacroTemplate(
-            instr.assembler, key, instr.args[0][1:])
+            instr.assembler, key, instr.directive_args[1:])
         if not instr.assembler.case_sensitive:
             key = key.upper()
         instr.assembler.macros[key] = instr.assembler.macro_recording

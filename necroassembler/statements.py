@@ -24,6 +24,12 @@ class Instruction:
         return self.cleaned_tokens[1:]
 
     @property
+    def directive_args(self):
+        if not self.args:
+            return []
+        return self.args[0]
+
+    @property
     def command(self):
         return self.cleaned_tokens[0]
 

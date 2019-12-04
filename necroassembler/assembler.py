@@ -160,7 +160,7 @@ class Assembler:
         self.register_directive('fill', self.directive_fill)
         self.register_directive('ram', self.directive_ram)
         self.register_directive('log', self.directive_log)
-        self.register_directive('align', self.directive_align)
+        self.register_directive('align', Data.directive_align)
         self.register_directive('repeat', Repeat.directive_repeat)
         self.register_directive('endrepeat', Repeat.directive_endrepeat)
         self.register_directive('goto', self.directive_goto)
@@ -478,6 +478,12 @@ class Assembler:
 
         return value
 
+    def parse_unsigned_integer(self, arg):
+        return self.parse_integer([arg], 64, False)
+
+    def parse_signed_integer(self, arg):
+        return self.parse_integer([arg], 64, True)
+
     def parse_integer_or_label(self, label,
                                size, bits_size, relative=0,
                                offset=0, alignment=1, bits=None, filter=None,
@@ -546,25 +552,24 @@ class Assembler:
         return sys.getfilesystemencoding()
 
     def directive_org(self, instr):
-        if len(instr.args) not in (1, 2):
+        if len(instr.directive_args) not in (1, 2):
             raise InvalidArgumentsForDirective(instr)
-        new_org_start = self.parse_integer(instr.args[0], 64, False)
+        new_org_start = self.parse_unsigned_integer(instr.directive_args[0])
         if new_org_start is None:
             raise InvalidArgumentsForDirective(instr)
         new_org_end = 0
-        if len(instr.args) == 2:
-            new_org_end = self.parse_integer(instr.args[1], 64, False)
+        if len(instr.directive_args) == 2:
+            new_org_end = self.parse_unsigned_integer(instr.directive_args[1])
             if new_org_end is None:
                 raise InvalidArgumentsForDirective(instr)
 
         self.change_org(new_org_start, new_org_end)
 
     def directive_define(self, instr):
-        # TODO implement matching
-        if len(instr.args) != 1 or len(instr.args[0]) != 2:
+        if len(instr.directive_args) != 2:
             raise InvalidArgumentsForDirective(instr)
         scope = self.get_current_scope()
-        scope.defines[instr.args[0][0]] = instr.args[0][1]
+        scope.defines[instr.directive_args[0]] = instr.directive_args[1]
 
     def get_define(self, key):
         scope = self.get_current_scope()
@@ -666,18 +671,6 @@ class Assembler:
         if size is None or size < 1:
             raise InvalidArgumentsForDirective(instr)
         self.org_counter += size
-
-    def directive_align(self, instr):
-        if len(instr.tokens) != 2:
-            raise InvalidArgumentsForDirective(instr)
-        size = self.parse_integer(instr.tokens[1], 64, False)
-        if size is None:
-            raise InvalidArgumentsForDirective(instr)
-
-        mod = (self.current_org + self.org_counter) % size
-        if mod != 0:
-            blob = bytes([self.fill_value]) * (size - mod)
-            self.append_assembled_bytes(blob)
 
     def directive_db_to_ascii(self, instr):
         def db_to_str(address, true_address):

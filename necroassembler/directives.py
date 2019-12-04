@@ -7,15 +7,17 @@ class Repeat(Scope):
 
     @classmethod
     def directive_repeat(cls, instr):
-        if len(instr.args) != 1 and len(instr.args[0]) not in (1, 2):
+        if len(instr.directive_args) not in (1, 2):
             raise InvalidArgumentsForDirective(instr)
-        iterations = instr.assembler.parse_integer([instr.args[0][0]], 64, False)
+        iterations = instr.assembler.parse_unsigned_integer(
+            instr.directive_args[0])
         if iterations is None or iterations <= 0:
             raise InvalidArgumentsForDirective(instr)
         i_variable = None
-        if len(instr.args[0]) == 2:
-            i_variable = instr.args[0][1]
-        instr.assembler.push_scope(Repeat(instr.assembler, iterations, 0, i_variable))
+        if len(instr.directive_args) == 2:
+            i_variable = instr.directive_args[1]
+        instr.assembler.push_scope(
+            Repeat(instr.assembler, iterations, 0, i_variable))
 
     @classmethod
     def directive_endrepeat(cls, instr):
@@ -36,7 +38,8 @@ class Repeat(Scope):
         if self.iterations == 0:
             return
         self.assembler.statement_index = self.start_statement_index
-        next_repeat = Repeat(self.assembler, self.iterations, self.current_i + 1, self.i_variable)
+        next_repeat = Repeat(self.assembler, self.iterations,
+                             self.current_i + 1, self.i_variable)
         next_repeat.start_statement_index = self.start_statement_index
         self.assembler.push_scope(next_repeat)
 
@@ -58,7 +61,8 @@ class Data:
     def directive_dw(instr):
         assembler = instr.assembler
         for arg in instr.args:
-            blob = assembler.stringify(arg, 'utf-16-be' if assembler.big_endian else 'utf-16-le')
+            blob = assembler.stringify(
+                arg, 'utf-16-be' if assembler.big_endian else 'utf-16-le')
             if blob is None:
                 value = assembler.parse_integer_or_label(
                     label=arg, bits_size=16, size=2)
@@ -72,7 +76,8 @@ class Data:
     def directive_dd(instr):
         assembler = instr.assembler
         for arg in instr.args:
-            blob = assembler.stringify(arg, 'utf-32-be' if assembler.big_endian else 'utf-32-le')
+            blob = assembler.stringify(
+                arg, 'utf-32-be' if assembler.big_endian else 'utf-32-le')
             if blob is None:
                 value = assembler.parse_integer_or_label(
                     label=arg, bits_size=32, size=4)
@@ -80,4 +85,19 @@ class Data:
                     blob = pack_be32u(value)
                 else:
                     blob = pack_le32u(value)
+            assembler.append_assembled_bytes(blob)
+
+
+    @staticmethod
+    def directive_align(instr):
+        assembler = instr.assembler
+        if len(instr.directive_args) != 1:
+            raise InvalidArgumentsForDirective(instr)
+        size = assembler.parse_unsigned_integer(instr.directive_args[0])
+        if size is None:
+            raise InvalidArgumentsForDirective(instr)
+
+        mod = (assembler.current_org + assembler.org_counter) % size
+        if mod != 0:
+            blob = bytes([assembler.fill_value]) * (size - mod)
             assembler.append_assembled_bytes(blob)
