@@ -21,13 +21,13 @@ def _label(tokens):
     return len(tokens) > 0 and tokens[0] != '#'
 
 
-def _interrupt(tokens):
+def _number(tokens):
     return all([x.isdigit() for x in tokens])
 
 
 IMMEDIATE = _immediate
 LABEL = _label
-INTERRUPT = _interrupt
+NUMBER = _number
 
 
 def conditions(base):
@@ -103,7 +103,9 @@ class ARM32Opcode:
     def _mov(self, instr):
         op = 0b1101
         if instr.match(REGS, REGS):
-            return pack_bits(0, ((31, 28), self.cond), ((24, 21), op), ((15, 12), self.reg(instr.args[0])), ((3, 0), self.reg(instr.args[1])))
+            return pack_bits(0, ((31, 28), self.cond), ((20, 20), self.condition_set), ((24, 21), op), ((15, 12), self.reg(instr.args[0])), ((3, 0), self.reg(instr.args[1])))
+        if instr.match(REGS, IMMEDIATE):
+            return pack_bits(0, ((31, 28), self.cond), ((20, 20), self.condition_set), ((24, 21), op), ((15, 12), self.reg(instr.args[0])), ((3, 0), self.reg(instr.args[1])))
 
 
 OPCODES = (
@@ -128,7 +130,11 @@ class AssemblerARM32(Assembler):
     math_brackets = ('(', ')')
 
     def _apply_recursive_variant(self, base, index, callbacks, values):
-        for new_value in callbacks[index](base):
+        additional = ()
+        if index == 0:
+            additional = (base,)
+        for new_value in tuple(callbacks[index](base[0])) + additional:
+            new_value[1].update(base[1])
             values.append(new_value)
             if index + 1 < len(callbacks):
                 self._apply_recursive_variant(
@@ -136,12 +142,13 @@ class AssemblerARM32(Assembler):
 
     def register_instructions(self):
         for base, variants, func in OPCODES:
-            instructions = [(base, {})]
+            instructions = []
             self._apply_recursive_variant(
-                base, 0, variants, instructions)
+                (base, {}), 0, variants, instructions)
             for name, data in instructions:
                 arm32_opcode = ARM32Opcode(name.upper(), func)
                 arm32_opcode.cond = data.get('cond', arm32_opcode.cond)
+                arm32_opcode.condition_set = data.get('condition_set', arm32_opcode.condition_set)
                 self.register_instruction(arm32_opcode.name, arm32_opcode)
 
 
