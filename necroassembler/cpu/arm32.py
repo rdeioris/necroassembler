@@ -39,7 +39,7 @@ class ARM32Opcode:
 
     def __init__(self, name, func):
         self.name = name
-        self.cond = 0
+        self.cond = 0xE
         self.signed = False
         self.condition_set = False
         self.func = func
@@ -87,7 +87,7 @@ class ARM32Opcode:
     def _swi(self, instr):
         comment = 0
         if instr.args:
-            arg = instr.args
+            arg = instr.args[0]
             if arg[0] == '#':
                 arg = arg[1:]
             comment = instr.assembler.parse_integer_or_label(label=arg,
@@ -102,6 +102,7 @@ OPCODES = (
     ('B', (conditions, ), ARM32Opcode._b),
     ('BL', (conditions, ), ARM32Opcode._bl),
     ('SWI', (conditions, ), ARM32Opcode._swi),
+    ('SVC', (conditions, ), ARM32Opcode._swi),
 )
 
 
@@ -130,7 +131,7 @@ class AssemblerARM32(Assembler):
                 base, 0, variants, instructions)
             for name, data in instructions:
                 arm32_opcode = ARM32Opcode(name.upper(), func)
-                arm32_opcode.cond = data.get('cond', 0)
+                arm32_opcode.cond = data.get('cond', 0xE)
                 self.register_instruction(arm32_opcode.name, arm32_opcode)
 
 

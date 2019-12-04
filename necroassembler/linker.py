@@ -85,7 +85,7 @@ class ELF(Linker):
         self.endianess_prefix = '>' if big_endian else '<'
         self.header += bytes(8)
         self.header += pack(self.endianess_prefix + 'HHI', e_type, machine, 1)
-        self.entry_point = 0x00100000
+        self.entry_point = 0x00100fc
         if self.bits == 32:
             self.section_pack_format = self.endianess_prefix + 'IIIIIIIIII'
             self.section_header_size = 40
@@ -199,9 +199,9 @@ class ELF(Linker):
         program_header_offset = self.header_size + len(blob)
 
         if self.bits == 32:
-            program_header = pack(self.endianess_prefix + 'IIIIIIII', 1, 0xfc, 0x00100000, 0x00100000, 0x5C, 0x5C, 0x05, 0x1000)
+            program_header = pack(self.endianess_prefix + 'IIIIIIII', 1, 0x0, 0x0010000, 0x0010000, 0x104, 0x104, 0x05, 0x10000)
             self.header += pack(self.endianess_prefix + 'IIIIHHHHHH', self.entry_point,
-                                program_header_offset, self.header_size, 0, self.header_size, self.program_header_size, 1, self.section_header_size,
+                                program_header_offset, self.header_size, 0x5000200, self.header_size, self.program_header_size, 1, self.section_header_size,
                                 len(assembler.sections) + 4, len(assembler.sections) + 1)
         elif self.bits == 64:
             program_header = pack(self.endianess_prefix + 'IIQQQQQQ', 1, 0x05, 0, 0x400000, 0x400000, 0x190, 0x190, 0x400000)
