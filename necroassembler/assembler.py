@@ -153,6 +153,7 @@ class Assembler:
         self.register_directive('dd', Data.directive_dd)
         self.register_directive('dl', Data.directive_dd)
         self.register_directive('dword', Data.directive_dd)
+        self.register_directive('df', Data.directive_df)
         self.register_directive('db_to_ascii', self.directive_db_to_ascii)
         self.register_directive('dw_to_ascii', self.directive_dw_to_ascii)
         self.register_directive('db_to_asciiz', self.directive_db_to_asciiz)

@@ -1,6 +1,6 @@
 from necroassembler.scope import Scope
 from necroassembler.exceptions import InvalidArgumentsForDirective
-from necroassembler.utils import pack_byte, pack_be16u, pack_be32u, pack_le16u, pack_le32u
+from necroassembler.utils import pack_byte, pack_be16u, pack_be32u, pack_le16u, pack_le32u, pack_le32f, pack_be32f
 
 
 class Repeat(Scope):
@@ -87,17 +87,26 @@ class Data:
                     blob = pack_le32u(value)
             assembler.append_assembled_bytes(blob)
 
+    @staticmethod
+    def directive_df(instr):
+        assembler = instr.assembler
+        for arg in instr.args:
+            if assembler.big_endian:
+                blob = pack_be32f(float(''.join(arg)))
+            else:
+                blob = pack_le32f(float(''.join(arg)))
+            assembler.append_assembled_bytes(blob)
 
     @staticmethod
     def directive_align(instr):
-        assembler = instr.assembler
+        assembler=instr.assembler
         if len(instr.directive_args) != 1:
             raise InvalidArgumentsForDirective(instr)
-        size = assembler.parse_unsigned_integer(instr.directive_args[0])
+        size=assembler.parse_unsigned_integer(instr.directive_args[0])
         if size is None:
             raise InvalidArgumentsForDirective(instr)
 
-        mod = (assembler.current_org + assembler.org_counter) % size
+        mod=(assembler.current_org + assembler.org_counter) % size
         if mod != 0:
-            blob = bytes([assembler.fill_value]) * (size - mod)
+            blob=bytes([assembler.fill_value]) * (size - mod)
             assembler.append_assembled_bytes(blob)

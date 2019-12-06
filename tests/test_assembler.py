@@ -336,7 +336,8 @@ class TestAssembler(unittest.TestCase):
         self.assertEqual(self.asm.assembled_bytes, b'\x07')
 
     def test_complex_math_hex(self):
-        self.asm.assemble('.org 1\nstart:\n.org 10\nend:\n.db (end-start) & 0xFF')
+        self.asm.assemble(
+            '.org 1\nstart:\n.org 10\nend:\n.db (end-start) & 0xFF')
         self.asm.link()
         self.assertEqual(self.asm.assembled_bytes, b'\x09')
 
@@ -387,3 +388,7 @@ class TestAssembler(unittest.TestCase):
             self.asm, ['LOAD', ['X'], [[['Y', 'Z']]]], 1, None)
         statement.assemble()
         self.assertTrue(statement.match('X', [[['Y', 'Z']]]))
+
+    def test_df(self):
+        self.asm.assemble('.df 1,-4,0.5')
+        self.assertEqual(self.asm.assembled_bytes, b'\x3F\x80\x00\x00\xC0\x80\x00\x00\x3F\x00\x00\x00')

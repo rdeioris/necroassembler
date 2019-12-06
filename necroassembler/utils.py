@@ -28,6 +28,26 @@ def pack_le32u(*args):
                        *[n & 0xffffffff if n is not None else 0 for n in args])
 
 
+def pack_le32f(*args):
+    return struct.pack('<' + ('f' * len(args)),
+                       *[n if n is not None else 0 for n in args])
+
+
+def pack_be32f(*args):
+    return struct.pack('>' + ('f' * len(args)),
+                       *[n if n is not None else 0 for n in args])
+
+
+def pack_le64f(*args):
+    return struct.pack('<' + ('d' * len(args)),
+                       *[n if n is not None else 0 for n in args])
+
+
+def pack_be64f(*args):
+    return struct.pack('>' + ('d' * len(args)),
+                       *[n if n is not None else 0 for n in args])
+
+
 def pack_le64u(*args):
     return struct.pack('<' + ('Q' * len(args)),
                        *[n & 0xffffffffffffffff if n is not None else 0 for n in args])
