@@ -302,14 +302,27 @@ class ARM32Opcode:
 
     def _ldr(self, instr):
         if instr.match(REGS, LABEL):
+            def build_offset(address):
+                if address > 0:
+                    return (1 << 23) | address
+                else:
+                    return address & 0xfff
+            offset = build_offset(self.assembler.parse_integer_or_label(label=instr.args[1],
+                                                                        size=4,
+                                                                        bits_size=13,
+                                                                        filter=build_offset,
+                                                                        alignment=4,
+                                                                        relative=self.assembler.pc + 8))
             return pack_bits(0,
                              ((31, 28), self.cond),
                              ((27, 26), 1),
+                             ((24, 24), 1),
                              ((22, 22), self.byte_transfer),
                              ((21, 21), self.write_back),
                              ((20, 20), 1),
+                             ((19, 16), 0xf),
                              ((15, 12), self._reg(instr.args[0])),
-                             ((11, 0), self._offset(instr.args[1], (11, 0), 4)))
+                             ((11, 0), offset))
 
 
 OPCODES = (
