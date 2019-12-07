@@ -318,7 +318,7 @@ class ARM32Opcode:
                              ((27, 26), 1),
                              ((24, 24), 1),
                              ((22, 22), self.byte_transfer),
-                             ((21, 21), self.write_back),
+                             ((21, 21), 0), # no write back!
                              ((20, 20), 1),
                              ((19, 16), 0xf),
                              ((15, 12), self._reg(instr.args[0])),
