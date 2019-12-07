@@ -156,6 +156,14 @@ def to_two_s_complement(value, number_of_bits):
     return value
 
 
+def rol32(value, amount):
+    return ((value << amount) | (value >> (32 - amount))) & 0xffffffff
+
+
+def ror32(value, amount):
+    return ((value >> amount) | (value << (32 - amount))) & 0xffffffff
+
+
 def known_args(args, known):
     return all([key in known for key in args.keys()])
 
