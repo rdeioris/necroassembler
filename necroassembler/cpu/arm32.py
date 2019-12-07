@@ -41,6 +41,14 @@ def set_condition(base):
     yield base + 'S', {'condition_set': True}
 
 
+def set_byte_transfer(base):
+    yield base + 'B', {'byte_transfer': True}
+
+
+def set_write_back(base):
+    yield base + 'T', {'write_back': True}
+
+
 def _encode_imm12(value):
     for i in range(0, 16):
         rotated_value = rol32(value, i * 2)
@@ -56,6 +64,8 @@ class ARM32Opcode:
         self.cond = 0xE
         self.signed = False
         self.condition_set = False
+        self.byte_transfer = False
+        self.write_back = False
         self.func = func
 
     def _reg(self, arg):
@@ -75,7 +85,7 @@ class ARM32Opcode:
 
     def _offset(self, arg, bits, alignment):
         return self.assembler.parse_integer_or_label(label=arg,
-                                                     size=2,
+                                                     size=4,
                                                      bits_size=(
                                                          bits[0] - bits[1]) + 1 + (alignment//2),
                                                      bits=bits,
@@ -290,6 +300,17 @@ class ARM32Opcode:
     def _mvn(self, instr):
         return self._data_proc(instr, 0b1111)
 
+    def _ldr(self, instr):
+        if instr.match(REGS, LABEL):
+            return pack_bits(0,
+                             ((31, 28), self.cond),
+                             ((27, 26), 1),
+                             ((22, 22), self.byte_transfer),
+                             ((21, 21), self.write_back),
+                             ((20, 20), 1),
+                             ((15, 12), self._reg(instr.args[0])),
+                             ((11, 0), self._offset(instr.args[1], (11, 0), 4)))
+
 
 OPCODES = (
     ('BX', (conditions, ), ARM32Opcode._bx),
@@ -313,6 +334,7 @@ OPCODES = (
     ('MOV', (set_condition, conditions), ARM32Opcode._mov),
     ('BIC', (set_condition, conditions), ARM32Opcode._bic),
     ('MVN', (set_condition, conditions), ARM32Opcode._mvn),
+    ('LDR', (conditions, set_byte_transfer, set_write_back), ARM32Opcode._ldr),
 )
 
 
@@ -348,6 +370,10 @@ class AssemblerARM32(Assembler):
                 arm32_opcode.cond = data.get('cond', arm32_opcode.cond)
                 arm32_opcode.condition_set = data.get(
                     'condition_set', arm32_opcode.condition_set)
+                arm32_opcode.byte_transfer = data.get(
+                    'byte_transfer', arm32_opcode.byte_transfer)
+                arm32_opcode.write_back = data.get(
+                    'write_back', arm32_opcode.write_back)
                 self.register_instruction(arm32_opcode.name, arm32_opcode)
 
 
