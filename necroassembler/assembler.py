@@ -17,6 +17,7 @@ from necroassembler.directives import Repeat, Data
 import necroassembler.image
 import necroassembler.audio
 import sys
+from collections import OrderedDict
 
 
 def opcode(*name):
@@ -109,10 +110,11 @@ class Assembler:
         self.macros = {}
         self.macro_recording = None
         self.log = False
-        self.sections = {}
+        self.sections = OrderedDict()
         self.current_section = None
         self.exports = []
         self.scopes_stack = []
+        self.entry_point = None
 
         # avoid subclasses to overwrite parent
         # class variables by making a copy
@@ -168,6 +170,7 @@ class Assembler:
         self.register_directive('upto', self.directive_upto)
         self.register_directive('section', self.directive_section)
         self.register_directive('export', self.directive_export)
+        self.register_directive('entry_point', self.directive_entry_point)
         self.register_directive(
             'incimg', necroassembler.image.directive_incimg)
         self.register_directive(
@@ -765,6 +768,11 @@ class Assembler:
         if name in self.exports:
             raise SymbolAlreadyExported(instr)
         self.exports.append(name)
+
+    def directive_entry_point(self, instr):
+        if len(instr.args) != 1:
+            raise InvalidArgumentsForDirective(instr)
+        self.entry_point = instr.args[0]
 
     def directive_inccsv(self, instr):
         if len(instr.tokens) != 2:

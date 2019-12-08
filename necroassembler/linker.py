@@ -78,14 +78,15 @@ class Linker:
 
 class ELF(Linker):
 
-    def __init__(self, bits, big_endian, e_type, machine, alignment=0):
+    def __init__(self, bits, big_endian, e_type, machine, alignment, page_size, flags=0):
         self.header = b'\x7fELF' + \
             pack('BBBB', 2 if bits == 64 else 1, 2 if big_endian else 1, 1, 0)
         self.bits = bits
         self.endianess_prefix = '>' if big_endian else '<'
         self.header += bytes(8)
         self.header += pack(self.endianess_prefix + 'HHI', e_type, machine, 1)
-        self.entry_point = 0x00100fc
+        self.page_size = page_size
+        self.flags = flags
         if self.bits == 32:
             self.section_pack_format = self.endianess_prefix + 'IIIIIIIIII'
             self.section_header_size = 40
@@ -102,7 +103,7 @@ class ELF(Linker):
     def _build_null_section(self):
         return pack(self.section_pack_format, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-    def _build_section(self, section_data):
+    def _build_section(self, assembler, section_data):
         sh_type = 0x01
         if section_data['size'] == 0:
             sh_type = 0x08
@@ -116,14 +117,28 @@ class ELF(Linker):
         if 'E' in section_data['permissions']:
             sh_flags |= 0x04
 
+        print('BASE', self.file_base)
+        offset = self.file_base + section_data['offset']
+
+        page_alignment = offset % self.page_size
+        delta_alignment = 0
+        if page_alignment != 0:
+            delta_alignment = self.page_size - page_alignment
+            offset += delta_alignment
+            self.file_base += delta_alignment
+            print('OFFSET', hex(offset), 'SIZE', hex(section_data['size']))
+
+        section_data['elf_aligned_offset'] = offset
+        section_data['elf_content'] = bytes(delta_alignment) + assembler.assembled_bytes[section_data['offset']:section_data['offset']+section_data['size']]
+
         return pack(self.section_pack_format, section_data['elf_string_offset'], sh_type, sh_flags, section_data['start'],
-                    self.file_base + section_data['offset'], section_data['size'], 0, 0, self.alignment, 0)
+                    offset, section_data['size'], 0, 0, self.alignment, 0)
 
     def _build_string_section(self, name_offset, offset, data):
         return pack(self.section_pack_format, name_offset, 0x03, 0x20, 0, offset, len(data), 0, 0, 0, 0)
 
     def _build_symtab_section(self, name_offset, offset, data, link):
-        return pack(self.section_pack_format, name_offset, 0x02, 0, 0, offset, len(data), link, 0, 0, 16 if self.bits == 32 else 24)
+        return pack(self.section_pack_format, name_offset, 0x02, 0, 0, offset, len(data), link, 1, 0, 16 if self.bits == 32 else 24)
 
     def resolve_unknown_symbol(self, assembler, address, symbol_data):
         self.relocations[address] = symbol_data
@@ -163,49 +178,66 @@ class ELF(Linker):
 
         self.file_base = self.header_size + \
             self.section_header_size * (len(assembler.sections) + 4)
+        self.base = self.file_base
+
+        self.assembled_bytes = b''
 
         sections = b''
         sections += self._build_null_section()
         for section_index, section_data in enumerate(assembler.sections.values()):
             section_data['elf_section_index'] = section_index
-            sections += self._build_section(section_data)
+            sections += self._build_section(assembler, section_data)
+            print(hex(len(section_data['elf_content'])))
+            self.assembled_bytes += section_data['elf_content']
 
-        symtab = b''
+        symtab = pack(self.endianess_prefix + 'IIIBBH', 0, 0, 0, 0, 0, 0)
         for symbol_name, symbol_data in assembler.get_root_scope().labels.items():
             if symbol_name not in assembler.exports:
                 continue
             if self.bits == 32:
                 symtab += pack(self.endianess_prefix + 'IIIBBH',
-                               symbol_data['elf_string_offset'], symbol_data['base'], 0,
+                               symbol_data['elf_string_offset'], symbol_data['org'] + symbol_data['base'], 0,
                                0x10, 0, assembler.sections[symbol_data['section']]['elf_section_index'] + 1)
             if self.bits == 64:
                 symtab += pack(self.endianess_prefix + 'IBBHQQ',
                                symbol_data['elf_string_offset'], 0x10, 0,
                                assembler.sections[symbol_data['section']]['elf_section_index'] + 1, symbol_data['base'], 0)
 
-        code_size = len(assembler.assembled_bytes)
-        print(code_size)
+        code_size = len(self.assembled_bytes)
 
         sections += self._build_string_section(
-            sh_string_table_name_offset, self.file_base + code_size, sh_string_table)
+            sh_string_table_name_offset, self.base + code_size, sh_string_table)
 
         sections += self._build_string_section(
-            string_table_name_offset, self.file_base + code_size + len(sh_string_table), string_table)
+            string_table_name_offset, self.base + code_size + len(sh_string_table), string_table)
 
         sections += self._build_symtab_section(
-            symtab_name_offset, self.file_base + code_size + len(sh_string_table) + len(string_table), symtab, len(assembler.sections) + 2)
+            symtab_name_offset, self.base + code_size + len(sh_string_table) + len(string_table), symtab, len(assembler.sections) + 2)
 
-        blob = sections + assembler.assembled_bytes + sh_string_table + string_table + symtab
+        blob = sections + self.assembled_bytes + sh_string_table + string_table + symtab
         program_header_offset = self.header_size + len(blob)
 
+        entry_point = 0
+        if assembler.entry_point:
+            entry_point = assembler.parse_integer(assembler.entry_point, self.bits, False, True, assembler.get_root_scope())
+            if entry_point is None:
+                raise UnknownLabel()
+
+
         if self.bits == 32:
-            program_header = pack(self.endianess_prefix + 'IIIIIIII', 1, 0x0, 0x0010000, 0x0010000, 0x104, 0x104, 0x05, 0x10000)
-            self.header += pack(self.endianess_prefix + 'IIIIHHHHHH', self.entry_point,
-                                program_header_offset, self.header_size, 0x5000200, self.header_size, self.program_header_size, 1, self.section_header_size,
+            program_header = b''
+            for section_data in assembler.sections.values():
+                start = section_data['start']
+                size = section_data['size']
+                offset = section_data['elf_aligned_offset']
+                program_header += pack(self.endianess_prefix + 'IIIIIIII', 1, offset, start, start, size, size, 0x05, self.page_size)
+
+            self.header += pack(self.endianess_prefix + 'IIIIHHHHHH', entry_point,
+                                program_header_offset, self.header_size, self.flags, self.header_size, self.program_header_size, len(assembler.sections), self.section_header_size,
                                 len(assembler.sections) + 4, len(assembler.sections) + 1)
         elif self.bits == 64:
             program_header = pack(self.endianess_prefix + 'IIQQQQQQ', 1, 0x05, 0, 0x400000, 0x400000, 0x190, 0x190, 0x400000)
-            self.header += pack(self.endianess_prefix + 'QQQIHHHHHH', self.entry_point,
+            self.header += pack(self.endianess_prefix + 'QQQIHHHHHH', entry_point,
                                 program_header_offset, self.header_size, 0, self.header_size, self.program_header_size, 1, self.section_header_size,
                                 len(assembler.sections) + 4, len(assembler.sections) + 1)
 

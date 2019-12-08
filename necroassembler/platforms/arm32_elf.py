@@ -3,7 +3,7 @@ from necroassembler.linker import ELF
 
 
 def main():
-    elf_linker = ELF(32, False, 0x02, machine=0x28, alignment=4)
+    elf_linker = ELF(32, False, 0x02, machine=0x28, alignment=4, page_size=0x10000, flags=0x5000400)
     AssemblerARM32.main(linker=elf_linker)
 
 
