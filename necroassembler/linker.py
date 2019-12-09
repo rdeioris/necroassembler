@@ -19,12 +19,12 @@ class Linker:
 
             absolute_address = assembler.parse_integer(
                 label, 64, False, False, scope)
-            if not is_relative:
-                true_address = absolute_address
+            if absolute_address is not None:
+                if not is_relative:
+                    true_address = absolute_address
+                else:
+                    true_address = absolute_address - data.relative
             else:
-                true_address = absolute_address - data.relative
-
-            if true_address is None:
                 true_address = self.resolve_unknown_symbol(
                     assembler, address, data)
                 absolute_address = true_address
@@ -117,7 +117,6 @@ class ELF(Linker):
         if 'E' in section_data['permissions']:
             sh_flags |= 0x04
 
-        print('BASE', self.file_base)
         offset = self.file_base + section_data['offset']
 
         page_alignment = offset % self.page_size
@@ -126,7 +125,6 @@ class ELF(Linker):
             delta_alignment = self.page_size - page_alignment
             offset += delta_alignment
             self.file_base += delta_alignment
-            print('OFFSET', hex(offset), 'SIZE', hex(section_data['size']))
 
         section_data['elf_aligned_offset'] = offset
         section_data['elf_content'] = bytes(delta_alignment) + assembler.assembled_bytes[section_data['offset']:section_data['offset']+section_data['size']]
@@ -154,7 +152,6 @@ class ELF(Linker):
         # first prepare the .shstrtab section
         sh_string_table = b'\x00'
         for section_name, section_data in assembler.sections.items():
-            print(section_name, section_data)
             section_data['elf_string_offset'] = len(sh_string_table)
             sh_string_table += section_name + b'\0'
 
@@ -187,7 +184,6 @@ class ELF(Linker):
         for section_index, section_data in enumerate(assembler.sections.values()):
             section_data['elf_section_index'] = section_index
             sections += self._build_section(assembler, section_data)
-            print(hex(len(section_data['elf_content'])))
             self.assembled_bytes += section_data['elf_content']
 
         symtab = pack(self.endianess_prefix + 'IIIBBH', 0, 0, 0, 0, 0, 0)

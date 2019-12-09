@@ -115,6 +115,7 @@ class Assembler:
         self.exports = []
         self.scopes_stack = []
         self.entry_point = None
+        self.libs = []
 
         # avoid subclasses to overwrite parent
         # class variables by making a copy
@@ -171,6 +172,7 @@ class Assembler:
         self.register_directive('section', self.directive_section)
         self.register_directive('export', self.directive_export)
         self.register_directive('entry_point', self.directive_entry_point)
+        self.register_directive('lib', self.directive_lib)
         self.register_directive(
             'incimg', necroassembler.image.directive_incimg)
         self.register_directive(
@@ -430,6 +432,8 @@ class Assembler:
                     if labels_scope:
                         value = self.get_label_absolute_address_by_name(
                             arg[1], labels_scope)
+                        if value is None:
+                            return None
                     else:
                         return None
                 values_and_ops.append(value)
@@ -518,7 +522,7 @@ class Assembler:
             if name in scope.labels:
                 return self.get_label_absolute_address(scope.labels[name])
             scope = scope.parent
-        raise UnknownLabel(name)
+        return None
 
     def change_org(self, start, end=0):
 
@@ -773,6 +777,14 @@ class Assembler:
         if len(instr.args) != 1:
             raise InvalidArgumentsForDirective(instr)
         self.entry_point = instr.args[0]
+
+    def directive_lib(self, instr):
+        if len(instr.args) != 1:
+            raise InvalidArgumentsForDirective(instr)
+        name = self.stringify(instr.args[0], 'ascii')
+        if name in self.libs:
+            raise SectionAlreadyDefined(instr)
+        self.libs.append(name)
 
     def directive_inccsv(self, instr):
         if len(instr.tokens) != 2:
