@@ -11,7 +11,7 @@ class Scope:
 
     def add_label(self, label):
         if label in self.labels:
-            raise LabelAlreadyDefined()
+            raise LabelAlreadyDefined(label)
         self.labels[label] = {
             'scope': self.assembler.get_current_scope(),
             'base': self.assembler.org_counter,

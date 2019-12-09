@@ -300,29 +300,66 @@ class ARM32Opcode:
     def _mvn(self, instr):
         return self._data_proc(instr, 0b1111)
 
-    def _ldr(self, instr):
-        if instr.match(REGS, LABEL):
-            def build_offset(address):
-                if address > 0:
-                    return (1 << 23) | address
-                else:
-                    return address & 0xfff
-            offset = build_offset(self.assembler.parse_integer_or_label(label=instr.args[1],
-                                                                        size=4,
-                                                                        bits_size=13,
-                                                                        filter=build_offset,
-                                                                        alignment=4,
-                                                                        relative=self.assembler.pc + 8))
+    def _load_store(self, instr, op):
+        def build_offset(address):
+            print(address)
+            if address > 0:
+                return (1 << 23) | address
+            else:
+                return address & 0xfff
+
+        if instr.match(REGS, '[', REGS, IMMEDIATE, ']'):
+            offset = self.assembler.parse_integer(instr.args[3][1:], 13, True)
             return pack_bits(0,
                              ((31, 28), self.cond),
                              ((27, 26), 1),
                              ((24, 24), 1),
+                             ((23, 23), 1 if offset >= 0 else 0),
                              ((22, 22), self.byte_transfer),
-                             ((21, 21), 0), # no write back!
-                             ((20, 20), 1),
+                             ((21, 21), 0),  # no write back
+                             ((20, 20), op),
+                             ((19, 16), self._reg(instr.args[2])),
+                             ((15, 12), self._reg(instr.args[0])),
+                             ((11, 0), offset & 0xfff))
+
+        if instr.match(REGS, '[', REGS, ']'):
+            return pack_bits(0,
+                             ((31, 28), self.cond),
+                             ((27, 26), 1),
+                             ((24, 24), 1),
+                             ((23, 23), 1),
+                             ((22, 22), self.byte_transfer),
+                             ((21, 21), 0),  # no write back
+                             ((20, 20), op),
+                             ((19, 16), self._reg(instr.args[2])),
+                             ((15, 12), self._reg(instr.args[0])),
+                             ((11, 0), 0))
+
+        if instr.match(REGS, LABEL):
+
+            offset = self.assembler.parse_integer_or_label(label=instr.args[1],
+                                                           size=4,
+                                                           bits_size=13,
+                                                           filter=build_offset,
+                                                           alignment=4,
+                                                           relative=self.assembler.pc + 8)
+            return pack_bits(0,
+                             ((31, 28), self.cond),
+                             ((27, 26), 1),
+                             ((24, 24), 1),
+                             ((23, 23), 1 if offset >= 0 else 0),
+                             ((22, 22), self.byte_transfer),
+                             ((21, 21), 0),  # no write back!
+                             ((20, 20), op),
                              ((19, 16), 0xf),
                              ((15, 12), self._reg(instr.args[0])),
-                             ((11, 0), offset))
+                             ((11, 0), offset & 0xfff))
+
+    def _ldr(self, instr):
+        return self._load_store(instr, 1)
+
+    def _str(self, instr):
+        return self._load_store(instr, 0)
 
 
 OPCODES = (
@@ -348,6 +385,7 @@ OPCODES = (
     ('BIC', (set_condition, conditions), ARM32Opcode._bic),
     ('MVN', (set_condition, conditions), ARM32Opcode._mvn),
     ('LDR', (conditions, set_byte_transfer, set_write_back), ARM32Opcode._ldr),
+    ('STR', (conditions, set_byte_transfer, set_write_back), ARM32Opcode._str),
 )
 
 
