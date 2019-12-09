@@ -108,13 +108,13 @@ class ELF(Linker):
         if section_data['size'] == 0:
             sh_type = 0x08
         sh_flags = 0
-        if 'R' in section_data['permissions']:
+        if 'R' in section_data['permissions'].upper():
             sh_flags |= 0x02
-        if 'W' in section_data['permissions']:
+        if 'W' in section_data['permissions'].upper():
             sh_flags |= 0x01
-        if 'X' in section_data['permissions']:
+        if 'X' in section_data['permissions'].upper():
             sh_flags |= 0x04
-        if 'E' in section_data['permissions']:
+        if 'E' in section_data['permissions'].upper():
             sh_flags |= 0x04
 
         offset = self.file_base + section_data['offset']

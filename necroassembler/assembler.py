@@ -116,6 +116,7 @@ class Assembler:
         self.scopes_stack = []
         self.entry_point = None
         self.libs = []
+        self.current_instruction_set = None
 
         # avoid subclasses to overwrite parent
         # class variables by making a copy
@@ -173,6 +174,7 @@ class Assembler:
         self.register_directive('export', self.directive_export)
         self.register_directive('entry_point', self.directive_entry_point)
         self.register_directive('lib', self.directive_lib)
+        self.register_directive('asm', self.directive_asm)
         self.register_directive(
             'incimg', necroassembler.image.directive_incimg)
         self.register_directive(
@@ -785,6 +787,12 @@ class Assembler:
         if name in self.libs:
             raise SectionAlreadyDefined(instr)
         self.libs.append(name)
+
+    def directive_asm(self, instr):
+        if len(instr.args) == 0:
+            self.current_instruction_set = None
+        elif len(instr.args) == 1:
+            self.current_instruction_set = ''.join(instr.args[0])
 
     def directive_inccsv(self, instr):
         if len(instr.tokens) != 2:
