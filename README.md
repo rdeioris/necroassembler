@@ -6,6 +6,7 @@ A Python framework for building assemblers, includes ready-to-use modules for
 * mips32 (psx, nintendo64, psp, ps2)
 * LR35902 (gameboy)
 * ARM Thumb (gameboy advance)
+* ARM A32/T32
 * 68000 (sega genesis/megadrive, amiga)
 * AVR (arduino)
 * Z80 (ZX spectrum, Sega Master System, Game Gear)
