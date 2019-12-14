@@ -15,9 +15,11 @@ class Instruction:
         self.cleaned_tokens = []
 
     def __str__(self):
+        if not self.cleaned_tokens:
+            self.cleaned_tokens = self.tokens
         if self.context is not None:
-            return 'at line {1} of {0}: {2}'.format(self.context, self.line, str(self.tokens))
-        return 'at line {0}: {1}'.format(self.line, str(self.tokens))
+            return 'at line {1} of {0}: {2} {3}'.format(self.context, self.line, self.command, str(self.args))
+        return 'at line {0}: {1} {2}'.format(self.line, self.command, str(self.args))
 
     @property
     def args(self):
@@ -62,70 +64,7 @@ class Instruction:
             self._recursive_apply_define(self.cleaned_tokens, index)
 
     def assemble(self):
-
-        # special case for macro recording mode
-        if self.assembler.macro_recording is not None:
-            # check for nested
-            if self.tokens[0] == '.macro':
-                raise UnsupportedNestedMacro(self)
-            # check for .endmacro
-            if self.tokens[0] == '.endmacro':
-                Macro.directive_endmacro(self)
-            return
-
-        # first of all: rebuild using defines
-        self.clean_tokens()
-
-        # check for labels
-        if self.command.endswith(':'):
-            label = self.command[:-1]
-            if is_valid_label(label):
-                self.assembler.get_current_scope().add_label(label)
-            else:
-                raise InvalidLabel(label)
-            return
-
-        # now check for directives
-        if self.command.startswith('.'):
-            directive = self.command[1:]
-            if not self.assembler.case_sensitive:
-                directive = directive.upper()
-            if not directive in self.assembler.directives:
-                raise UnknownDirective(self)
-            self.assembler.directives[directive](self)
-            return
-
-        # get the command key
-        key = self.command.upper()
-
-        # check for macro
-        if key in self.assembler.macros:
-            self.assembler.macros[key](self)
-            return
-
-        # finally check for instructions
-        if key not in self.assembler.instructions:
-            raise UnknownInstruction(self)
-        instruction = self.assembler.instructions[key]
-        if callable(instruction):
-            try:
-                blob = instruction(self)
-                if blob is None:
-                    # do not add 'self' here, will be added in the exception
-                    raise InvalidInstruction()
-            except AssemblerException as exc:
-                # trick for adding more infos to the exception
-                exc.args = (exc.args[0] + ' ' + str(self),)
-                raise exc from None
-            except:
-                # here we have a non-AssemblerException, so we
-                # need to report the whole exceptions chain
-                raise InvalidInstruction(self)
-        else:
-            if len(self.args) != 0:
-                raise InvalidOpCodeArguments(self)
-            blob = instruction
-        self.assembler.append_assembled_bytes(blob)
+        self.assembler.get_current_scope().assemble(self)
 
     def match_arg(self, index, *pattern):
         if index >= len(self.args):
@@ -133,7 +72,7 @@ class Instruction:
         arg = self.args[index]
         if isinstance(pattern, str) or callable(pattern):
             return self._match_arg_simple(arg, pattern)
-        
+
         return self._match_arg_internal(arg, pattern)
 
     def _match_arg_simple(self, arg, rule):
