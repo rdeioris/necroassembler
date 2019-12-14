@@ -140,14 +140,14 @@ class ARM32Opcode:
     def _shift_imm(self, shiftname, n):
         return (int(n) << 3) | (self._shift(shiftname) << 1)
 
-    def _data_proc(self, instr, op):
-        # Rd, Rm
+    def _data_proc(self, instr, op, use_rn=False):
+        # Rd/Rn, Rm
         if instr.match(REGS, REGS):
             return pack_bits(0,
                              ((31, 28), self.cond),
                              ((20, 20), self.condition_set),
                              ((24, 21), op),
-                             ((15, 12), self._reg(instr.args[0])),
+                             ((15, 12) if not use_rn else (19, 16), self._reg(instr.args[0])),
                              ((3, 0), self._reg(instr.args[1])))
 
         # Rd, Rm, shift Rs
@@ -274,19 +274,19 @@ class ARM32Opcode:
 
     def _tst(self, instr):
         self.condition_set = True
-        return self._data_proc(instr, 0b1000)
+        return self._data_proc(instr, 0b1000, use_rn=True)
 
     def _teq(self, instr):
         self.condition_set = True
-        return self._data_proc(instr, 0b1001)
+        return self._data_proc(instr, 0b1001, use_rn=True)
 
     def _cmp(self, instr):
         self.condition_set = True
-        return self._data_proc(instr, 0b1010)
+        return self._data_proc(instr, 0b1010, use_rn=True)
 
     def _cmn(self, instr):
         self.condition_set = True
-        return self._data_proc(instr, 0b1011)
+        return self._data_proc(instr, 0b1011, use_rn=True)
 
     def _orr(self, instr):
         return self._data_proc(instr, 0b1100)
@@ -302,7 +302,6 @@ class ARM32Opcode:
 
     def _load_store(self, instr, op):
         def build_offset(address):
-            print(address)
             if address > 0:
                 return (1 << 23) | address
             else:
@@ -361,6 +360,17 @@ class ARM32Opcode:
     def _str(self, instr):
         return self._load_store(instr, 0)
 
+    def _mul(self, instr):
+        # Rd, Rm, Rs
+        if instr.match(REGS, REGS, REGS):
+            return pack_bits(0x90,
+                             ((31, 28), self.cond),
+                             ((20, 20), self.condition_set),
+                             ((19, 16), self._reg(instr.args[0])),
+                             ((11, 8), self._reg(instr.args[2])),
+                             ((3, 0), self._reg(instr.args[1])))
+
+
 
 OPCODES = (
     ('BX', (conditions, ), ARM32Opcode._bx),
@@ -368,24 +378,25 @@ OPCODES = (
     ('BL', (conditions, ), ARM32Opcode._bl),
     ('SWI', (conditions, ), ARM32Opcode._swi),
     ('SVC', (conditions, ), ARM32Opcode._swi),
-    ('AND',  (set_condition, conditions), ARM32Opcode._and),
-    ('EOR',  (set_condition, conditions), ARM32Opcode._eor),
-    ('SUB',  (set_condition, conditions), ARM32Opcode._sub),
-    ('RSB',  (set_condition, conditions), ARM32Opcode._rsb),
-    ('ADD',  (set_condition, conditions), ARM32Opcode._add),
-    ('ADC',  (set_condition, conditions), ARM32Opcode._adc),
-    ('SBC',  (set_condition, conditions), ARM32Opcode._sbc),
-    ('RSC',  (set_condition, conditions), ARM32Opcode._rsc),
-    ('TST',  (conditions, ), ARM32Opcode._tst),
-    ('TEQ',  (conditions, ), ARM32Opcode._teq),
-    ('CMP',  (conditions, ), ARM32Opcode._cmp),
-    ('CMN',  (conditions, ), ARM32Opcode._cmn),
-    ('ORR', (set_condition, conditions), ARM32Opcode._orr),
-    ('MOV', (set_condition, conditions), ARM32Opcode._mov),
-    ('BIC', (set_condition, conditions), ARM32Opcode._bic),
-    ('MVN', (set_condition, conditions), ARM32Opcode._mvn),
+    ('AND', (conditions, set_condition), ARM32Opcode._and),
+    ('EOR', (conditions, set_condition), ARM32Opcode._eor),
+    ('SUB', (conditions, set_condition), ARM32Opcode._sub),
+    ('RSB', (conditions, set_condition), ARM32Opcode._rsb),
+    ('ADD', (conditions, set_condition), ARM32Opcode._add),
+    ('ADC', (conditions, set_condition), ARM32Opcode._adc),
+    ('SBC', (conditions, set_condition), ARM32Opcode._sbc),
+    ('RSC', (conditions, set_condition), ARM32Opcode._rsc),
+    ('TST', (conditions, ), ARM32Opcode._tst),
+    ('TEQ', (conditions, ), ARM32Opcode._teq),
+    ('CMP', (conditions, ), ARM32Opcode._cmp),
+    ('CMN', (conditions, ), ARM32Opcode._cmn),
+    ('ORR', (conditions, set_condition), ARM32Opcode._orr),
+    ('MOV', (conditions, set_condition), ARM32Opcode._mov),
+    ('BIC', (conditions, set_condition), ARM32Opcode._bic),
+    ('MVN', (conditions, set_condition), ARM32Opcode._mvn),
     ('LDR', (conditions, set_byte_transfer, set_write_back), ARM32Opcode._ldr),
     ('STR', (conditions, set_byte_transfer, set_write_back), ARM32Opcode._str),
+    ('MUL', (conditions, set_condition), ARM32Opcode._mul),
 )
 
 
