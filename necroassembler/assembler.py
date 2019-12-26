@@ -575,10 +575,10 @@ class Assembler:
         self.change_org(new_org_start, new_org_end)
 
     def directive_define(self, instr):
-        if len(instr.directive_args) != 2:
+        if len(instr.directive_args) < 2:
             raise InvalidArgumentsForDirective(instr)
         scope = self.get_current_scope()
-        scope.defines[instr.directive_args[0]] = instr.directive_args[1]
+        scope.defines[instr.directive_args[0]] = instr.directive_args[1:]
 
     def get_define(self, key):
         scope = self.get_current_scope()

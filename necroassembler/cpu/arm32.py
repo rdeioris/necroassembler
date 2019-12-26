@@ -321,6 +321,20 @@ class ARM32Opcode:
                              ((15, 12), self._reg(instr.args[0])),
                              ((11, 0), offset & 0xfff))
 
+        if instr.match(REGS, '[', REGS, IMMEDIATE, ']', '!'):
+            offset = self.assembler.parse_integer(instr.args[3][1:], 13, True)
+            return pack_bits(0,
+                             ((31, 28), self.cond),
+                             ((27, 26), 1),
+                             ((24, 24), 1),
+                             ((23, 23), 1 if offset >= 0 else 0),
+                             ((22, 22), self.byte_transfer),
+                             ((21, 21), 1), # write back
+                             ((20, 20), op),
+                             ((19, 16), self._reg(instr.args[2])),
+                             ((15, 12), self._reg(instr.args[0])),
+                             ((11, 0), offset & 0xfff))
+
         if instr.match(REGS, '[', REGS, ']'):
             return pack_bits(0,
                              ((31, 28), self.cond),
@@ -356,6 +370,14 @@ class ARM32Opcode:
 
     def _ldr(self, instr):
         return self._load_store(instr, 1)
+
+    def _ldrb(self, instr):
+        self.byte_transfer = True
+        return self._load_store(instr, 1)
+
+    def _strb(self, instr):
+        self.byte_transfer = True
+        return self._load_store(instr, 0)
 
     def _str(self, instr):
         return self._load_store(instr, 0)
@@ -396,6 +418,8 @@ OPCODES = (
     ('MVN', (conditions, set_condition), ARM32Opcode._mvn),
     ('LDR', (conditions, set_byte_transfer, set_write_back), ARM32Opcode._ldr),
     ('STR', (conditions, set_byte_transfer, set_write_back), ARM32Opcode._str),
+    ('LDRB', (conditions, set_byte_transfer, set_write_back), ARM32Opcode._ldrb),
+    ('STRB', (conditions, set_byte_transfer, set_write_back), ARM32Opcode._strb),
     ('MUL', (conditions, set_condition), ARM32Opcode._mul),
 )
 
