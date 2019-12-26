@@ -29,33 +29,37 @@ class MacroTemplate:
         instr.assembler.statement_index = self.start_statement_index
 
 
+class MacroRecording(Scope):
+
+    def assemble(self, instr):
+        # check for nested
+        if instr.tokens[0].lower() == '.macro':
+            raise UnsupportedNestedMacro(instr)
+        # check for .endmacro
+        if instr.tokens[0].lower() == '.endmacro':
+            instr.assembler.pop_scope()
+            return
+        return
+
+
 class Macro(Scope):
     '''Represents a user-defined macro'''
 
-    macro_recording = None
-
     @classmethod
     def directive_macro(cls, instr):
-        if instr.assembler.macro_recording is not None:
-            raise UnsupportedNestedMacro(instr)
         key = instr.directive_args[0]
 
-        instr.assembler.macro_recording = MacroTemplate(
+        new_template = MacroTemplate(
             instr.assembler, key, instr.directive_args[1:])
         if not instr.assembler.case_sensitive:
             key = key.upper()
-        instr.assembler.macros[key] = instr.assembler.macro_recording
+        instr.assembler.macros[key] = new_template
+        instr.assembler.push_scope(MacroRecording(instr.assembler))
 
     @classmethod
     def directive_endmacro(cls, instr):
-        if instr.assembler.macro_recording is None:
-            # check if we are in execution mode
-            if isinstance(instr.assembler.get_current_scope(), Macro):
-                current_macro = instr.assembler.pop_scope()
-                instr.assembler.statement_index = current_macro.caller_statement_index
-                return
-            raise NotInMacroRecordingMode(instr)
-        instr.assembler.macro_recording = None
+        current_macro = instr.assembler.pop_scope()
+        instr.assembler.statement_index = current_macro.caller_statement_index
 
     def __init__(self, template, args):
         super().__init__(template.assembler)

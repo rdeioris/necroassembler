@@ -1,6 +1,6 @@
 from necroassembler import Assembler, opcode
 from necroassembler.utils import pack_bits, pack_le32u, pack_be32u, rol32
-from necroassembler.exceptions import InvalidOpCodeArguments
+from necroassembler.exceptions import InvalidOpCodeArguments, AssemblerException
 
 
 RAW_REGS = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7',
@@ -25,6 +25,10 @@ def _label(tokens):
 
 def _number(tokens):
     return all([x.isdigit() for x in tokens])
+
+
+class UnableToEncodeToArmImmediate12(AssemblerException):
+    message = 'unable to encode value to arm immediate12'
 
 
 IMMEDIATE = _immediate
@@ -54,6 +58,7 @@ def _encode_imm12(value):
         rotated_value = rol32(value, i * 2)
         if rotated_value < 256:
             return (i << 8) | rotated_value
+    raise UnableToEncodeToArmImmediate12()
 
 
 class ARM32Opcode:
@@ -147,7 +152,8 @@ class ARM32Opcode:
                              ((31, 28), self.cond),
                              ((20, 20), self.condition_set),
                              ((24, 21), op),
-                             ((15, 12) if not use_rn else (19, 16), self._reg(instr.args[0])),
+                             ((15, 12) if not use_rn else (
+                                 19, 16), self._reg(instr.args[0])),
                              ((3, 0), self._reg(instr.args[1])))
 
         # Rd, Rm, shift Rs
@@ -391,7 +397,6 @@ class ARM32Opcode:
                              ((19, 16), self._reg(instr.args[0])),
                              ((11, 8), self._reg(instr.args[2])),
                              ((3, 0), self._reg(instr.args[1])))
-
 
 
 OPCODES = (

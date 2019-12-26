@@ -44,6 +44,39 @@ class Repeat(Scope):
         self.assembler.push_scope(next_repeat)
 
 
+class TryCatch(Scope):
+
+    class Catch(Scope):
+        pass
+
+    @classmethod
+    def directive_try(cls, instr):
+        instr.assembler.push_scope(TryCatch(instr.assembler))
+
+    def __init__(self, assembler):
+        super().__init__(assembler)
+        self.rollback_index = len(assembler.assembled_bytes)
+        self.in_exception = None
+
+    def assemble(self, instr):
+        if self.in_exception is not None:
+            # search for .catch or .endtry
+            print(instr.tokens[0])
+            return
+
+        if instr.tokens[0].lower() == '.endtry':
+            self.assembler.pop_scope()
+            return
+
+        try:
+            super().assemble(instr)
+        except:
+            import sys
+            print(sys.exc_info())
+            self.in_exception = sys.exc_info()[1].__class__.__name__
+            print(self.in_exception)
+
+
 class Data:
 
     @staticmethod
@@ -99,14 +132,14 @@ class Data:
 
     @staticmethod
     def directive_align(instr):
-        assembler=instr.assembler
+        assembler = instr.assembler
         if len(instr.directive_args) != 1:
             raise InvalidArgumentsForDirective(instr)
-        size=assembler.parse_unsigned_integer(instr.directive_args[0])
+        size = assembler.parse_unsigned_integer(instr.directive_args[0])
         if size is None:
             raise InvalidArgumentsForDirective(instr)
 
-        mod=(assembler.current_org + assembler.org_counter) % size
+        mod = (assembler.current_org + assembler.org_counter) % size
         if mod != 0:
-            blob=bytes([assembler.fill_value]) * (size - mod)
+            blob = bytes([assembler.fill_value]) * (size - mod)
             assembler.append_assembled_bytes(blob)

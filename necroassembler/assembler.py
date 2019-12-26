@@ -13,7 +13,7 @@ from necroassembler.scope import Scope
 from necroassembler.macros import Macro
 from necroassembler.linker import Linker
 from necroassembler.statements import Instruction
-from necroassembler.directives import Repeat, Data
+from necroassembler.directives import Repeat, Data, TryCatch
 import necroassembler.image
 import necroassembler.audio
 import sys
@@ -108,7 +108,6 @@ class Assembler:
         self.org_counter = 0
         self.labels_addresses = {}
         self.macros = {}
-        self.macro_recording = None
         self.log = False
         self.sections = OrderedDict()
         self.current_section = None
@@ -139,6 +138,8 @@ class Assembler:
         self.register_defines()
         self.register_directives()
         self.register_instructions()
+
+        self.push_scope(Scope(self))
 
     def _register_internal_directives(self):
         self.register_directive('macro', Macro.directive_macro)
@@ -179,6 +180,7 @@ class Assembler:
             'incimg', necroassembler.image.directive_incimg)
         self.register_directive(
             'incwav', necroassembler.audio.directive_incwav)
+        self.register_directive('try', TryCatch.directive_try)
 
     def register_directives(self):
         pass
@@ -228,7 +230,6 @@ class Assembler:
             args_splitter=self.args_splitter)
         tokenizer.parse(code)
 
-        self.push_scope(Scope(self))
         self.statement_index = 0
 
         while self.statement_index < len(tokenizer.statements):
