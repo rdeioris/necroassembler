@@ -5,6 +5,7 @@ class Tokenizer:
     '''Builds a list of tokenized lines from assembly source code'''
 
     spaces = (' ', '\r', '\t', '\n')
+    escape_table = {'a': '\a', 'b': '\b', 'e': '\e', 'f': '\f', 'n': '\n', 'r': '\r', 't': '\t', 'v': '\v'}
 
     def __init__(self, args_splitter, interesting_symbols, special_symbols=(), case_sensitive=False, context=None):
         self.state = self._state_token
@@ -44,11 +45,11 @@ class Tokenizer:
         self.current_token += char
 
     def _state_escaped_string(self, char):
-        self.current_token += char
+        self.current_token += self.escape_table.get(char, char)
         self.state = self._state_string
 
     def _state_escaped_char(self, char):
-        self.current_token += char
+        self.current_token += self.escape_table.get(char, char)
         self.state = self._state_char
 
     def _state_multi_line_comment_prelude(self, char):

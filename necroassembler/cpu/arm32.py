@@ -233,14 +233,15 @@ class ARM32Opcode:
                              ((15, 12), self._reg(instr.args[0])),
                              ((3, 0), self._reg(instr.args[2])))
 
-        # Rd, #
+        # Rd/Rn, #
         if instr.match(REGS, IMMEDIATE):
             return pack_bits(0,
                              ((31, 28), self.cond),
                              ((20, 20), self.condition_set),
                              ((25, 25), 1),
                              ((24, 21), op),
-                             ((15, 12), self._reg(instr.args[0])),
+                             ((15, 12) if not use_rn else (
+                                 19, 16), self._reg(instr.args[0])),
                              ((11, 0), self._imm12(instr.args[1])))
 
         # Rd, Rn, #
