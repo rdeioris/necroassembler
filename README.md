@@ -173,8 +173,4 @@ necro_gb.exe necro.S necro.gb
 
 ## Building your own assembler
 
-
-
 ## Sponsor
-
-The necroassembler development is sponsored by AIV (Accademia Italiana Videogiochi http://www.aiv01.it)
